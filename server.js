@@ -8,6 +8,7 @@ const path = require('path');
 const webhooksController = require('./controllers/webhooks');
 const jobsController = require('./controllers/jobs');
 const communicationsController = require('./controllers/communications');
+const uploadsController = require('./controllers/uploads');
 
 const app = express();
 
@@ -97,6 +98,10 @@ app.post('/api/send-client-pricing', communicationsController.sendClientPricing)
 app.post('/api/send-review-request', communicationsController.sendReviewRequest);
 app.post('/api/review-follow-up', communicationsController.reviewFollowUp);
 app.get('/api/send-message', communicationsController.sendMessage); // Button-triggered messages from Airtable
+
+// Photo upload routes
+app.get('/upload-photos/:leadId', uploadsController.showUploadForm);
+app.post('/api/upload-photos/:leadId', uploadsController.uploadMiddleware, uploadsController.handleUpload);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
