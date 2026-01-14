@@ -18,7 +18,7 @@ class AirtableService {
       }
 
       const fields = {
-        Name: leadData.name,
+        'First Name': leadData.name,
         Phone: leadData.phone,
         Email: leadData.email || '',
         'Address/Location': leadData.address || leadData.location || '',
