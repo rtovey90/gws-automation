@@ -1,6 +1,7 @@
 const airtableService = require('../services/airtable.service');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs').promises;
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -380,11 +381,30 @@ exports.handleUpload = async (req, res) => {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    // Convert files to Airtable attachment format
-    const attachments = files.map(file => ({
-      filename: file.originalname,
-      url: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-    }));
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(__dirname, '../uploads');
+    try {
+      await fs.mkdir(uploadsDir, { recursive: true });
+    } catch (err) {
+      // Directory might already exist
+    }
+
+    // Save files and create URLs
+    const attachments = [];
+    for (const file of files) {
+      const filename = `${Date.now()}-${file.originalname}`;
+      const filepath = path.join(uploadsDir, filename);
+
+      // Save file to disk
+      await fs.writeFile(filepath, file.buffer);
+
+      // Create public URL
+      const fileUrl = `${process.env.BASE_URL}/uploads/${filename}`;
+
+      attachments.push({
+        url: fileUrl,
+      });
+    }
 
     // Get existing photos
     const existingPhotos = lead.fields.Photos || [];

@@ -12,3 +12,4 @@ tmp/
 
 # Test files (don't need in production)
 test-*.js
+uploads/

@@ -23,6 +23,7 @@ app.post('/webhooks/stripe', bodyParser.raw({ type: 'application/json' }), webho
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check
 app.get('/', (req, res) => {
