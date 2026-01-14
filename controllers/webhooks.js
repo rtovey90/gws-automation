@@ -16,10 +16,12 @@ exports.handleFormspree = async (req, res) => {
 
     const formData = req.body;
 
+    console.log('Form data received:', JSON.stringify(formData, null, 2));
+
     // Map service types
     const serviceTypeMap = {
       cctv: 'CCTV',
-      alarms: 'Alarm',
+      alarms: 'Alarm System',
       'access-control': 'Access Control',
       intercom: 'Intercom',
       complete: 'Complete Package',
@@ -27,12 +29,13 @@ exports.handleFormspree = async (req, res) => {
     };
 
     // Create lead in Airtable
+    // Support both old form structure (firstName/suburb) and new form (firstName/propertyAddress)
     const leadData = {
-      name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || formData.name || 'Unknown',
+      name: formData.firstName || formData.name || 'Unknown',
       phone: formData.phone,
       email: formData.email,
-      address: formData.suburb ? `${formData.suburb}, Perth` : '',
-      location: formData.suburb || '',
+      address: formData.propertyAddress || (formData.suburb ? `${formData.suburb}, Perth` : ''),
+      location: formData.propertyAddress || formData.suburb || '',
       source: 'Form',
       serviceType: serviceTypeMap[formData.services] || 'Other',
       notes: formData.message || '',
