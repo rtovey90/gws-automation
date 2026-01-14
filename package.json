@@ -1,0 +1,24 @@
+{
+  "name": "gws-automation",
+  "version": "1.0.0",
+  "description": "Great White Security - Lead Management & Automation System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["automation", "airtable", "twilio", "stripe", "crm"],
+  "author": "Ricky Tovey - Great White Security",
+  "license": "ISC",
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "stripe": "^20.1.2",
+    "twilio": "^5.11.2"
+  }
+}

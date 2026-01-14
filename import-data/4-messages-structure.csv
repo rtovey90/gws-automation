@@ -1,0 +1,2 @@
+Direction,Type,To,From,Content,Status
+Outbound,SMS,+61400000000,+61400000001,Sample message,Sent

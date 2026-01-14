@@ -1,0 +1,2 @@
+Client Address,Job Status,Scope of Work,Quoted Price,Payment Status,Stripe Payment Link,Stripe Payment ID,Auto-Send Pricing,Scheduled Date,Completion Date,Tech Notes,Activity Log,Parts Used,Parts Cost,Review Requested,Review Received,Review Link
+123 Sample St,Draft,Install cameras,500,Not Sent,https://stripe.com,sample_123,FALSE,,,Sample notes,Sample log,Sample parts,100,FALSE,FALSE,https://example.com

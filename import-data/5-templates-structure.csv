@@ -1,0 +1,2 @@
+Name,Type,Content,Active
+Sample Template,SMS to Tech,Hey {{TECH_NAME}} sample message,TRUE

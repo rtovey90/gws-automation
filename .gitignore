@@ -1,0 +1,14 @@
+node_modules/
+.env
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+dist/
+build/
+tmp/
+*.tmp
+
+# Test files (don't need in production)
+test-*.js
