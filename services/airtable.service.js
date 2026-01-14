@@ -26,13 +26,11 @@ class AirtableService {
         'Address/Location': leadData.address || leadData.location || '',
         ' Source': leadData.source || 'Form', // Note: field has leading space in Airtable
         Status: 'New',
-        'Service Type': serviceType,
+        'Lead Type': serviceType, // Now using Lead Type instead of Service Type
         Notes: leadData.notes || '',
         'Original Transcript/Form Data': leadData.rawData || '',
         Business: leadData.business || 'Great White Security',
         'Client Notes': leadData.clientNotes || '',
-        'Lead Type': leadData.leadType || 'Service ', // Note: options have trailing spaces in Airtable
-        'Quote Status': leadData.quoteStatus || 'Draft',
       };
 
       // Add pricing fields if provided
