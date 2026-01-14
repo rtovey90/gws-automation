@@ -54,25 +54,22 @@ exports.checkTechAvailability = async (req, res) => {
 
         const techName = tech.fields['First Name'] || tech.fields.Name;
 
-        // Get job description from Client intake info and clean up AI summary formatting
-        let jobDescription = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+        // Get job description from Client intake info - extract ONLY the summary part before "AI Summary:"
+        let rawContent = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
 
-        // Strip out AI Summary headers and markdown formatting
+        // Split on "AI Summary:" and only take the part BEFORE it (the actual summary)
+        let jobDescription = rawContent.split(/AI Summary:?/i)[0].trim();
+
+        // If nothing before AI Summary, try to extract from the AI summary section
+        if (!jobDescription || jobDescription === '') {
+          jobDescription = rawContent;
+        }
+
+        // Clean up any remaining markdown formatting
         jobDescription = jobDescription
-          .replace(/AI Summary:?\s*/gi, '')
-          .replace(/\*\*Summary of Phone Call:\*\*/gi, '')
-          .replace(/\*\*Participants:\*\*/gi, '')
-          .replace(/\*\*Key Points:\*\*/gi, '')
-          .replace(/\*\*Action Items:\*\*/gi, '')
-          .replace(/\*\*Next Steps:\*\*/gi, '')
-          .replace(/- [AB]:\s*/g, '') // Remove speaker labels like "- A:" or "- B:"
-          .replace(/\*\*/g, '') // Remove all markdown bold
+          .replace(/\*\*/g, '') // Remove markdown bold
           .replace(/\n\s*\n/g, '\n') // Remove multiple blank lines
           .trim();
-
-        // Extract just the relevant content, skip empty lines
-        const lines = jobDescription.split('\n').filter(line => line.trim());
-        jobDescription = lines.join(' ').trim();
 
         const truncatedDescription = jobDescription.length > 200
           ? jobDescription.substring(0, 200) + '...'
@@ -88,11 +85,9 @@ ${truncatedDescription}
 
 Please make your selection:
 
-👍 YES - I'm available
-${yesLink}
+👍 YES: ${yesLink}
 
-👎 NO - Not available
-${noLink}
+👎 NO: ${noLink}
 
 Or just reply YES or NO to this message`;
 
