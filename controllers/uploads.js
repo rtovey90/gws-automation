@@ -220,7 +220,7 @@ exports.showUploadForm = async (req, res) => {
                 <strong>Tap to select photos</strong><br>
                 or drag and drop here
               </div>
-              <input type="file" id="fileInput" accept="image/*" multiple capture="environment">
+              <input type="file" id="fileInput" accept="image/*" multiple>
             </div>
 
             <div class="preview-container" id="previewContainer"></div>
