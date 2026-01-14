@@ -1,7 +1,14 @@
 const airtableService = require('../services/airtable.service');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -381,29 +388,32 @@ exports.handleUpload = async (req, res) => {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(__dirname, '../uploads');
-    try {
-      await fs.mkdir(uploadsDir, { recursive: true });
-    } catch (err) {
-      // Directory might already exist
-    }
-
-    // Save files and create URLs
+    // Upload files to Cloudinary
     const attachments = [];
     for (const file of files) {
-      const filename = `${Date.now()}-${file.originalname}`;
-      const filepath = path.join(uploadsDir, filename);
+      try {
+        // Upload to Cloudinary using base64
+        const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
-      // Save file to disk
-      await fs.writeFile(filepath, file.buffer);
+        const uploadResult = await cloudinary.uploader.upload(base64Data, {
+          folder: `gws-leads/${leadId}`,
+          resource_type: 'auto',
+          public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
+        });
 
-      // Create public URL
-      const fileUrl = `${process.env.BASE_URL}/uploads/${filename}`;
+        console.log(`✓ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
 
-      attachments.push({
-        url: fileUrl,
-      });
+        attachments.push({
+          url: uploadResult.secure_url,
+        });
+      } catch (uploadError) {
+        console.error(`Error uploading file to Cloudinary:`, uploadError);
+        // Continue with other files even if one fails
+      }
+    }
+
+    if (attachments.length === 0) {
+      return res.status(500).json({ error: 'Failed to upload any photos' });
     }
 
     // Get existing photos
