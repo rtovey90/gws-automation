@@ -13,6 +13,12 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// Stripe webhook needs raw body for signature verification
+// This MUST come before bodyParser.json()
+app.post('/webhooks/stripe', bodyParser.raw({ type: 'application/json' }), webhooksController.handleStripe);
+
+// Parse JSON for all other routes
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -76,7 +82,7 @@ app.get('/', (req, res) => {
 
 // Webhook routes
 app.post('/webhooks/formspree', webhooksController.handleFormspree);
-app.post('/webhooks/stripe', bodyParser.raw({ type: 'application/json' }), webhooksController.handleStripe);
+// Note: /webhooks/stripe is defined earlier before bodyParser.json() for raw body access
 app.post('/webhooks/email-transcript', webhooksController.handleEmailTranscript);
 
 // Job management routes
