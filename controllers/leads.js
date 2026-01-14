@@ -52,14 +52,20 @@ exports.checkTechAvailability = async (req, res) => {
         const yesLink = `${process.env.BASE_URL}/tech-availability/${leadId}/${tech.id}/yes`;
         const noLink = `${process.env.BASE_URL}/tech-availability/${leadId}/${tech.id}/no`;
 
-        const message = `Hey ${tech.fields.Name}, got a service call this week if you're available.
+        const techName = tech.fields['First Name'] || tech.fields.Name;
+
+        const message = `Hey ${techName}, got a service call this week if you're available.
 
 Location: ${lead.fields['Address/Location'] || 'TBD'}
 Service: ${lead.fields['Lead Type'] || 'Security work'}
 
-Available?
-👍 YES: ${yesLink}
-👎 NO: ${noLink}
+Please make your selection:
+
+👍 YES - I'm available
+${yesLink}
+
+👎 NO - Not available
+${noLink}
 
 Or just reply YES or NO to this message`;
 
@@ -69,8 +75,9 @@ Or just reply YES or NO to this message`;
           { leadId, techId: tech.id, type: 'availability_check' }
         );
 
-        results.push({ techId: tech.id, tech: tech.fields.Name, status: 'sent' });
-        console.log(`  ✓ Sent to ${tech.fields.Name}`);
+        const displayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
+        results.push({ techId: tech.id, tech: displayName, status: 'sent' });
+        console.log(`  ✓ Sent to ${displayName}`);
       } catch (error) {
         console.error(`  ✗ Failed to send to tech ${tech.id}:`, error.message);
         results.push({ techId: tech.id, status: 'failed', error: error.message });
@@ -115,7 +122,8 @@ exports.handleAvailabilityResponse = async (req, res) => {
 
     // Update lead with response
     const existingResponses = lead.fields['Tech Availability Responses'] || '';
-    const newResponse = `\n[${new Date().toLocaleString()}] ${tech.fields.Name}: ${response.toUpperCase()}`;
+    const techDisplayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
+    const newResponse = `\n[${new Date().toLocaleString()}] ${techDisplayName}: ${response.toUpperCase()}`;
 
     const updates = {
       'Tech Availability Responses': existingResponses + newResponse
@@ -142,9 +150,12 @@ exports.handleAvailabilityResponse = async (req, res) => {
 
     // Notify admin
     try {
+      const techDisplayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
+      const leadDisplayName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ');
+
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `📋 ${tech.fields.Name} is ${response.toUpperCase() === 'YES' ? '✅ AVAILABLE' : '❌ NOT AVAILABLE'} for:\n\n${lead.fields['First Name']} - ${lead.fields['Address/Location']}\n\nView in Airtable`,
+        `📋 ${techDisplayName} is ${response.toUpperCase() === 'YES' ? '✅ AVAILABLE' : '❌ NOT AVAILABLE'} for:\n\n${leadDisplayName} - ${lead.fields['Address/Location']}\n\nView in Airtable`,
         { leadId, techId }
       );
     } catch (smsError) {
