@@ -333,6 +333,75 @@ class AirtableService {
       throw error;
     }
   }
+
+  // ============ PRODUCTS ============
+
+  /**
+   * Create or update a product in Airtable
+   */
+  async upsertProduct(productData) {
+    try {
+      // Check if product already exists by Stripe Product ID
+      const existingRecords = await tables.products
+        .select({
+          filterByFormula: `{Stripe Product ID} = '${productData.stripeProductId}'`,
+          maxRecords: 1,
+        })
+        .firstPage();
+
+      const fields = {
+        'Product Name': productData.name,
+        Description: productData.description || '',
+        Price: productData.price,
+        'Stripe Payment Link': productData.paymentLink,
+        'Stripe Product ID': productData.stripeProductId,
+        Active: productData.active !== false,
+      };
+
+      if (existingRecords.length > 0) {
+        // Update existing record
+        const recordId = existingRecords[0].id;
+        return await tables.products.update(recordId, fields);
+      } else {
+        // Create new record
+        const records = await tables.products.create([{ fields }]);
+        return records[0];
+      }
+    } catch (error) {
+      console.error('Error upserting product:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all active products
+   */
+  async getActiveProducts() {
+    try {
+      const records = await tables.products
+        .select({
+          filterByFormula: '{Active} = TRUE()',
+        })
+        .all();
+
+      return records;
+    } catch (error) {
+      console.error('Error getting active products:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get product by ID
+   */
+  async getProduct(productId) {
+    try {
+      return await tables.products.find(productId);
+    } catch (error) {
+      console.error('Error getting product:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new AirtableService();

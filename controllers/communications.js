@@ -6,6 +6,102 @@ const twilioService = require('../services/twilio.service');
  */
 
 /**
+ * Send pricing SMS to lead using selected product
+ * GET /api/send-pricing/:leadId OR POST /api/send-pricing with { leadId }
+ */
+exports.sendPricing = async (req, res) => {
+  try {
+    const leadId = req.params.leadId || req.body?.leadId;
+
+    if (!leadId) {
+      return res.status(400).json({ error: 'leadId is required' });
+    }
+
+    console.log(`💵 Sending pricing SMS for lead: ${leadId}`);
+
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    // Check if product is selected
+    if (!lead.fields['Selected Product'] || lead.fields['Selected Product'].length === 0) {
+      return res.status(400).json({ error: 'Please select a product first' });
+    }
+
+    // Get product details
+    const productId = lead.fields['Selected Product'][0];
+    const product = await airtableService.getProduct(productId);
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Check if lead has phone number
+    if (!lead.fields.Phone) {
+      return res.status(400).json({ error: 'Lead has no phone number' });
+    }
+
+    // Build pricing message
+    const clientName = lead.fields['First Name'] || 'there';
+    const productName = product.fields['Product Name'];
+    const price = product.fields.Price;
+    const paymentLink = product.fields['Stripe Payment Link'];
+
+    const message = `Hi ${clientName}, thank you for your interest!
+
+Good news! I can have one of our technicians out this week.
+
+${productName}
+
+To lock it in, please make payment here:
+${paymentLink}
+
+Once payment's through, we'll reach out to schedule.
+
+Thanks!
+Ricky`;
+
+    // Send SMS
+    await twilioService.sendSMS(
+      lead.fields.Phone,
+      message,
+      { leadId, productId, type: 'pricing' }
+    );
+
+    // Log message
+    await airtableService.logMessage({
+      leadId: leadId,
+      direction: 'Outbound',
+      type: 'SMS',
+      to: lead.fields.Phone,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      content: message,
+      status: 'Sent',
+    });
+
+    // Update lead status
+    await airtableService.updateLead(leadId, {
+      Status: 'Quoted',
+    });
+
+    console.log(`✓ Pricing SMS sent to ${lead.fields['First Name']} for ${productName}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Pricing SMS sent successfully',
+      product: productName,
+      price: price,
+    });
+  } catch (error) {
+    console.error('Error sending pricing SMS:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+/**
  * Send client pricing SMS (manual trigger or after tech accepts)
  * POST /api/send-client-pricing
  * Body: { jobId }

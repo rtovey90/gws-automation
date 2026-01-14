@@ -10,6 +10,7 @@ const jobsController = require('./controllers/jobs');
 const communicationsController = require('./controllers/communications');
 const uploadsController = require('./controllers/uploads');
 const leadsController = require('./controllers/leads');
+const productsController = require('./controllers/products');
 
 const app = express();
 
@@ -58,6 +59,19 @@ app.get('/', (req, res) => {
             <li><code>POST /webhooks/formspree</code> - Form submissions</li>
             <li><code>POST /webhooks/stripe</code> - Payment notifications</li>
             <li><code>POST /webhooks/email-transcript</code> - Call transcripts</li>
+            <li><code>POST /webhooks/twilio-sms</code> - Inbound SMS</li>
+          </ul>
+        </li>
+        <li><strong>Lead Management:</strong>
+          <ul>
+            <li><code>GET /api/check-tech-availability/:leadId</code> - Check tech availability</li>
+            <li><code>GET /tech-availability/:leadId/:techId/:response</code> - Tech responds</li>
+            <li><code>GET /api/send-pricing/:leadId</code> - Send pricing SMS</li>
+          </ul>
+        </li>
+        <li><strong>Products:</strong>
+          <ul>
+            <li><code>GET /api/sync-stripe-products</code> - Sync Stripe products</li>
           </ul>
         </li>
         <li><strong>Job Management:</strong>
@@ -73,6 +87,13 @@ app.get('/', (req, res) => {
             <li><code>POST /api/send-client-pricing</code> - Send pricing SMS</li>
             <li><code>POST /api/send-review-request</code> - Request review</li>
             <li><code>POST /api/review-follow-up</code> - Review reminder</li>
+            <li><code>GET /api/send-message</code> - Send custom message</li>
+          </ul>
+        </li>
+        <li><strong>Photo Uploads:</strong>
+          <ul>
+            <li><code>GET /upload-photos/:leadId</code> - Photo upload form</li>
+            <li><code>POST /api/upload-photos/:leadId</code> - Upload photos</li>
           </ul>
         </li>
       </ul>
@@ -109,6 +130,13 @@ app.post('/api/upload-photos/:leadId', uploadsController.uploadMiddleware, uploa
 app.post('/api/check-tech-availability', leadsController.checkTechAvailability);
 app.get('/api/check-tech-availability/:leadId', leadsController.checkTechAvailability); // GET version for Airtable buttons
 app.get('/tech-availability/:leadId/:techId/:response', leadsController.handleAvailabilityResponse);
+
+// Product routes
+app.get('/api/sync-stripe-products', productsController.syncStripeProducts);
+
+// Pricing routes
+app.get('/api/send-pricing/:leadId', communicationsController.sendPricing); // GET version for Airtable buttons
+app.post('/api/send-pricing', communicationsController.sendPricing);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
