@@ -143,4 +143,306 @@ exports.reviewFollowUp = async (req, res) => {
   }
 };
 
+/**
+ * Send message from Airtable button (with preview/edit system)
+ * GET /api/send-message?leadId=xxx&type=request-photos
+ */
+exports.sendMessage = async (req, res) => {
+  try {
+    const { leadId, type } = req.query;
+
+    if (!leadId || !type) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>Missing required parameters: leadId and type</p>
+        </body>
+        </html>
+      `);
+    }
+
+    console.log(`📨 Sending message: ${type} for lead: ${leadId}`);
+
+    // Get lead from Airtable
+    const lead = await airtableService.getLead(leadId);
+
+    if (!lead) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>Lead not found: ${leadId}</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Determine which message to send based on type
+    let message;
+    let sentField;
+    let messageLabel;
+
+    switch (type) {
+      case 'request-photos':
+        message = lead.fields['Edit: Request Photos'] || lead.fields['Preview: Request Photos'];
+        sentField = 'Sent: Request Photos';
+        messageLabel = 'Request Photos';
+        break;
+
+      case 'checking-availability':
+        message = lead.fields['Edit: Checking Availability'] || lead.fields['Preview: Checking Availability'];
+        sentField = 'Sent: Checking Availability';
+        messageLabel = 'Checking Availability';
+        break;
+
+      case 'pricing':
+        message = lead.fields['Edit: Pricing Message'] || lead.fields['Preview: Pricing Message'];
+        sentField = 'Sent: Pricing';
+        messageLabel = 'Pricing Message';
+        break;
+
+      default:
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Error</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: 50px auto;
+                padding: 20px;
+                text-align: center;
+              }
+              .error { color: #dc3545; font-size: 24px; }
+            </style>
+          </head>
+          <body>
+            <h1 class="error">❌ Error</h1>
+            <p>Unknown message type: ${type}</p>
+          </body>
+          </html>
+        `);
+    }
+
+    // Verify we have a message to send
+    if (!message) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>No message content found for type: ${type}</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Verify phone number exists
+    if (!lead.fields.Phone) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>No phone number found for lead: ${lead.fields.Name}</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Send SMS via Twilio
+    await twilioService.sendSMS(
+      lead.fields.Phone,
+      message,
+      { leadId, messageType: type }
+    );
+
+    // Mark as sent in Airtable
+    await airtableService.updateLead(leadId, {
+      [sentField]: true,
+    });
+
+    // Log the message in Messages table
+    try {
+      await airtableService.logMessage({
+        leadId: leadId,
+        direction: 'Outbound',
+        type: 'SMS',
+        to: lead.fields.Phone,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        content: message,
+        status: 'Sent',
+      });
+    } catch (messageError) {
+      console.error('Error logging message:', messageError);
+      // Don't fail the request if message logging fails
+    }
+
+    console.log(`✓ ${messageLabel} sent to ${lead.fields.Name} (${lead.fields.Phone})`);
+
+    // Show confirmation page
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Message Sent</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+          }
+          h1 { color: #28a745; }
+          .success { color: #28a745; font-size: 48px; }
+          .details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: left;
+          }
+          .message-preview {
+            background: white;
+            padding: 15px;
+            border-left: 4px solid #28a745;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+          }
+          .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+          }
+          .btn:hover {
+            background: #0056b3;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="success">✅</div>
+        <h1>Message Sent Successfully!</h1>
+
+        <div class="details">
+          <p><strong>To:</strong> ${lead.fields.Name}</p>
+          <p><strong>Phone:</strong> ${lead.fields.Phone}</p>
+          <p><strong>Message Type:</strong> ${messageLabel}</p>
+
+          <div class="message-preview">${message}</div>
+        </div>
+
+        <p>The message has been sent and marked as sent in Airtable.</p>
+
+        <a href="https://airtable.com/${process.env.AIRTABLE_BASE_ID}" class="btn">Return to Airtable</a>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Error</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+          }
+          .error { color: #dc3545; font-size: 24px; }
+          .details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1 class="error">❌ Error</h1>
+        <p>Failed to send message</p>
+        <div class="details">${error.message}</div>
+      </body>
+      </html>
+    `);
+  }
+};
+
 module.exports = exports;

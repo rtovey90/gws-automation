@@ -95,6 +95,7 @@ app.post('/api/update-job', jobsController.updateJob);
 app.post('/api/send-client-pricing', communicationsController.sendClientPricing);
 app.post('/api/send-review-request', communicationsController.sendReviewRequest);
 app.post('/api/review-follow-up', communicationsController.reviewFollowUp);
+app.get('/api/send-message', communicationsController.sendMessage); // Button-triggered messages from Airtable
 
 // Error handling middleware
 app.use((err, req, res, next) => {
