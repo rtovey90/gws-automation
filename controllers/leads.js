@@ -12,7 +12,12 @@ const twilioService = require('../services/twilio.service');
  */
 exports.checkTechAvailability = async (req, res) => {
   try {
-    const leadId = req.body.leadId || req.params.leadId;
+    const leadId = (req.body && req.body.leadId) || (req.params && req.params.leadId);
+
+    console.log('Request method:', req.method);
+    console.log('Request params:', req.params);
+    console.log('Request body:', req.body);
+    console.log('Extracted leadId:', leadId);
 
     if (!leadId) {
       return res.status(400).json({ error: 'leadId is required' });
