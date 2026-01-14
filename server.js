@@ -9,6 +9,7 @@ const webhooksController = require('./controllers/webhooks');
 const jobsController = require('./controllers/jobs');
 const communicationsController = require('./controllers/communications');
 const uploadsController = require('./controllers/uploads');
+const leadsController = require('./controllers/leads');
 
 const app = express();
 
@@ -103,6 +104,10 @@ app.get('/api/send-message', communicationsController.sendMessage); // Button-tr
 // Photo upload routes
 app.get('/upload-photos/:leadId', uploadsController.showUploadForm);
 app.post('/api/upload-photos/:leadId', uploadsController.uploadMiddleware, uploadsController.handleUpload);
+
+// Lead management routes
+app.post('/api/check-tech-availability', leadsController.checkTechAvailability);
+app.get('/tech-availability/:leadId/:techId/:response', leadsController.handleAvailabilityResponse);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

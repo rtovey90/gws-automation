@@ -269,6 +269,31 @@ exports.handleTwilioSMS = async (req, res) => {
     console.log(`📝 Message: ${Body || '(media only)'}`);
     console.log(`📎 Media count: ${NumMedia || 0}`);
 
+    // Check if this is a YES/NO response from a tech
+    const bodyLower = (Body || '').toLowerCase().trim();
+    if (bodyLower === 'yes' || bodyLower === 'no') {
+      // Try to find tech by phone
+      try {
+        const tech = await airtableService.getTechByPhone(clientPhone);
+        if (tech) {
+          console.log(`📋 Tech ${tech.fields.Name} responded: ${bodyLower.toUpperCase()}`);
+
+          // Find the most recent lead with availability requested
+          // For now, we'll notify admin - they can manually link it
+          await twilioService.sendSMS(
+            process.env.ADMIN_PHONE,
+            `📋 ${tech.fields.Name} replied ${bodyLower.toUpperCase()} to availability check.\n\nNote: They replied via SMS instead of clicking the link. Check which lead this is for and update manually.`,
+            { from: clientPhone }
+          );
+
+          // Respond to tech
+          return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response><Message>Thanks! Your response has been recorded.</Message></Response>');
+        }
+      } catch (error) {
+        console.error('Error checking for tech:', error);
+      }
+    }
+
     // Find lead by phone number
     let lead = null;
     try {
