@@ -240,4 +240,136 @@ exports.handleEmailTranscript = async (req, res) => {
   }
 };
 
+/**
+ * Handle incoming SMS/MMS from Twilio
+ * POST /webhooks/twilio-sms
+ */
+exports.handleTwilioSMS = async (req, res) => {
+  try {
+    console.log('📨 Twilio SMS webhook received');
+
+    const { From, To, Body, NumMedia, MessageSid } = req.body;
+
+    // Clean phone number format (Twilio sends +61...)
+    const clientPhone = From;
+    const twilioNumber = To;
+
+    console.log(`📱 Incoming message from ${clientPhone}`);
+    console.log(`📝 Message: ${Body || '(media only)'}`);
+    console.log(`📎 Media count: ${NumMedia || 0}`);
+
+    // Find lead by phone number
+    let lead = null;
+    try {
+      const records = await airtableService.getLeadByPhone(clientPhone);
+      lead = records;
+    } catch (error) {
+      console.error('Error finding lead by phone:', error);
+    }
+
+    if (!lead) {
+      console.log(`⚠️ No lead found for phone number: ${clientPhone}`);
+
+      // Send notification to admin about unknown number
+      try {
+        await twilioService.sendSMS(
+          process.env.ADMIN_PHONE,
+          `📨 NEW MESSAGE from unknown number:\n\nFrom: ${clientPhone}\nMessage: ${Body || '(media only)'}\n\nNo matching lead found - may be a new inquiry.`,
+          { from: clientPhone }
+        );
+      } catch (smsError) {
+        console.error('Error sending admin notification:', smsError);
+      }
+
+      // Respond to Twilio (required to prevent retries)
+      return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    }
+
+    console.log(`✓ Found lead: ${lead.fields['First Name']} (${lead.id})`);
+
+    // Handle media (photos) if present
+    const mediaUrls = [];
+    if (NumMedia && parseInt(NumMedia) > 0) {
+      console.log(`📷 Processing ${NumMedia} media attachments...`);
+
+      for (let i = 0; i < parseInt(NumMedia); i++) {
+        const mediaUrl = req.body[`MediaUrl${i}`];
+        const mediaContentType = req.body[`MediaContentType${i}`];
+
+        if (mediaUrl) {
+          console.log(`  - Media ${i + 1}: ${mediaContentType} - ${mediaUrl}`);
+          mediaUrls.push({
+            url: mediaUrl,
+            contentType: mediaContentType,
+          });
+        }
+      }
+
+      // Add Twilio auth to media URLs for Airtable to download
+      const authenticatedUrls = mediaUrls.map(media => ({
+        url: `${media.url}?auth=${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`,
+      }));
+
+      // Update lead with photos
+      try {
+        // Get existing photos
+        const existingPhotos = lead.fields.Photos || [];
+
+        // Append new photos
+        const updatedPhotos = [
+          ...existingPhotos,
+          ...authenticatedUrls,
+        ];
+
+        await airtableService.updateLead(lead.id, {
+          Photos: updatedPhotos,
+        });
+
+        console.log(`✓ ${mediaUrls.length} photo(s) saved to lead`);
+      } catch (photoError) {
+        console.error('Error saving photos to lead:', photoError);
+      }
+    }
+
+    // Log the message in Messages table
+    try {
+      await airtableService.logMessage({
+        leadId: lead.id,
+        direction: 'Inbound',
+        type: 'SMS',
+        from: clientPhone,
+        to: twilioNumber,
+        content: Body || '(media only)',
+        status: 'Received',
+      });
+
+      console.log('✓ Message logged in Messages table');
+    } catch (messageError) {
+      console.error('Error logging message:', messageError);
+    }
+
+    // Send notification to admin
+    try {
+      const photoText = mediaUrls.length > 0 ? `\n📷 ${mediaUrls.length} photo(s) attached` : '';
+
+      await twilioService.sendSMS(
+        process.env.ADMIN_PHONE,
+        `📨 NEW REPLY from ${lead.fields['First Name']}:\n\n${Body || '(no text)'}${photoText}\n\nView lead in Airtable`,
+        { leadId: lead.id, from: clientPhone }
+      );
+
+      console.log('✓ Admin notification sent');
+    } catch (smsError) {
+      console.error('Error sending admin notification:', smsError);
+    }
+
+    // Respond to Twilio with empty TwiML (required)
+    res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+  } catch (error) {
+    console.error('Error handling Twilio SMS webhook:', error);
+    // Still respond to Twilio to prevent retries
+    res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+  }
+};
+
 module.exports = exports;

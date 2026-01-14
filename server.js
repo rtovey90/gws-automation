@@ -84,6 +84,7 @@ app.get('/', (req, res) => {
 app.post('/webhooks/formspree', webhooksController.handleFormspree);
 // Note: /webhooks/stripe is defined earlier before bodyParser.json() for raw body access
 app.post('/webhooks/email-transcript', webhooksController.handleEmailTranscript);
+app.post('/webhooks/twilio-sms', webhooksController.handleTwilioSMS);
 
 // Job management routes
 app.post('/api/send-job-offer', jobsController.sendJobOffer);

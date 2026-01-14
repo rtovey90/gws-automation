@@ -73,6 +73,26 @@ class AirtableService {
     }
   }
 
+  /**
+   * Get lead by phone number
+   */
+  async getLeadByPhone(phone) {
+    try {
+      const records = await tables.leads
+        .select({
+          filterByFormula: `{Phone} = '${phone}'`,
+          maxRecords: 1,
+          sort: [{ field: 'Created', direction: 'desc' }],
+        })
+        .firstPage();
+
+      return records[0] || null;
+    } catch (error) {
+      console.error('Error getting lead by phone:', error);
+      throw error;
+    }
+  }
+
   // ============ JOBS ============
 
   /**
