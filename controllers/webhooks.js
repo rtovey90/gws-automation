@@ -202,6 +202,7 @@ async function handlePaymentSuccess(paymentObject) {
 exports.handleEmailTranscript = async (req, res) => {
   try {
     console.log('📨 Email transcript webhook received');
+    console.log('Webhook body:', JSON.stringify(req.body, null, 2));
 
     const { isLead, name, location, email, phone, notes, transcript } = req.body;
 
@@ -219,13 +220,16 @@ exports.handleEmailTranscript = async (req, res) => {
         rawData: transcript || '',
       };
 
+      console.log('Lead data being created:', JSON.stringify(leadData, null, 2));
+
       const lead = await airtableService.createLead(leadData);
 
       console.log(`✓ Lead created from call: ${lead.id} - ${leadData.name}`);
 
       // Send notification to admin
       try {
-        const notesPreview = leadData.notes ? `\nNotes: ${leadData.notes.substring(0, 150)}${leadData.notes.length > 150 ? '...' : ''}` : '';
+        // Show more of the notes (250 chars instead of 150)
+        const notesPreview = leadData.notes ? `\n${leadData.notes.substring(0, 250)}${leadData.notes.length > 250 ? '...' : ''}` : '';
 
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
