@@ -203,20 +203,20 @@ exports.handleAvailabilityResponse = async (req, res) => {
             text-align: center;
           }
           .message {
-            background: ${isYes ? '#d4edda' : '#f8d7da'};
-            border: 2px solid ${isYes ? '#28a745' : '#dc3545'};
+            background: #d4edda;
+            border: 2px solid #28a745;
             padding: 30px;
             border-radius: 10px;
           }
-          h1 { color: ${isYes ? '#155724' : '#721c24'}; }
-          p { font-size: 18px; color: ${isYes ? '#155724' : '#721c24'}; }
+          h1 { color: #155724; }
+          p { font-size: 18px; color: #155724; }
         </style>
       </head>
       <body>
         <div class="message">
-          <h1>${isYes ? '✅' : '❌'} ${isYes ? 'Thanks!' : 'No worries'}</h1>
+          <h1>${isYes ? '✅' : '❌'} Thanks!</h1>
           <p>Your response has been recorded.</p>
-          ${isYes ? '<p>We\'ll be in touch ASAP with more details if this job goes ahead!</p>' : '<p>Thanks for letting us know. Catch you on the next one!</p>'}
+          ${isYes ? '<p>We\'ll be in touch ASAP with more details if this job goes ahead!</p>' : '<p>If your circumstances change and you become available please call or message Ricky at 0413346978</p>'}
         </div>
       </body>
       </html>
