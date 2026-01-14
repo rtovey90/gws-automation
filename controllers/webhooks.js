@@ -52,7 +52,7 @@ exports.handleFormspree = async (req, res) => {
 
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.serviceType}${message}\n\nView in Airtable`,
+        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.serviceType || 'Other'}${message}\n\nView in Airtable`,
         { leadId: lead.id }
       );
     } catch (smsError) {
