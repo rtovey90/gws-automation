@@ -108,31 +108,82 @@ exports.handleStripe = async (req, res) => {
  */
 async function handlePaymentSuccess(paymentObject) {
   try {
-    // Get job_id from metadata
+    const leadId = paymentObject.metadata?.lead_id;
     const jobId = paymentObject.metadata?.job_id;
 
-    if (!jobId) {
-      console.warn('⚠️ Payment received but no job_id in metadata');
+    // New workflow: Payment for a Lead → Create Job
+    if (leadId) {
+      console.log(`✓ Payment received for lead: ${leadId}`);
+
+      // Get the lead
+      const lead = await airtableService.getLead(leadId);
+
+      if (!lead) {
+        console.error(`❌ Lead not found: ${leadId}`);
+        return;
+      }
+
+      console.log(`✓ Found lead: ${lead.fields.Name}`);
+
+      // Create a job from the lead
+      const jobData = {
+        leadId: leadId,
+        clientAddress: lead.fields['Address/Location'] || '',
+        status: 'Payment Received', // Start at Payment Received since they already paid
+        scope: lead.fields.Notes || 'Service requested',
+        quotedPrice: lead.fields['Service Call Amount'] || lead.fields['Project Value'] || 0,
+        stripeLink: '', // Already paid
+        autoSendPricing: false, // Already paid
+      };
+
+      const job = await airtableService.createJob(jobData);
+      console.log(`✓ Job created from lead: ${job.id}`);
+
+      // Update lead status to Won and add Stripe payment ID
+      await airtableService.updateLead(leadId, {
+        Status: 'Won',
+        Notes: `${lead.fields.Notes || ''}\n\n[Payment Received: ${paymentObject.id}]`.trim()
+      });
+      console.log(`✓ Lead status updated to Won`);
+
+      // Send notification to admin
+      try {
+        await twilioService.sendSMS(
+          process.env.ADMIN_PHONE,
+          `💰 PAYMENT RECEIVED!\n\nClient: ${lead.fields.Name}\nAmount: $${(paymentObject.amount / 100).toFixed(2)}\n\nJob created in Airtable - ready to assign tech!`,
+          { jobId: job.id, leadId: leadId }
+        );
+      } catch (smsError) {
+        console.error('Error sending notification SMS:', smsError);
+      }
+
       return;
     }
 
-    console.log(`✓ Payment received for job: ${jobId}`);
+    // Old workflow: Direct job payment (backward compatibility)
+    if (jobId) {
+      console.log(`✓ Payment received for job: ${jobId}`);
 
-    // Update job in Airtable
-    await airtableService.updateJobPayment(jobId, paymentObject.id);
+      // Update job in Airtable
+      await airtableService.updateJobPayment(jobId, paymentObject.id);
 
-    // Get job and tech details
-    const job = await airtableService.getJob(jobId);
-    const techId = job.fields['Assigned Tech']?.[0];
+      // Get job and tech details
+      const job = await airtableService.getJob(jobId);
+      const techId = job.fields['Assigned Tech']?.[0];
 
-    if (techId) {
-      const tech = await airtableService.getTech(techId);
+      if (techId) {
+        const tech = await airtableService.getTech(techId);
 
-      // Send notification to tech
-      await twilioService.sendPaymentNotificationToTech(job, tech);
+        // Send notification to tech
+        await twilioService.sendPaymentNotificationToTech(job, tech);
 
-      console.log(`✓ Payment notification sent to tech: ${tech.fields.Name}`);
+        console.log(`✓ Payment notification sent to tech: ${tech.fields.Name}`);
+      }
+
+      return;
     }
+
+    console.warn('⚠️ Payment received but no lead_id or job_id in metadata');
   } catch (error) {
     console.error('Error handling payment success:', error);
     throw error;
