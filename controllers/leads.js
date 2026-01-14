@@ -7,12 +7,12 @@ const twilioService = require('../services/twilio.service');
 
 /**
  * Check tech availability for a lead
- * POST /api/check-tech-availability
- * Body: { leadId }
+ * POST /api/check-tech-availability OR GET /api/check-tech-availability/:leadId
+ * Body: { leadId } OR Params: { leadId }
  */
 exports.checkTechAvailability = async (req, res) => {
   try {
-    const { leadId } = req.body;
+    const leadId = req.body.leadId || req.params.leadId;
 
     if (!leadId) {
       return res.status(400).json({ error: 'leadId is required' });

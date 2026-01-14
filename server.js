@@ -107,6 +107,7 @@ app.post('/api/upload-photos/:leadId', uploadsController.uploadMiddleware, uploa
 
 // Lead management routes
 app.post('/api/check-tech-availability', leadsController.checkTechAvailability);
+app.get('/api/check-tech-availability/:leadId', leadsController.checkTechAvailability); // GET version for Airtable buttons
 app.get('/tech-availability/:leadId/:techId/:response', leadsController.handleAvailabilityResponse);
 
 // Error handling middleware
