@@ -54,10 +54,18 @@ exports.checkTechAvailability = async (req, res) => {
 
         const techName = tech.fields['First Name'] || tech.fields.Name;
 
+        // Get job description from Client intake info (Notes field), truncate if too long
+        const jobDescription = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+        const truncatedDescription = jobDescription.length > 200
+          ? jobDescription.substring(0, 200) + '...'
+          : jobDescription;
+
         const message = `Hey ${techName}, got a service call this week if you're available.
 
 Location: ${lead.fields['Address/Location'] || 'TBD'}
 Service: ${lead.fields['Lead Type'] || 'Security work'}
+
+Job: ${truncatedDescription}
 
 Please make your selection:
 
