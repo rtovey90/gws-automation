@@ -17,6 +17,8 @@ class AirtableService {
         serviceType = [serviceType];
       }
 
+      console.log('Creating lead with service type:', serviceType);
+
       const fields = {
         'First Name': leadData.name,
         Phone: leadData.phone,
