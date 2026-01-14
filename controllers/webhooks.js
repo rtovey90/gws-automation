@@ -18,13 +18,13 @@ exports.handleFormspree = async (req, res) => {
 
     console.log('Form data received:', JSON.stringify(formData, null, 2));
 
-    // Map service types
+    // Map service types to match exact Airtable options
     const serviceTypeMap = {
-      cctv: 'CCTV',
+      cctv: 'CCTV System',
       alarms: 'Alarm System',
-      'access-control': 'Access Control',
-      intercom: 'Intercom',
-      complete: 'Complete Package',
+      'access-control': 'Access Control System',
+      intercom: 'Intercom System',
+      complete: 'Other', // Map complete package to Other since it's not a specific option
       'not-sure': 'Other',
     };
 
