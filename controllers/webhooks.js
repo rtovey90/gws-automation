@@ -48,9 +48,11 @@ exports.handleFormspree = async (req, res) => {
 
     // Send notification to admin
     try {
+      const message = leadData.notes ? `\nMessage: ${leadData.notes.substring(0, 100)}${leadData.notes.length > 100 ? '...' : ''}` : '';
+
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nService: ${leadData.serviceType}\n\nView in Airtable`,
+        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.serviceType}${message}\n\nView in Airtable`,
         { leadId: lead.id }
       );
     } catch (smsError) {
@@ -223,9 +225,11 @@ exports.handleEmailTranscript = async (req, res) => {
 
       // Send notification to admin
       try {
+        const notesPreview = leadData.notes ? `\nNotes: ${leadData.notes.substring(0, 150)}${leadData.notes.length > 150 ? '...' : ''}` : '';
+
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
-          `🆕 NEW LEAD from phone call!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\n\nView in Airtable`,
+          `🆕 NEW LEAD from phone call!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nLocation: ${leadData.location || 'N/A'}${notesPreview}\n\nView in Airtable`,
           { leadId: lead.id }
         );
       } catch (smsError) {
