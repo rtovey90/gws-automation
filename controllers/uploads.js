@@ -5,15 +5,32 @@ const cloudinary = require('cloudinary').v2;
 
 // Configure Cloudinary (prefer CLOUDINARY_URL when available)
 const cloudinaryUrl = process.env.CLOUDINARY_URL;
-cloudinary.config(
-  cloudinaryUrl
-    ? { cloudinary_url: cloudinaryUrl }
-    : {
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      }
-);
+let cloudinaryConfig = null;
+
+if (cloudinaryUrl) {
+  try {
+    const parsed = new URL(cloudinaryUrl);
+    cloudinaryConfig = {
+      cloud_name: parsed.hostname,
+      api_key: decodeURIComponent(parsed.username),
+      api_secret: decodeURIComponent(parsed.password),
+      secure: true,
+    };
+  } catch (error) {
+    console.error('Invalid CLOUDINARY_URL format. Falling back to discrete variables.');
+  }
+}
+
+if (!cloudinaryConfig) {
+  cloudinaryConfig = {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  };
+}
+
+cloudinary.config(cloudinaryConfig);
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
