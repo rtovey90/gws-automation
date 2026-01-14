@@ -214,7 +214,7 @@ exports.handleAvailabilityResponse = async (req, res) => {
       </head>
       <body>
         <div class="message">
-          <h1>${isYes ? '✅' : '❌'} Thanks!</h1>
+          <h1>✅ Thanks!</h1>
           <p>Your response has been recorded.</p>
           ${isYes ? '<p>We\'ll be in touch ASAP with more details if this job goes ahead!</p>' : '<p>If your circumstances change and you become available please call or message Ricky at 0413346978</p>'}
         </div>
