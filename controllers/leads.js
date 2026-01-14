@@ -151,10 +151,12 @@ exports.handleAvailabilityResponse = async (req, res) => {
       'Tech Availability Responses': existingResponses + newResponse
     };
 
-    // If YES, add to Available Techs
+    // If YES, add to Available Techs (only if not already there)
     if (response.toLowerCase() === 'yes') {
       const existingTechs = lead.fields['Available Techs'] || [];
-      updates['Available Techs'] = [...existingTechs, techId];
+      if (!existingTechs.includes(techId)) {
+        updates['Available Techs'] = [...existingTechs, techId];
+      }
     }
 
     await airtableService.updateLead(leadId, updates);
@@ -167,7 +169,7 @@ exports.handleAvailabilityResponse = async (req, res) => {
       from: tech.fields.Phone,
       to: 'System',
       content: `Availability response: ${response.toUpperCase()}`,
-      status: 'Received',
+      status: 'Delivered',
     });
 
     // Notify admin

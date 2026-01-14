@@ -376,7 +376,7 @@ exports.handleTwilioSMS = async (req, res) => {
         from: clientPhone,
         to: twilioNumber,
         content: Body || '(media only)',
-        status: 'Received',
+        status: 'Delivered',
       });
 
       console.log('✓ Message logged in Messages table');
