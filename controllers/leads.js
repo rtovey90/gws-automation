@@ -54,8 +54,26 @@ exports.checkTechAvailability = async (req, res) => {
 
         const techName = tech.fields['First Name'] || tech.fields.Name;
 
-        // Get job description from Client intake info (Notes field), truncate if too long
-        const jobDescription = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+        // Get job description from Client intake info and clean up AI summary formatting
+        let jobDescription = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+
+        // Strip out AI Summary headers and markdown formatting
+        jobDescription = jobDescription
+          .replace(/AI Summary:?\s*/gi, '')
+          .replace(/\*\*Summary of Phone Call:\*\*/gi, '')
+          .replace(/\*\*Participants:\*\*/gi, '')
+          .replace(/\*\*Key Points:\*\*/gi, '')
+          .replace(/\*\*Action Items:\*\*/gi, '')
+          .replace(/\*\*Next Steps:\*\*/gi, '')
+          .replace(/- [AB]:\s*/g, '') // Remove speaker labels like "- A:" or "- B:"
+          .replace(/\*\*/g, '') // Remove all markdown bold
+          .replace(/\n\s*\n/g, '\n') // Remove multiple blank lines
+          .trim();
+
+        // Extract just the relevant content, skip empty lines
+        const lines = jobDescription.split('\n').filter(line => line.trim());
+        jobDescription = lines.join(' ').trim();
+
         const truncatedDescription = jobDescription.length > 200
           ? jobDescription.substring(0, 200) + '...'
           : jobDescription;
@@ -65,7 +83,8 @@ exports.checkTechAvailability = async (req, res) => {
 Location: ${lead.fields['Address/Location'] || 'TBD'}
 Service: ${lead.fields['Lead Type'] || 'Security work'}
 
-Job: ${truncatedDescription}
+Scope:
+${truncatedDescription}
 
 Please make your selection:
 
