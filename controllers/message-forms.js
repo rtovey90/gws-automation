@@ -1545,10 +1545,11 @@ exports.sendPricingForm = async (req, res) => {
       status: 'Sent',
     });
 
-    // Update lead with selected product and status
+    // Update lead with selected product, status, and pricing sent checkbox
     await airtableService.updateLead(leadId, {
       'Selected Product': [productId],
-      Status: 'Quote Sent',
+      Status: 'Payment Link Sent',
+      'Pricing Sent': true,
     });
 
     console.log(`✓ Pricing SMS sent to ${lead.fields.Name}`);
