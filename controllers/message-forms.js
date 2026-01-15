@@ -1141,16 +1141,22 @@ exports.showPricingForm = async (req, res) => {
     const productName = selectedProduct.fields['Product Name'];
     const paymentLink = selectedProduct.fields['Stripe Payment Link'];
 
-    const defaultMessage = `Hi ${clientName}, thank you for your interest!
+    const defaultMessage = `Hi ${clientName}, thank you for sending these over!
 
-Good news! I can have one of our technicians out this week.
+Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
 
-${productName}
+The call-out is just ${productName}, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+
+If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
 To lock it in, please make payment here:
 ${paymentLink}
 
-Once payment's through, we'll reach out to schedule.
+Once payment's through, I'll have the technician reach out to schedule the visit.
+
+Alternatively, if you're thinking about replacing your current system with a more reliable, modern system that includes smartphone app arm/disarm and monitoring, we have packages starting at $97/month for 24 months (interest-free).
+
+https://www.greatwhitesecurity.com/alarm-packages/
 
 Thanks,
 
@@ -1312,6 +1318,24 @@ Ricky (Great White Security)`;
             font-size: 72px;
             margin-bottom: 20px;
           }
+          .stripe-link {
+            display: inline-block;
+            margin-top: 8px;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: #f0f7ff;
+            border: 2px solid #1a73e8;
+            border-radius: 6px;
+            color: #1a73e8;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.3s;
+          }
+          .stripe-link:hover {
+            background: #1a73e8;
+            color: white;
+            transform: translateY(-2px);
+          }
         </style>
       </head>
       <body>
@@ -1333,6 +1357,11 @@ Ricky (Great White Security)`;
                 </option>
               `).join('')}
             </select>
+            <div>
+              <a href="${paymentLink}" target="_blank" class="stripe-link" id="stripeLink">
+                🔗 View on Stripe
+              </a>
+            </div>
 
             <label for="message">📝 Edit Message:</label>
             <textarea id="message" name="message">${defaultMessage}</textarea>
@@ -1366,6 +1395,7 @@ Ricky (Great White Security)`;
           const preview = document.getElementById('preview');
           const loading = document.getElementById('loading');
           const success = document.getElementById('success');
+          const stripeLink = document.getElementById('stripeLink');
           const clientName = '${clientName}';
 
           // Update preview when message changes
@@ -1379,16 +1409,25 @@ Ricky (Great White Security)`;
             const productName = selectedOption.dataset.name;
             const paymentLink = selectedOption.dataset.link;
 
-            const newMessage = \`Hi \${clientName}, thank you for your interest!
+            // Update Stripe link
+            stripeLink.href = paymentLink;
 
-Good news! I can have one of our technicians out this week.
+            const newMessage = \`Hi \${clientName}, thank you for sending these over!
 
-\${productName}
+Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
+
+The call-out is just \${productName}, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+
+If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
 To lock it in, please make payment here:
 \${paymentLink}
 
-Once payment's through, we'll reach out to schedule.
+Once payment's through, I'll have the technician reach out to schedule the visit.
+
+Alternatively, if you're thinking about replacing your current system with a more reliable, modern system that includes smartphone app arm/disarm and monitoring, we have packages starting at $97/month for 24 months (interest-free).
+
+https://www.greatwhitesecurity.com/alarm-packages/
 
 Thanks,
 
