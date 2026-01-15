@@ -2,23 +2,23 @@ const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
 
 /**
- * Tech Assignment Controllers - Assign techs to jobs
+ * Tech Assignment Controllers - Assign techs to leads
  */
 
 /**
- * Show tech assignment form
- * GET /assign-tech/:jobId
+ * Show tech assignment form with editable message
+ * GET /assign-tech/:leadId
  */
 exports.showAssignmentForm = async (req, res) => {
   try {
-    const { jobId } = req.params;
+    const { leadId } = req.params;
 
-    console.log(`👷 Opening tech assignment form for job: ${jobId}`);
+    console.log(`👷 Opening tech assignment form for lead: ${leadId}`);
 
-    // Get job details
-    const job = await airtableService.getJob(jobId);
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
 
-    if (!job) {
+    if (!lead) {
       return res.status(404).send(`
         <!DOCTYPE html>
         <html>
@@ -38,50 +38,50 @@ exports.showAssignmentForm = async (req, res) => {
         </head>
         <body>
           <h1 class="error">❌ Error</h1>
-          <p>Job not found</p>
+          <p>Lead not found</p>
         </body>
         </html>
       `);
     }
 
-    // Get lead details
-    const leadId = job.fields.Lead?.[0];
-    let leadDetails = { name: 'Unknown', phone: '', address: '' };
-
-    if (leadId) {
-      const lead = await airtableService.getLead(leadId);
-      if (lead) {
-        leadDetails = {
-          name: [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown',
-          phone: lead.fields.Phone || '',
-          address: lead.fields['Address/Location'] || '',
-        };
-      }
-    }
+    const clientName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
+    const clientPhone = lead.fields.Phone || '';
+    const clientAddress = lead.fields['Address/Location'] || '';
+    const scope = lead.fields.Notes || 'Service requested';
 
     // Get all techs
     const techs = await airtableService.getAllTechs();
 
-    // Build tech list HTML
+    // Build tech dropdown options
     const techOptions = techs.map(tech => {
-      const skills = tech.fields.Skills ? tech.fields.Skills.join(', ') : 'No skills listed';
+      const skills = tech.fields.Skills ? tech.fields.Skills.join(', ') : 'No skills';
       const availability = tech.fields['Availability Status'] || 'Unknown';
-      const availabilityColor = availability === 'Available' ? '#28a745' : availability === 'Busy' ? '#ffc107' : '#6c757d';
-
-      return `
-        <div class="tech-card" data-tech-id="${tech.id}">
-          <input type="radio" name="techId" value="${tech.id}" id="tech-${tech.id}" required>
-          <label for="tech-${tech.id}">
-            <div class="tech-info">
-              <div class="tech-name">${tech.fields.Name || 'Unknown'}</div>
-              <div class="tech-status" style="color: ${availabilityColor};">● ${availability}</div>
-            </div>
-            <div class="tech-skills">${skills}</div>
-            <div class="tech-phone">${tech.fields.Phone || 'No phone'}</div>
-          </label>
-        </div>
-      `;
+      return `<option value="${tech.id}">${tech.fields.Name || 'Unknown'} - ${availability} - ${skills}</option>`;
     }).join('');
+
+    // Default message template
+    const defaultMessage = `Hey [TECH_NAME], Ricky here from Great White Security.
+
+New job has been booked by the client:
+
+Client: ${clientName}
+Phone: ${clientPhone}
+Address: ${clientAddress}
+
+Scope:
+${scope}
+
+Please call ${clientName} within 24 hours and schedule a time to attend within the next week.
+
+Once scheduled, please update the booking here:
+${process.env.BASE_URL || 'https://book.greatwhitesecurity.com'}/schedule-job/${leadId}
+
+Before leaving site, I'll send you a link to upload photos and notes.
+
+Feel free to call if you have any questions.
+
+Cheers,
+Ricky`;
 
     res.send(`
       <!DOCTYPE html>
@@ -102,7 +102,7 @@ exports.showAssignmentForm = async (req, res) => {
             padding: 20px;
           }
           .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -118,86 +118,60 @@ exports.showAssignmentForm = async (req, res) => {
             color: #666;
             margin-bottom: 30px;
           }
-          .job-details {
+          .client-info {
             background: #f8f9fa;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 30px;
           }
-          .job-details h2 {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 15px;
-          }
-          .detail-row {
+          .info-row {
             display: flex;
             margin-bottom: 10px;
           }
-          .detail-label {
+          .info-label {
             font-weight: 600;
             color: #666;
-            width: 120px;
+            width: 100px;
           }
-          .detail-value {
+          .info-value {
             color: #333;
             flex: 1;
           }
-          .section-title {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 20px;
+          label {
+            display: block;
             font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
           }
-          .tech-card {
+          select {
+            width: 100%;
+            padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 25px;
+            font-family: inherit;
+          }
+          select:focus {
+            outline: none;
+            border-color: #667eea;
+          }
+          textarea {
+            width: 100%;
+            min-height: 400px;
             padding: 15px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            line-height: 1.6;
+            resize: vertical;
+            margin-bottom: 20px;
           }
-          .tech-card:hover {
+          textarea:focus {
+            outline: none;
             border-color: #667eea;
-            background: #f8f9ff;
-          }
-          .tech-card input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-          }
-          .tech-card input[type="radio"]:checked + label {
-            background: #f8f9ff;
-          }
-          .tech-card input[type="radio"]:checked ~ * {
-            border-color: #667eea;
-          }
-          .tech-card label {
-            cursor: pointer;
-            display: block;
-          }
-          .tech-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-          }
-          .tech-name {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-          }
-          .tech-status {
-            font-size: 14px;
-            font-weight: 600;
-          }
-          .tech-skills {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 5px;
-          }
-          .tech-phone {
-            color: #999;
-            font-size: 13px;
           }
           .btn {
             background: #667eea;
@@ -208,7 +182,6 @@ exports.showAssignmentForm = async (req, res) => {
             border-radius: 8px;
             cursor: pointer;
             width: 100%;
-            margin-top: 20px;
             font-weight: 600;
             transition: background 0.2s;
           }
@@ -226,57 +199,104 @@ exports.showAssignmentForm = async (req, res) => {
             font-weight: 600;
             margin-top: 20px;
           }
+          .preview-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+          }
+          .preview-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 15px;
+          }
+          .preview-message {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            white-space: pre-wrap;
+            font-family: inherit;
+            color: #333;
+            line-height: 1.6;
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>👷 Assign Tech to Job</h1>
-          <p class="subtitle">Select a technician to assign to this job</p>
+          <h1>👷 Assign Tech</h1>
+          <p class="subtitle">Select technician and review message before sending</p>
 
-          <div class="job-details">
-            <h2>📋 Job Details</h2>
-            <div class="detail-row">
-              <div class="detail-label">Client:</div>
-              <div class="detail-value">${leadDetails.name}</div>
+          <div class="client-info">
+            <div class="info-row">
+              <div class="info-label">Client:</div>
+              <div class="info-value">${clientName}</div>
             </div>
-            <div class="detail-row">
-              <div class="detail-label">Phone:</div>
-              <div class="detail-value">${leadDetails.phone}</div>
+            <div class="info-row">
+              <div class="info-label">Phone:</div>
+              <div class="info-value">${clientPhone}</div>
             </div>
-            <div class="detail-row">
-              <div class="detail-label">Address:</div>
-              <div class="detail-value">${leadDetails.address}</div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Scope:</div>
-              <div class="detail-value">${job.fields['Scope of Work'] || 'Not specified'}</div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Price:</div>
-              <div class="detail-value">$${job.fields['Quoted Price'] || '0'}</div>
+            <div class="info-row">
+              <div class="info-label">Address:</div>
+              <div class="info-value">${clientAddress}</div>
             </div>
           </div>
 
-          <div class="section-title">👥 Select Technician</div>
-
           <form id="assignmentForm">
-            <input type="hidden" name="jobId" value="${jobId}">
+            <input type="hidden" name="leadId" value="${leadId}">
 
-            ${techOptions}
+            <label for="techId">📱 Select Technician:</label>
+            <select name="techId" id="techId" required>
+              <option value="">-- Select a tech --</option>
+              ${techOptions}
+            </select>
 
-            <button type="submit" class="btn">Assign Tech & Send SMS</button>
+            <label for="message">📝 Edit Message:</label>
+            <textarea name="message" id="message" required>${defaultMessage}</textarea>
+
+            <div class="preview-section">
+              <div class="preview-title">👁️ Preview (what tech will receive):</div>
+              <div class="preview-message" id="preview"></div>
+            </div>
+
+            <button type="submit" class="btn">Send SMS to Tech</button>
             <div class="loading" id="loading">Sending...</div>
           </form>
         </div>
 
         <script>
+          const techSelect = document.getElementById('techId');
+          const messageTextarea = document.getElementById('message');
+          const previewDiv = document.getElementById('preview');
+
+          // Store tech data
+          const techData = ${JSON.stringify(techs.map(t => ({ id: t.id, name: t.fields.Name || 'Unknown' })))};
+
+          function updatePreview() {
+            const selectedTechId = techSelect.value;
+            const selectedTech = techData.find(t => t.id === selectedTechId);
+            const techName = selectedTech ? selectedTech.name : '[TECH_NAME]';
+
+            let message = messageTextarea.value;
+            message = message.replace(/\\[TECH_NAME\\]/g, techName);
+
+            previewDiv.textContent = message;
+          }
+
+          techSelect.addEventListener('change', updatePreview);
+          messageTextarea.addEventListener('input', updatePreview);
+
+          // Initial preview
+          updatePreview();
+
           document.getElementById('assignmentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const formData = new FormData(e.target);
             const data = {
-              jobId: formData.get('jobId'),
+              leadId: formData.get('leadId'),
               techId: formData.get('techId'),
+              message: formData.get('message'),
             };
 
             // Disable button and show loading
@@ -298,7 +318,7 @@ exports.showAssignmentForm = async (req, res) => {
                   <div style="text-align: center; padding: 40px 0;">
                     <div style="font-size: 72px; margin-bottom: 20px;">✅</div>
                     <h1 style="color: #28a745; margin-bottom: 20px;">Tech Assigned!</h1>
-                    <p style="color: #666; font-size: 18px;">SMS sent to technician with job details.</p>
+                    <p style="color: #666; font-size: 18px;">SMS sent to technician.</p>
                     <p style="color: #999; margin-top: 20px;">You can close this window.</p>
                   </div>
                 \`;
@@ -313,14 +333,6 @@ exports.showAssignmentForm = async (req, res) => {
               document.getElementById('loading').style.display = 'none';
             }
           });
-
-          // Make entire card clickable
-          document.querySelectorAll('.tech-card').forEach(card => {
-            card.addEventListener('click', () => {
-              const radio = card.querySelector('input[type="radio"]');
-              radio.checked = true;
-            });
-          });
         </script>
       </body>
       </html>
@@ -332,85 +344,55 @@ exports.showAssignmentForm = async (req, res) => {
 };
 
 /**
- * Assign tech to job and send SMS
+ * Assign tech to lead and send SMS
  * POST /api/assign-tech
  */
 exports.assignTech = async (req, res) => {
   try {
-    const { jobId, techId } = req.body;
+    const { leadId, techId, message } = req.body;
 
-    if (!jobId || !techId) {
+    if (!leadId || !techId || !message) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`👷 Assigning tech ${techId} to job ${jobId}`);
+    console.log(`👷 Assigning tech ${techId} to lead ${leadId}`);
 
-    // Get job and tech details
-    const job = await airtableService.getJob(jobId);
+    // Get lead and tech details
+    const lead = await airtableService.getLead(leadId);
     const tech = await airtableService.getTech(techId);
 
-    if (!job || !tech) {
-      return res.status(404).json({ error: 'Job or tech not found' });
+    if (!lead || !tech) {
+      return res.status(404).json({ error: 'Lead or tech not found' });
     }
 
-    // Get lead details
-    const leadId = job.fields.Lead?.[0];
-    let clientName = 'Client';
-    let clientPhone = '';
-    let clientAddress = '';
+    // Replace [TECH_NAME] placeholder in message
+    const finalMessage = message.replace(/\[TECH_NAME\]/g, tech.fields.Name || 'there');
 
-    if (leadId) {
-      const lead = await airtableService.getLead(leadId);
-      if (lead) {
-        clientName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
-        clientPhone = lead.fields.Phone || '';
-        clientAddress = lead.fields['Address/Location'] || '';
-      }
-    }
-
-    // Update job with assigned tech
-    await airtableService.updateJob(jobId, {
-      'Assigned Tech': [techId],
+    // Update lead with assigned tech and status
+    await airtableService.updateLead(leadId, {
+      'Assigned Tech Name': [techId],
       Status: 'Tech Assigned 👷',
     });
 
-    console.log(`✓ Job updated with assigned tech`);
+    console.log(`✓ Lead updated with assigned tech`);
 
     // Send SMS to tech
-    const jobScope = job.fields['Scope of Work'] || 'Service call';
-    const jobPrice = job.fields['Quoted Price'] || '0';
-
-    const message = `Hi ${tech.fields.Name}, Ricky here from Great White Security.
-
-New job assigned to you:
-
-Client: ${clientName}
-Phone: ${clientPhone}
-Address: ${clientAddress}
-
-Job: ${jobScope}
-Payment: $${jobPrice} (already paid)
-
-Client is expecting you to reach out to schedule the visit.
-
-Thanks!`;
-
     await twilioService.sendSMS(
       tech.fields.Phone,
-      message,
-      { jobId, techId, type: 'job_assignment' }
+      finalMessage,
+      { leadId, techId, type: 'tech_assignment' }
     );
 
     console.log(`✓ SMS sent to tech: ${tech.fields.Name}`);
 
     // Log message
     await airtableService.logMessage({
-      jobId: jobId,
+      leadId: leadId,
       direction: 'Outbound',
       type: 'SMS',
       to: tech.fields.Phone,
       from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
+      content: finalMessage,
       status: 'Sent',
     });
 

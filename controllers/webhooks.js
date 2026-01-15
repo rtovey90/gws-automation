@@ -137,7 +137,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       console.log(`PaymentIntent metadata - lead_id: ${leadId}, job_id: ${jobId}`);
     }
 
-    // New workflow: Payment for a Lead → Create Job
+    // New workflow: Payment for a Lead → Update Lead status (no Job creation)
     if (leadId) {
       console.log(`✓ Payment received for lead: ${leadId}`);
 
@@ -152,27 +152,11 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
       console.log(`✓ Found lead: ${leadName}`);
 
-      // Create a job from the lead
-      const jobData = {
-        leadId: leadId,
-        clientAddress: lead.fields['Address/Location'] || '',
-        status: 'Payment Received', // Start at Payment Received since they already paid
-        scope: lead.fields.Notes || 'Service requested',
-        quotedPrice: lead.fields['Service Call Amount'] || lead.fields['Project Value'] || 0,
-        stripeLink: '', // Already paid
-        autoSendPricing: false, // Already paid
-      };
-
-      const job = await airtableService.createJob(jobData);
-      console.log(`✓ Job created from lead: ${job.id}`);
-
-      // Update lead status to Payment Received
+      // Update lead status to Payment Received (no Job creation - keeping everything in Leads table)
       await airtableService.updateLead(leadId, {
         Status: 'Payment Received ✅'
       });
       console.log(`✓ Lead status updated to Payment Received (Payment ID: ${paymentId})`);
-
-      // Note: SMS notification removed per user request
 
       return;
     }
