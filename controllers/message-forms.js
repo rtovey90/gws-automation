@@ -1557,21 +1557,48 @@ exports.sendPricingForm = async (req, res) => {
       return res.status(400).json({ error: 'Lead has no phone number' });
     }
 
-    // Send SMS via Twilio
+    // Get product from Airtable
+    const product = await airtableService.getProduct(productId);
+    if (!product || !product.fields['Stripe Product ID']) {
+      return res.status(400).json({ error: 'Invalid product' });
+    }
+
+    // Create unique checkout session with metadata
+    const stripeService = require('../services/stripe.service');
+    const price = await stripeService.getPriceForProduct(product.fields['Stripe Product ID']);
+
+    const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
+
+    const session = await stripeService.createCheckoutSession({
+      leadId: leadId,
+      productId: productId,
+      priceId: price.id,
+      leadName: leadName,
+      leadPhone: lead.fields.Phone || '',
+      successUrl: `${process.env.BASE_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${leadId}`,
+    });
+
+    console.log(`✓ Checkout session created: ${session.id}`);
+
+    // Replace payment link placeholder with actual checkout URL
+    const finalMessage = message.replace(/https:\/\/buy\.stripe\.com\/[^\s]+/g, session.url);
+
+    // Send SMS via Twilio with unique checkout URL
     await twilioService.sendSMS(
       lead.fields.Phone,
-      message,
-      { leadId, type: 'pricing' }
+      finalMessage,
+      { leadId, type: 'pricing', checkoutSessionId: session.id }
     );
 
-    // Log message
+    // Log message with actual checkout URL
     await airtableService.logMessage({
       leadId: leadId,
       direction: 'Outbound',
       type: 'SMS',
       to: lead.fields.Phone,
       from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
+      content: finalMessage,
       status: 'Sent',
     });
 
