@@ -454,4 +454,543 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+/**
+ * Show tech availability form with tech selection
+ * GET /send-tech-availability-form/:leadId
+ */
+exports.showTechAvailabilityForm = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+
+    console.log(`📋 Opening tech availability form for lead: ${leadId}`);
+
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
+
+    if (!lead) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body>
+          <h1>❌ Lead not found</h1>
+        </body>
+        </html>
+      `);
+    }
+
+    // Get all available techs
+    const techs = await airtableService.getAvailableTechs();
+
+    if (techs.length === 0) {
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>No Available Techs</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .warning { color: #ff9800; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="warning">⚠️ No Available Techs</h1>
+          <p>There are no techs marked as "Available" in the Techs table.</p>
+          <p>Please update tech availability status in Airtable first.</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Get job description from lead
+    const jobDescription = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+
+    // Build default message (will be editable)
+    const techName = '{{TECH_NAME}}';
+    const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
+
+Location: ${lead.fields['Address/Location'] || 'TBD'}
+Service: ${lead.fields['Lead Type'] || 'Security work'}
+
+Scope:
+${jobDescription.length > 200 ? jobDescription.substring(0, 200) + '...' : jobDescription}
+
+Please make your selection:
+
+👍 YES: {{YES_LINK}}
+
+👎 NO: {{NO_LINK}}
+
+Or just reply YES or NO to this message`;
+
+    // Build tech list HTML
+    const techListHTML = techs.map(tech => {
+      const displayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
+      const phone = tech.fields.Phone || 'No phone';
+      return `
+        <div class="tech-item">
+          <input type="checkbox" id="tech-${tech.id}" name="techs" value="${tech.id}" checked data-name="${displayName}" data-phone="${phone}">
+          <label for="tech-${tech.id}">
+            <strong>${displayName}</strong>
+            <span class="tech-phone">${phone}</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Check Tech Availability - ${lead.fields['First Name']}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: #4CAF50;
+            color: white;
+            padding: 25px;
+            text-align: center;
+          }
+          .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+          }
+          .header .subtitle {
+            opacity: 0.9;
+            font-size: 16px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .section {
+            margin-bottom: 30px;
+          }
+          .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .lead-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+          }
+          .lead-info p {
+            margin: 5px 0;
+            color: #555;
+          }
+          .lead-info strong {
+            color: #333;
+          }
+          .tech-selection {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #fafafa;
+          }
+          .tech-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s;
+          }
+          .tech-item:hover {
+            border-color: #4CAF50;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.1);
+          }
+          .tech-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+          }
+          .tech-item label {
+            flex: 1;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .tech-phone {
+            color: #666;
+            font-size: 14px;
+          }
+          .select-all {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .select-all input {
+            width: 18px;
+            height: 18px;
+          }
+          .selected-count {
+            background: #4CAF50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+          }
+          label.message-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 15px;
+          }
+          textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s;
+          }
+          textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+          }
+          .help-text {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 6px;
+            border-left: 3px solid #ffc107;
+          }
+          .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+          }
+          button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .btn-send {
+            background: #4CAF50;
+            color: white;
+          }
+          .btn-send:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+          }
+          .btn-send:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+          }
+          .btn-cancel {
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #ddd;
+          }
+          .btn-cancel:hover {
+            background: #e9ecef;
+          }
+          .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+          }
+          .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📋 Check Tech Availability</h1>
+            <div class="subtitle">Select techs and customize message</div>
+          </div>
+
+          <div class="content">
+            <div class="lead-info">
+              <p><strong>Lead:</strong> ${lead.fields['First Name'] || 'Unknown'}</p>
+              <p><strong>Location:</strong> ${lead.fields['Address/Location'] || 'N/A'}</p>
+              <p><strong>Service:</strong> ${lead.fields['Lead Type'] || 'N/A'}</p>
+            </div>
+
+            <form id="techForm">
+              <!-- Tech Selection -->
+              <div class="section">
+                <div class="section-title">
+                  🔧 Select Techs
+                  <span class="selected-count" id="selectedCount">${techs.length} selected</span>
+                </div>
+
+                <div class="tech-selection">
+                  <div class="select-all">
+                    <input type="checkbox" id="selectAll" checked>
+                    <label for="selectAll"><strong>Select/Deselect All</strong></label>
+                  </div>
+
+                  ${techListHTML}
+                </div>
+              </div>
+
+              <!-- Message Template -->
+              <div class="section">
+                <label class="message-label" for="message">📝 Message Template (edit as needed):</label>
+                <textarea id="message" name="message" required>${defaultMessage}</textarea>
+                <div class="help-text">
+                  💡 Use {{TECH_NAME}}, {{YES_LINK}}, and {{NO_LINK}} - they'll be replaced for each tech
+                </div>
+              </div>
+
+              <div class="buttons">
+                <button type="button" class="btn-cancel" onclick="window.close()">
+                  Cancel
+                </button>
+                <button type="submit" class="btn-send" id="sendBtn">
+                  📤 Send to <span id="sendCount">${techs.length}</span> Tech(s)
+                </button>
+              </div>
+            </form>
+
+            <div class="loading" id="loading">
+              <div class="spinner"></div>
+              <p>Sending messages...</p>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          const checkboxes = document.querySelectorAll('input[name="techs"]');
+          const selectAll = document.getElementById('selectAll');
+          const selectedCount = document.getElementById('selectedCount');
+          const sendCount = document.getElementById('sendCount');
+          const form = document.getElementById('techForm');
+          const sendBtn = document.getElementById('sendBtn');
+          const loading = document.getElementById('loading');
+
+          // Update counts
+          function updateCounts() {
+            const checked = document.querySelectorAll('input[name="techs"]:checked').length;
+            selectedCount.textContent = checked + ' selected';
+            sendCount.textContent = checked;
+            sendBtn.disabled = checked === 0;
+          }
+
+          // Select all toggle
+          selectAll.addEventListener('change', () => {
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            updateCounts();
+          });
+
+          // Individual checkbox
+          checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+              selectAll.checked = document.querySelectorAll('input[name="techs"]:checked').length === checkboxes.length;
+              updateCounts();
+            });
+          });
+
+          // Handle form submission
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const message = document.getElementById('message').value;
+            const selectedTechs = Array.from(document.querySelectorAll('input[name="techs"]:checked'))
+              .map(cb => ({
+                id: cb.value,
+                name: cb.dataset.name,
+                phone: cb.dataset.phone
+              }));
+
+            if (selectedTechs.length === 0) {
+              alert('Please select at least one tech');
+              return;
+            }
+
+            if (!confirm(\`Send availability check to \${selectedTechs.length} tech(s)?\`)) {
+              return;
+            }
+
+            // Disable button and show loading
+            sendBtn.disabled = true;
+            form.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+              const response = await fetch('/api/send-tech-availability', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  leadId: '${leadId}',
+                  selectedTechs: selectedTechs,
+                  messageTemplate: message
+                }),
+              });
+
+              const result = await response.json();
+
+              if (response.ok) {
+                // Success!
+                document.querySelector('.container').innerHTML = \`
+                  <div class="header" style="background: #4CAF50;">
+                    <h1>✅ Messages Sent!</h1>
+                  </div>
+                  <div class="content" style="text-align: center; padding: 50px;">
+                    <p style="font-size: 18px; margin-bottom: 20px;">
+                      Availability check sent to \${result.techsContacted} tech(s)
+                    </p>
+                    <button onclick="window.close()" class="btn-send">Close Window</button>
+                  </div>
+                \`;
+              } else {
+                throw new Error(result.error || 'Failed to send messages');
+              }
+            } catch (error) {
+              alert('Error sending messages: ' + error.message);
+              sendBtn.disabled = false;
+              form.style.display = 'block';
+              loading.style.display = 'none';
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error showing tech availability form:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Error</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body>
+        <h1>❌ Error</h1>
+        <p>${error.message}</p>
+      </body>
+      </html>
+    `);
+  }
+};
+
+/**
+ * Send tech availability messages to selected techs
+ * POST /api/send-tech-availability
+ */
+exports.sendTechAvailability = async (req, res) => {
+  try {
+    const { leadId, selectedTechs, messageTemplate } = req.body;
+
+    console.log(`📤 Sending tech availability to ${selectedTechs.length} techs for lead: ${leadId}`);
+
+    const results = [];
+
+    // Send to each selected tech
+    for (const tech of selectedTechs) {
+      try {
+        const yesLink = `${process.env.BASE_URL}/tech-availability/${leadId}/${tech.id}/yes`;
+        const noLink = `${process.env.BASE_URL}/tech-availability/${leadId}/${tech.id}/no`;
+
+        // Replace variables in template
+        const message = messageTemplate
+          .replace(/{{TECH_NAME}}/g, tech.name.split(' ')[0]) // Use first name only
+          .replace(/{{YES_LINK}}/g, yesLink)
+          .replace(/{{NO_LINK}}/g, noLink);
+
+        await twilioService.sendSMS(
+          tech.phone,
+          message,
+          { leadId, techId: tech.id, type: 'availability_check' }
+        );
+
+        results.push({ techId: tech.id, tech: tech.name, status: 'sent' });
+        console.log(`  ✓ Sent to ${tech.name}`);
+      } catch (error) {
+        console.error(`  ✗ Failed to send to tech ${tech.id}:`, error.message);
+        results.push({ techId: tech.id, status: 'failed', error: error.message });
+      }
+    }
+
+    // Update lead to mark availability requested
+    await airtableService.updateLead(leadId, {
+      'Tech Availability Requested': true,
+      'Tech Availability Responses': `Availability check sent to ${selectedTechs.length} techs at ${new Date().toISOString()}`
+    });
+
+    res.status(200).json({
+      success: true,
+      leadId,
+      techsContacted: selectedTechs.length,
+      results,
+    });
+  } catch (error) {
+    console.error('Error sending tech availability:', error);
+    res.status(500).json({ error: 'Failed to send messages' });
+  }
+};
+
 module.exports = exports;

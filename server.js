@@ -143,6 +143,10 @@ app.post('/api/send-pricing', communicationsController.sendPricing);
 app.get('/send-message-form/:leadId/:messageType', messageFormsController.showMessageForm);
 app.post('/api/send-message-form', messageFormsController.sendMessage);
 
+// Tech availability form routes
+app.get('/send-tech-availability-form/:leadId', messageFormsController.showTechAvailabilityForm);
+app.post('/api/send-tech-availability', messageFormsController.sendTechAvailability);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
