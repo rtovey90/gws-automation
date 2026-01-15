@@ -165,12 +165,11 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       const job = await airtableService.createJob(jobData);
       console.log(`✓ Job created from lead: ${job.id}`);
 
-      // Update lead status to Payment Received and add Stripe payment ID
+      // Update lead status to Payment Received
       await airtableService.updateLead(leadId, {
-        Status: 'Payment Received',
-        Notes: `${lead.fields.Notes || ''}\n\n[Payment Received: ${paymentId}]`.trim()
+        Status: 'Payment Received'
       });
-      console.log(`✓ Lead status updated to Payment Received`);
+      console.log(`✓ Lead status updated to Payment Received (Payment ID: ${paymentId})`);
 
       // Send notification to admin
       try {
