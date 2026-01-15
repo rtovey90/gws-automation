@@ -1062,4 +1062,436 @@ exports.sendTechAvailability = async (req, res) => {
   }
 };
 
+/**
+ * Show pricing message form with selected product
+ * GET /send-pricing-form/:leadId
+ */
+exports.showPricingForm = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+
+    console.log(`💵 Opening pricing form for lead: ${leadId}`);
+
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
+
+    if (!lead) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>Lead not found</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Check if product is selected
+    if (!lead.fields['Selected Product'] || lead.fields['Selected Product'].length === 0) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>Please select a product first</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Get product details
+    const productId = lead.fields['Selected Product'][0];
+    const product = await airtableService.getProduct(productId);
+
+    if (!product) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>Product not found</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Build default pricing message
+    const clientName = lead.fields['First Name'] || 'there';
+    const productName = product.fields['Product Name'];
+    const paymentLink = product.fields['Stripe Payment Link'];
+
+    const defaultMessage = `Hi ${clientName}, thank you for your interest!
+
+Good news! I can have one of our technicians out this week.
+
+${productName}
+
+To lock it in, please make payment here:
+${paymentLink}
+
+Once payment's through, we'll reach out to schedule.
+
+Thanks,
+
+Ricky (Great White Security)`;
+
+    // Show form
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Send Pricing - ${lead.fields.Name}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          }
+          h1 {
+            color: #1a73e8;
+            font-size: 28px;
+            margin-bottom: 10px;
+          }
+          .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+          }
+          .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #1a73e8;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+          }
+          .info-box strong {
+            color: #1a73e8;
+          }
+          label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+          }
+          textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 300px;
+            transition: border-color 0.3s;
+          }
+          textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+          }
+          .preview-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+          }
+          .preview-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+          }
+          .preview-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            white-space: pre-wrap;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+          }
+          .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+          }
+          .btn-primary {
+            background: #1a73e8;
+            color: white;
+          }
+          .btn-primary:hover {
+            background: #1557b0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.4);
+          }
+          .btn-primary:active {
+            transform: translateY(0);
+          }
+          .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+          }
+          .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1a73e8;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .success {
+            display: none;
+            text-align: center;
+            padding: 40px;
+          }
+          .success-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>💵 Send Pricing to Client</h1>
+          <p class="subtitle">Review and edit the pricing message before sending</p>
+
+          <div class="info-box">
+            <strong>Client:</strong> ${lead.fields.Name}<br>
+            <strong>Phone:</strong> ${lead.fields.Phone}<br>
+            <strong>Product:</strong> ${productName}
+          </div>
+
+          <form id="pricingForm">
+            <label for="message">📝 Edit Message:</label>
+            <textarea id="message" name="message">${defaultMessage}</textarea>
+
+            <div class="preview-section">
+              <h3>👁️ Preview (what ${clientName} will receive):</h3>
+              <div class="preview-content" id="preview"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+              📤 Send Pricing to ${clientName}
+            </button>
+          </form>
+
+          <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Sending message...</p>
+          </div>
+
+          <div class="success" id="success">
+            <div class="success-icon">✅</div>
+            <h2>Pricing Sent Successfully!</h2>
+            <p style="margin-top: 15px; color: #666;">The pricing message has been sent to ${clientName}</p>
+          </div>
+        </div>
+
+        <script>
+          const form = document.getElementById('pricingForm');
+          const messageTextarea = document.getElementById('message');
+          const preview = document.getElementById('preview');
+          const loading = document.getElementById('loading');
+          const success = document.getElementById('success');
+
+          // Update preview when message changes
+          function updatePreview() {
+            preview.textContent = messageTextarea.value;
+          }
+
+          messageTextarea.addEventListener('input', updatePreview);
+          updatePreview(); // Initial preview
+
+          // Handle form submission
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const message = messageTextarea.value.trim();
+
+            if (!message) {
+              alert('Please enter a message');
+              return;
+            }
+
+            if (!confirm('Send this pricing message to ${clientName}?')) {
+              return;
+            }
+
+            // Show loading
+            form.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+              const response = await fetch('/api/send-pricing-form', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  leadId: '${leadId}',
+                  message: message,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to send message');
+              }
+
+              // Show success
+              loading.style.display = 'none';
+              success.style.display = 'block';
+
+              // Close window after 3 seconds
+              setTimeout(() => {
+                window.close();
+              }, 3000);
+            } catch (error) {
+              loading.style.display = 'none';
+              form.style.display = 'block';
+              alert('Failed to send message. Please try again.');
+              console.error(error);
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error showing pricing form:', error);
+    res.status(500).send('Error loading form');
+  }
+};
+
+/**
+ * Send pricing message (from form submission)
+ * POST /api/send-pricing-form
+ */
+exports.sendPricingForm = async (req, res) => {
+  try {
+    const { leadId, message } = req.body;
+
+    if (!leadId || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(`💵 Sending pricing message for lead: ${leadId}`);
+
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    // Verify phone number exists
+    if (!lead.fields.Phone) {
+      return res.status(400).json({ error: 'Lead has no phone number' });
+    }
+
+    // Send SMS via Twilio
+    await twilioService.sendSMS(
+      lead.fields.Phone,
+      message,
+      { leadId, type: 'pricing' }
+    );
+
+    // Log message
+    await airtableService.logMessage({
+      leadId: leadId,
+      direction: 'Outbound',
+      type: 'SMS',
+      to: lead.fields.Phone,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      content: message,
+      status: 'Sent',
+    });
+
+    // Update lead status to Quoted
+    await airtableService.updateLead(leadId, {
+      Status: 'Quoted',
+    });
+
+    console.log(`✓ Pricing SMS sent to ${lead.fields.Name}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Pricing sent successfully',
+    });
+  } catch (error) {
+    console.error('Error sending pricing:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+};
+
 module.exports = exports;
