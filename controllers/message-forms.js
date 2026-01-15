@@ -1167,7 +1167,7 @@ Ricky (Great White Security)`;
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Send Pricing - ${lead.fields.Name}</title>
+        <title>Send Payment Link - ${lead.fields.Name}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           * {
@@ -1340,7 +1340,7 @@ Ricky (Great White Security)`;
       </head>
       <body>
         <div class="container">
-          <h1>💵 Send Pricing to Client</h1>
+          <h1>💳 Send Payment Link</h1>
           <p class="subtitle">Review and edit the pricing message before sending</p>
 
           <div class="info-box">
