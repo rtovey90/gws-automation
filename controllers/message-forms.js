@@ -1145,16 +1145,16 @@ exports.showPricingForm = async (req, res) => {
 
 Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
 
-The call-out is just $247 inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is just *$247 inc. GST*, covering the first hour on-site. We'll also have *tech support on standby* if needed to keep things running smoothly.
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
-To secure the booking, please make payment here:
+To secure the booking, *please make payment here:*
 ${paymentLink}
 
 Once payment's through, I'll have the technician reach out to schedule the visit.
 
-Alternatively, if you're thinking about replacing your current system with a more reliable, modern system that includes smartphone app arm/disarm and monitoring, we have packages starting at $97/month for 24 months (interest-free).
+Alternatively, if you're thinking about replacing your current system with a more *reliable, modern system* that includes *smartphone app arm/disarm and monitoring*, we have packages starting at $97/month for 24 months (interest-free).
 
 https://www.greatwhitesecurity.com/alarm-packages/
 
@@ -1415,16 +1415,16 @@ Ricky (Great White Security)`;
 
 Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
 
-The call-out is just $247 inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is just *$247 inc. GST*, covering the first hour on-site. We'll also have *tech support on standby* if needed to keep things running smoothly.
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
-To secure the booking, please make payment here:
+To secure the booking, *please make payment here:*
 \${paymentLink}
 
 Once payment's through, I'll have the technician reach out to schedule the visit.
 
-Alternatively, if you're thinking about replacing your current system with a more reliable, modern system that includes smartphone app arm/disarm and monitoring, we have packages starting at $97/month for 24 months (interest-free).
+Alternatively, if you're thinking about replacing your current system with a more *reliable, modern system* that includes *smartphone app arm/disarm and monitoring*, we have packages starting at $97/month for 24 months (interest-free).
 
 https://www.greatwhitesecurity.com/alarm-packages/
 
