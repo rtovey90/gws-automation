@@ -152,10 +152,16 @@ exports.handleAvailabilityResponse = async (req, res) => {
     };
 
     // If YES, add to Available Techs (only if not already there)
+    // If NO, remove from Available Techs (if they're there)
+    const existingTechs = lead.fields['Available Techs'] || [];
+
     if (response.toLowerCase() === 'yes') {
-      const existingTechs = lead.fields['Available Techs'] || [];
       if (!existingTechs.includes(techId)) {
         updates['Available Techs'] = [...existingTechs, techId];
+      }
+    } else if (response.toLowerCase() === 'no') {
+      if (existingTechs.includes(techId)) {
+        updates['Available Techs'] = existingTechs.filter(id => id !== techId);
       }
     }
 
