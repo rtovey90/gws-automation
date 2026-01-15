@@ -149,7 +149,8 @@ async function handlePaymentSuccess(paymentObject, eventType) {
         return;
       }
 
-      console.log(`✓ Found lead: ${lead.fields.Name}`);
+      const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
+      console.log(`✓ Found lead: ${leadName}`);
 
       // Create a job from the lead
       const jobData = {
@@ -171,18 +172,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       });
       console.log(`✓ Lead status updated to Payment Received (Payment ID: ${paymentId})`);
 
-      // Send notification to admin
-      try {
-        // Get amount - sessions use amount_total, payment intents use amount
-        const amount = eventType === 'session' ? paymentObject.amount_total : paymentObject.amount;
-        await twilioService.sendSMS(
-          process.env.ADMIN_PHONE,
-          `💰 PAYMENT RECEIVED!\n\nClient: ${lead.fields.Name}\nAmount: $${(amount / 100).toFixed(2)}\n\nJob created in Airtable - ready to assign tech!`,
-          { jobId: job.id, leadId: leadId }
-        );
-      } catch (smsError) {
-        console.error('Error sending notification SMS:', smsError);
-      }
+      // Note: SMS notification removed per user request
 
       return;
     }
