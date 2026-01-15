@@ -12,6 +12,7 @@ const uploadsController = require('./controllers/uploads');
 const leadsController = require('./controllers/leads');
 const productsController = require('./controllers/products');
 const messageFormsController = require('./controllers/message-forms');
+const shortLinkController = require('./controllers/shortlink.controller');
 
 const app = express();
 
@@ -151,6 +152,10 @@ app.post('/api/send-tech-availability', messageFormsController.sendTechAvailabil
 app.get('/send-pricing-form/:leadId', messageFormsController.showPricingForm);
 app.post('/api/send-pricing-form', messageFormsController.sendPricingForm);
 app.post('/api/create-checkout-session', messageFormsController.createCheckoutSession);
+
+// Short link routes
+app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
+app.get('/:code', shortLinkController.redirect); // Must be last - catch-all redirect
 
 // Error handling middleware
 app.use((err, req, res, next) => {

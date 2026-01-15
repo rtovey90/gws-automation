@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const shortLinkService = require('../services/shortlink.service');
 
 /**
  * Message Form Controllers - Show editable message forms before sending
@@ -1581,14 +1582,18 @@ exports.sendPricingForm = async (req, res) => {
 
     console.log(`✓ Checkout session created: ${session.id}`);
 
-    // Replace payment link placeholder with actual checkout URL
-    const finalMessage = message.replace(/https:\/\/buy\.stripe\.com\/[^\s]+/g, session.url);
+    // Create short link for the checkout URL
+    const shortCode = shortLinkService.createShortLink(session.url, leadId);
+    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
-    // Send SMS via Twilio with unique checkout URL
+    // Replace payment link placeholder with short URL
+    const finalMessage = message.replace(/https:\/\/buy\.stripe\.com\/[^\s]+/g, shortUrl);
+
+    // Send SMS via Twilio with short URL
     await twilioService.sendSMS(
       lead.fields.Phone,
       finalMessage,
-      { leadId, type: 'pricing', checkoutSessionId: session.id }
+      { leadId, type: 'pricing', checkoutSessionId: session.id, shortCode }
     );
 
     // Log message with actual checkout URL
@@ -1671,9 +1676,13 @@ exports.createCheckoutSession = async (req, res) => {
 
     console.log(`✓ Checkout session created: ${session.id}`);
 
+    // Create short link for the checkout URL
+    const shortCode = shortLinkService.createShortLink(session.url, leadId);
+    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+
     res.status(200).json({
       success: true,
-      checkoutUrl: session.url,
+      checkoutUrl: shortUrl,
     });
   } catch (error) {
     console.error('Error creating checkout session:', error);
