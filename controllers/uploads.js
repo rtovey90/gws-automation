@@ -241,7 +241,7 @@ exports.showUploadForm = async (req, res) => {
       <body>
         <div class="container">
           <h1>📸 Upload Photos</h1>
-          <p class="subtitle">Hi ${lead.fields['First Name']}, please upload photos of your alarm system</p>
+          <p class="subtitle">Hi ${lead.fields['First Name']}, to help us determine what's required and who to dispatch, could you please upload a few photos of your system. Please include serial numbers/part numbers if possible.</p>
 
           <div id="upload-section">
             <div class="upload-area" id="uploadArea">
