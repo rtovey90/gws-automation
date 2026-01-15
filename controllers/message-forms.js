@@ -1358,9 +1358,9 @@ Ricky (Great White Security)`;
               `).join('')}
             </select>
             <div>
-              <a href="${paymentLink}" target="_blank" class="stripe-link" id="stripeLink">
-                🔗 View Stripe Link
-              </a>
+              <button type="button" class="stripe-link" id="openCheckoutBtn">
+                💳 Open Payment Page
+              </button>
             </div>
 
             <label for="message">📝 Edit Message:</label>
@@ -1395,7 +1395,7 @@ Ricky (Great White Security)`;
           const preview = document.getElementById('preview');
           const loading = document.getElementById('loading');
           const success = document.getElementById('success');
-          const stripeLink = document.getElementById('stripeLink');
+          const openCheckoutBtn = document.getElementById('openCheckoutBtn');
           const clientName = '${clientName}';
 
           // Update preview when message changes
@@ -1403,13 +1403,43 @@ Ricky (Great White Security)`;
             preview.textContent = messageTextarea.value;
           }
 
+          // Open checkout page for selected product
+          async function openCheckout() {
+            const selectedProductId = productSelect.value;
+            openCheckoutBtn.disabled = true;
+            openCheckoutBtn.textContent = '⏳ Creating payment page...';
+
+            try {
+              const response = await fetch('/api/create-checkout-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  leadId: '${leadId}',
+                  productId: selectedProductId,
+                }),
+              });
+
+              if (!response.ok) throw new Error('Failed to create checkout session');
+
+              const data = await response.json();
+              window.open(data.checkoutUrl, '_blank');
+
+              openCheckoutBtn.disabled = false;
+              openCheckoutBtn.textContent = '💳 Open Payment Page';
+            } catch (error) {
+              console.error(error);
+              alert('Failed to open payment page. Please try again.');
+              openCheckoutBtn.disabled = false;
+              openCheckoutBtn.textContent = '💳 Open Payment Page';
+            }
+          }
+
+          openCheckoutBtn.addEventListener('click', openCheckout);
+
           // Update message when product changes
           function updateMessage() {
             const selectedOption = productSelect.options[productSelect.selectedIndex];
             const paymentLink = selectedOption.dataset.link;
-
-            // Update Stripe link
-            stripeLink.href = paymentLink;
 
             const newMessage = \`Hi \${clientName}, thank you for sending these over!
 
@@ -1561,6 +1591,66 @@ exports.sendPricingForm = async (req, res) => {
   } catch (error) {
     console.error('Error sending pricing:', error);
     res.status(500).json({ error: 'Failed to send message' });
+  }
+};
+
+/**
+ * Create Stripe Checkout Session with lead metadata
+ * POST /api/create-checkout-session
+ */
+exports.createCheckoutSession = async (req, res) => {
+  try {
+    const { leadId, productId } = req.body;
+
+    if (!leadId || !productId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(`💳 Creating checkout session for lead: ${leadId}, product: ${productId}`);
+
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    // Get product from Airtable (which has Stripe Product ID)
+    const product = await airtableService.getProduct(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const stripeProductId = product.fields['Stripe Product ID'];
+    if (!stripeProductId) {
+      return res.status(400).json({ error: 'Product missing Stripe Product ID' });
+    }
+
+    // Get price from Stripe
+    const stripeService = require('../services/stripe.service');
+    const price = await stripeService.getPriceForProduct(stripeProductId);
+
+    const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
+
+    // Create checkout session with metadata
+    const session = await stripeService.createCheckoutSession({
+      leadId: leadId,
+      productId: productId,
+      priceId: price.id,
+      leadName: leadName,
+      leadPhone: lead.fields.Phone || '',
+      successUrl: `${process.env.BASE_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${leadId}`,
+    });
+
+    console.log(`✓ Checkout session created: ${session.id}`);
+
+    res.status(200).json({
+      success: true,
+      checkoutUrl: session.url,
+    });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
   }
 };
 

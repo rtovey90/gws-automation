@@ -150,6 +150,7 @@ app.post('/api/send-tech-availability', messageFormsController.sendTechAvailabil
 // Pricing form routes
 app.get('/send-pricing-form/:leadId', messageFormsController.showPricingForm);
 app.post('/api/send-pricing-form', messageFormsController.sendPricingForm);
+app.post('/api/create-checkout-session', messageFormsController.createCheckoutSession);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

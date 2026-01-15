@@ -126,6 +126,59 @@ class StripeService {
       throw error;
     }
   }
+
+  /**
+   * Create a Checkout Session with metadata for lead tracking
+   */
+  async createCheckoutSession({ leadId, productId, priceId, leadName, leadPhone, successUrl, cancelUrl }) {
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          lead_id: leadId,
+          product_id: productId,
+          lead_name: leadName,
+          lead_phone: leadPhone,
+        },
+      });
+
+      return session;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get price ID for a product
+   */
+  async getPriceForProduct(productId) {
+    try {
+      const prices = await stripe.prices.list({
+        product: productId,
+        active: true,
+        limit: 1,
+      });
+
+      if (prices.data.length === 0) {
+        throw new Error(`No active price found for product ${productId}`);
+      }
+
+      return prices.data[0];
+    } catch (error) {
+      console.error('Error getting price for product:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new StripeService();
