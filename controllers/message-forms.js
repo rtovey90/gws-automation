@@ -1359,7 +1359,7 @@ Ricky (Great White Security)`;
             </select>
             <div>
               <a href="${paymentLink}" target="_blank" class="stripe-link" id="stripeLink">
-                💳 Send Payment Link
+                🔗 View Stripe Link
               </a>
             </div>
 
