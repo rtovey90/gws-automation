@@ -1145,7 +1145,7 @@ exports.showPricingForm = async (req, res) => {
 
 Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
 
-The call-out is just ${productName}, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is just $247 inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
@@ -1359,7 +1359,7 @@ Ricky (Great White Security)`;
             </select>
             <div>
               <a href="${paymentLink}" target="_blank" class="stripe-link" id="stripeLink">
-                🔗 View on Stripe
+                💳 Send Payment Link
               </a>
             </div>
 
@@ -1406,7 +1406,6 @@ Ricky (Great White Security)`;
           // Update message when product changes
           function updateMessage() {
             const selectedOption = productSelect.options[productSelect.selectedIndex];
-            const productName = selectedOption.dataset.name;
             const paymentLink = selectedOption.dataset.link;
 
             // Update Stripe link
@@ -1416,7 +1415,7 @@ Ricky (Great White Security)`;
 
 Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
 
-The call-out is just \${productName}, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is just $247 inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
