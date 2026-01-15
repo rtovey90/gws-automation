@@ -531,7 +531,9 @@ Please make your selection:
 
 👎 NO: {{NO_LINK}}
 
-Or just reply YES or NO to this message`;
+Thanks,
+
+Ricky (Great White Security)`;
 
     // Build tech list HTML
     const techListHTML = techs.map(tech => {
