@@ -1575,7 +1575,7 @@ exports.sendPricingForm = async (req, res) => {
       priceId: price.id,
       leadName: leadName,
       leadPhone: lead.fields.Phone || '',
-      successUrl: `${process.env.BASE_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      successUrl: `${process.env.BASE_URL}/payment-success.html`,
       cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${leadId}`,
     });
 
@@ -1665,7 +1665,7 @@ exports.createCheckoutSession = async (req, res) => {
       priceId: price.id,
       leadName: leadName,
       leadPhone: lead.fields.Phone || '',
-      successUrl: `${process.env.BASE_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      successUrl: `${process.env.BASE_URL}/payment-success.html`,
       cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${leadId}`,
     });
 

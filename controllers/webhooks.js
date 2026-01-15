@@ -93,8 +93,11 @@ exports.handleStripe = async (req, res) => {
     // Handle the event
     switch (event.type) {
       case 'payment_intent.succeeded':
+        await handlePaymentSuccess(event.data.object, 'payment_intent');
+        break;
+
       case 'checkout.session.completed':
-        await handlePaymentSuccess(event.data.object);
+        await handlePaymentSuccess(event.data.object, 'session');
         break;
 
       default:
@@ -110,11 +113,29 @@ exports.handleStripe = async (req, res) => {
 
 /**
  * Handle successful payment
+ * @param {Object} paymentObject - Either a PaymentIntent or Session object
+ * @param {String} eventType - Either 'payment_intent' or 'session'
  */
-async function handlePaymentSuccess(paymentObject) {
+async function handlePaymentSuccess(paymentObject, eventType) {
   try {
-    const leadId = paymentObject.metadata?.lead_id;
-    const jobId = paymentObject.metadata?.job_id;
+    console.log(`Processing ${eventType} payment...`);
+
+    // Extract metadata based on event type
+    let leadId, jobId, paymentId;
+
+    if (eventType === 'session') {
+      // For checkout sessions, metadata is directly on the object
+      leadId = paymentObject.metadata?.lead_id;
+      jobId = paymentObject.metadata?.job_id;
+      paymentId = paymentObject.payment_intent; // Session has payment_intent ID
+      console.log(`Session metadata - lead_id: ${leadId}, job_id: ${jobId}`);
+    } else {
+      // For payment intents, metadata is on the object (old workflow)
+      leadId = paymentObject.metadata?.lead_id;
+      jobId = paymentObject.metadata?.job_id;
+      paymentId = paymentObject.id;
+      console.log(`PaymentIntent metadata - lead_id: ${leadId}, job_id: ${jobId}`);
+    }
 
     // New workflow: Payment for a Lead → Create Job
     if (leadId) {
@@ -147,15 +168,17 @@ async function handlePaymentSuccess(paymentObject) {
       // Update lead status to Payment Received and add Stripe payment ID
       await airtableService.updateLead(leadId, {
         Status: 'Payment Received',
-        Notes: `${lead.fields.Notes || ''}\n\n[Payment Received: ${paymentObject.id}]`.trim()
+        Notes: `${lead.fields.Notes || ''}\n\n[Payment Received: ${paymentId}]`.trim()
       });
       console.log(`✓ Lead status updated to Payment Received`);
 
       // Send notification to admin
       try {
+        // Get amount - sessions use amount_total, payment intents use amount
+        const amount = eventType === 'session' ? paymentObject.amount_total : paymentObject.amount;
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
-          `💰 PAYMENT RECEIVED!\n\nClient: ${lead.fields.Name}\nAmount: $${(paymentObject.amount / 100).toFixed(2)}\n\nJob created in Airtable - ready to assign tech!`,
+          `💰 PAYMENT RECEIVED!\n\nClient: ${lead.fields.Name}\nAmount: $${(amount / 100).toFixed(2)}\n\nJob created in Airtable - ready to assign tech!`,
           { jobId: job.id, leadId: leadId }
         );
       } catch (smsError) {
@@ -170,7 +193,7 @@ async function handlePaymentSuccess(paymentObject) {
       console.log(`✓ Payment received for job: ${jobId}`);
 
       // Update job in Airtable
-      await airtableService.updateJobPayment(jobId, paymentObject.id);
+      await airtableService.updateJobPayment(jobId, paymentId);
 
       // Get job and tech details
       const job = await airtableService.getJob(jobId);
