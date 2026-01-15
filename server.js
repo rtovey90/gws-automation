@@ -155,7 +155,7 @@ app.post('/api/send-pricing-form', messageFormsController.sendPricingForm);
 app.post('/api/create-checkout-session', messageFormsController.createCheckoutSession);
 
 // Tech assignment routes
-app.get('/assign-tech/:jobId', techAssignmentController.showAssignmentForm);
+app.get('/assign-tech/:leadId', techAssignmentController.showAssignmentForm);
 app.post('/api/assign-tech', techAssignmentController.assignTech);
 
 // Short link routes
