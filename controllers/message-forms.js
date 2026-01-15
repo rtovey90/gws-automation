@@ -1101,8 +1101,10 @@ exports.showPricingForm = async (req, res) => {
       `);
     }
 
-    // Check if product is selected
-    if (!lead.fields['Selected Product'] || lead.fields['Selected Product'].length === 0) {
+    // Get all active products
+    const products = await airtableService.getActiveProducts();
+
+    if (!products || products.length === 0) {
       return res.status(400).send(`
         <!DOCTYPE html>
         <html>
@@ -1122,46 +1124,22 @@ exports.showPricingForm = async (req, res) => {
         </head>
         <body>
           <h1 class="error">❌ Error</h1>
-          <p>Please select a product first</p>
+          <p>No products available. Please sync Stripe products first.</p>
         </body>
         </html>
       `);
     }
 
-    // Get product details
-    const productId = lead.fields['Selected Product'][0];
-    const product = await airtableService.getProduct(productId);
+    // Get selected product if exists
+    const selectedProductId = lead.fields['Selected Product'] ? lead.fields['Selected Product'][0] : null;
+    const selectedProduct = selectedProductId ? products.find(p => p.id === selectedProductId) : products[0];
 
-    if (!product) {
-      return res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Error</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              max-width: 600px;
-              margin: 50px auto;
-              padding: 20px;
-              text-align: center;
-            }
-            .error { color: #dc3545; font-size: 24px; }
-          </style>
-        </head>
-        <body>
-          <h1 class="error">❌ Error</h1>
-          <p>Product not found</p>
-        </body>
-        </html>
-      `);
-    }
-
-    // Build default pricing message
+    // Build client name
     const clientName = lead.fields['First Name'] || 'there';
-    const productName = product.fields['Product Name'];
-    const paymentLink = product.fields['Stripe Payment Link'];
+    const leadFullName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
+
+    const productName = selectedProduct.fields['Product Name'];
+    const paymentLink = selectedProduct.fields['Stripe Payment Link'];
 
     const defaultMessage = `Hi ${clientName}, thank you for your interest!
 
@@ -1247,6 +1225,21 @@ Ricky (Great White Security)`;
             outline: none;
             border-color: #1a73e8;
           }
+          select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            margin-bottom: 20px;
+          }
+          select:focus {
+            outline: none;
+            border-color: #1a73e8;
+          }
           .preview-section {
             margin-top: 30px;
             padding: 20px;
@@ -1327,12 +1320,20 @@ Ricky (Great White Security)`;
           <p class="subtitle">Review and edit the pricing message before sending</p>
 
           <div class="info-box">
-            <strong>Client:</strong> ${lead.fields.Name}<br>
-            <strong>Phone:</strong> ${lead.fields.Phone}<br>
-            <strong>Product:</strong> ${productName}
+            <strong>Client:</strong> ${leadFullName}<br>
+            <strong>Phone:</strong> ${lead.fields.Phone}
           </div>
 
           <form id="pricingForm">
+            <label for="product">📦 Select Product:</label>
+            <select id="product" name="product">
+              ${products.map(p => `
+                <option value="${p.id}" data-name="${p.fields['Product Name']}" data-link="${p.fields['Stripe Payment Link']}" ${p.id === selectedProduct.id ? 'selected' : ''}>
+                  ${p.fields['Product Name']}
+                </option>
+              `).join('')}
+            </select>
+
             <label for="message">📝 Edit Message:</label>
             <textarea id="message" name="message">${defaultMessage}</textarea>
 
@@ -1360,16 +1361,44 @@ Ricky (Great White Security)`;
 
         <script>
           const form = document.getElementById('pricingForm');
+          const productSelect = document.getElementById('product');
           const messageTextarea = document.getElementById('message');
           const preview = document.getElementById('preview');
           const loading = document.getElementById('loading');
           const success = document.getElementById('success');
+          const clientName = '${clientName}';
 
           // Update preview when message changes
           function updatePreview() {
             preview.textContent = messageTextarea.value;
           }
 
+          // Update message when product changes
+          function updateMessage() {
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+            const productName = selectedOption.dataset.name;
+            const paymentLink = selectedOption.dataset.link;
+
+            const newMessage = \`Hi \${clientName}, thank you for your interest!
+
+Good news! I can have one of our technicians out this week.
+
+\${productName}
+
+To lock it in, please make payment here:
+\${paymentLink}
+
+Once payment's through, we'll reach out to schedule.
+
+Thanks,
+
+Ricky (Great White Security)\`;
+
+            messageTextarea.value = newMessage;
+            updatePreview();
+          }
+
+          productSelect.addEventListener('change', updateMessage);
           messageTextarea.addEventListener('input', updatePreview);
           updatePreview(); // Initial preview
 
@@ -1401,6 +1430,7 @@ Ricky (Great White Security)`;
                 body: JSON.stringify({
                   leadId: '${leadId}',
                   message: message,
+                  productId: productSelect.value,
                 }),
               });
 
@@ -1439,9 +1469,9 @@ Ricky (Great White Security)`;
  */
 exports.sendPricingForm = async (req, res) => {
   try {
-    const { leadId, message } = req.body;
+    const { leadId, message, productId } = req.body;
 
-    if (!leadId || !message) {
+    if (!leadId || !message || !productId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -1477,8 +1507,9 @@ exports.sendPricingForm = async (req, res) => {
       status: 'Sent',
     });
 
-    // Update lead status to Quoted
+    // Update lead with selected product and status
     await airtableService.updateLead(leadId, {
+      'Selected Product': [productId],
       Status: 'Quoted',
     });
 
