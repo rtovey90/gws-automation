@@ -1149,7 +1149,7 @@ The call-out is just $247 inc. GST, covering the first hour on-site. We'll also 
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
-To lock it in, please make payment here:
+To secure the booking, please make payment here:
 ${paymentLink}
 
 Once payment's through, I'll have the technician reach out to schedule the visit.
@@ -1419,7 +1419,7 @@ The call-out is just $247 inc. GST, covering the first hour on-site. We'll also 
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
-To lock it in, please make payment here:
+To secure the booking, please make payment here:
 \${paymentLink}
 
 Once payment's through, I'll have the technician reach out to schedule the visit.
