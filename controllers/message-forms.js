@@ -705,6 +705,28 @@ Or just reply YES or NO to this message`;
             border-radius: 6px;
             border-left: 3px solid #ffc107;
           }
+          .preview-box {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 200px;
+          }
+          .preview-content {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+          }
+          .preview-link {
+            color: #1a73e8;
+            text-decoration: underline;
+          }
           .buttons {
             display: flex;
             gap: 15px;
@@ -803,6 +825,14 @@ Or just reply YES or NO to this message`;
                 </div>
               </div>
 
+              <!-- Message Preview -->
+              <div class="section">
+                <div class="section-title">👁️ Preview (what Martin will receive):</div>
+                <div class="preview-box" id="previewBox">
+                  <div class="preview-content" id="previewContent"></div>
+                </div>
+              </div>
+
               <div class="buttons">
                 <button type="button" class="btn-cancel" onclick="window.close()">
                   Cancel
@@ -828,6 +858,31 @@ Or just reply YES or NO to this message`;
           const form = document.getElementById('techForm');
           const sendBtn = document.getElementById('sendBtn');
           const loading = document.getElementById('loading');
+          const messageTextarea = document.getElementById('message');
+          const previewContent = document.getElementById('previewContent');
+
+          // Update preview
+          function updatePreview() {
+            const firstChecked = document.querySelector('input[name="techs"]:checked');
+            if (!firstChecked) {
+              previewContent.innerHTML = '<em style="color: #999;">Select at least one tech to see preview</em>';
+              return;
+            }
+
+            const techName = firstChecked.dataset.name.split(' ')[0]; // First name only
+            const message = messageTextarea.value;
+
+            // Replace placeholders with example values
+            const yesLink = \`https://gws-automation-production.up.railway.app/tech-availability/${leadId}/\${firstChecked.value}/yes\`;
+            const noLink = \`https://gws-automation-production.up.railway.app/tech-availability/${leadId}/\${firstChecked.value}/no\`;
+
+            const preview = message
+              .replace(/{{TECH_NAME}}/g, techName)
+              .replace(/{{YES_LINK}}/g, '<span class="preview-link">' + yesLink + '</span>')
+              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>');
+
+            previewContent.innerHTML = preview;
+          }
 
           // Update counts
           function updateCounts() {
@@ -835,7 +890,14 @@ Or just reply YES or NO to this message`;
             selectedCount.textContent = checked + ' selected';
             sendCount.textContent = checked;
             sendBtn.disabled = checked === 0;
+            updatePreview();
           }
+
+          // Update preview when message changes
+          messageTextarea.addEventListener('input', updatePreview);
+
+          // Initial preview
+          updatePreview();
 
           // Select all toggle
           selectAll.addEventListener('change', () => {
