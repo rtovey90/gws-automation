@@ -11,6 +11,7 @@ const communicationsController = require('./controllers/communications');
 const uploadsController = require('./controllers/uploads');
 const leadsController = require('./controllers/leads');
 const productsController = require('./controllers/products');
+const messageFormsController = require('./controllers/message-forms');
 
 const app = express();
 
@@ -137,6 +138,10 @@ app.get('/api/sync-stripe-products', productsController.syncStripeProducts);
 // Pricing routes
 app.get('/api/send-pricing/:leadId', communicationsController.sendPricing); // GET version for Airtable buttons
 app.post('/api/send-pricing', communicationsController.sendPricing);
+
+// Message form routes
+app.get('/send-message-form/:leadId/:messageType', messageFormsController.showMessageForm);
+app.post('/api/send-message-form', messageFormsController.sendMessage);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
