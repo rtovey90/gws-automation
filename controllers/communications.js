@@ -84,7 +84,7 @@ Ricky`;
 
     // Update lead status
     await airtableService.updateLead(leadId, {
-      Status: 'Quoted',
+      Status: 'Quote Sent',
     });
 
     console.log(`✓ Pricing SMS sent to ${lead.fields['First Name']} for ${productName}`);
