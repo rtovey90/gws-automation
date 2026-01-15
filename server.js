@@ -13,6 +13,7 @@ const leadsController = require('./controllers/leads');
 const productsController = require('./controllers/products');
 const messageFormsController = require('./controllers/message-forms');
 const shortLinkController = require('./controllers/shortlink.controller');
+const techAssignmentController = require('./controllers/tech-assignment.controller');
 
 const app = express();
 
@@ -152,6 +153,10 @@ app.post('/api/send-tech-availability', messageFormsController.sendTechAvailabil
 app.get('/send-pricing-form/:leadId', messageFormsController.showPricingForm);
 app.post('/api/send-pricing-form', messageFormsController.sendPricingForm);
 app.post('/api/create-checkout-session', messageFormsController.createCheckoutSession);
+
+// Tech assignment routes
+app.get('/assign-tech/:jobId', techAssignmentController.showAssignmentForm);
+app.post('/api/assign-tech', techAssignmentController.assignTech);
 
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats

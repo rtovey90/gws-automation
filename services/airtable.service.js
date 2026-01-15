@@ -261,6 +261,22 @@ class AirtableService {
     }
   }
 
+  /**
+   * Get all techs (regardless of availability)
+   */
+  async getAllTechs() {
+    try {
+      const records = await tables.techs
+        .select()
+        .all();
+
+      return records;
+    } catch (error) {
+      console.error('Error getting all techs:', error);
+      throw error;
+    }
+  }
+
   // ============ MESSAGES ============
 
   /**
