@@ -54,9 +54,10 @@ exports.showAssignmentForm = async (req, res) => {
 
     // Build tech dropdown options
     const techOptions = techs.map(tech => {
+      const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
       const skills = tech.fields.Skills ? tech.fields.Skills.join(', ') : 'No skills';
       const availability = tech.fields['Availability Status'] || 'Unknown';
-      return `<option value="${tech.id}">${tech.fields.Name || 'Unknown'} - ${availability} - ${skills}</option>`;
+      return `<option value="${tech.id}">${techName} - ${availability} - ${skills}</option>`;
     }).join('');
 
     // Default message template
@@ -102,7 +103,7 @@ Ricky`;
             padding: 20px;
           }
           .container {
-            max-width: 900px;
+            max-width: 600px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -270,7 +271,10 @@ Ricky`;
           const previewDiv = document.getElementById('preview');
 
           // Store tech data
-          const techData = ${JSON.stringify(techs.map(t => ({ id: t.id, name: t.fields.Name || 'Unknown' })))};
+          const techData = ${JSON.stringify(techs.map(t => ({
+            id: t.id,
+            name: [t.fields['First Name'], t.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown'
+          })))};
 
           function updatePreview() {
             const selectedTechId = techSelect.value;
@@ -366,7 +370,8 @@ exports.assignTech = async (req, res) => {
     }
 
     // Replace [TECH_NAME] placeholder in message
-    const finalMessage = message.replace(/\[TECH_NAME\]/g, tech.fields.Name || 'there');
+    const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || 'there';
+    const finalMessage = message.replace(/\[TECH_NAME\]/g, techName);
 
     // Update lead with assigned tech and status
     await airtableService.updateLead(leadId, {
@@ -383,7 +388,7 @@ exports.assignTech = async (req, res) => {
       { leadId, techId, type: 'tech_assignment' }
     );
 
-    console.log(`✓ SMS sent to tech: ${tech.fields.Name}`);
+    console.log(`✓ SMS sent to tech: ${techName}`);
 
     // Log message
     await airtableService.logMessage({
