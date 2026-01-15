@@ -827,7 +827,7 @@ Or just reply YES or NO to this message`;
 
               <!-- Message Preview -->
               <div class="section">
-                <div class="section-title">👁️ Preview (what Martin will receive):</div>
+                <div class="section-title" id="previewTitle">👁️ Preview</div>
                 <div class="preview-box" id="previewBox">
                   <div class="preview-content" id="previewContent"></div>
                 </div>
@@ -860,16 +860,21 @@ Or just reply YES or NO to this message`;
           const loading = document.getElementById('loading');
           const messageTextarea = document.getElementById('message');
           const previewContent = document.getElementById('previewContent');
+          const previewTitle = document.getElementById('previewTitle');
 
           // Update preview
           function updatePreview() {
             const firstChecked = document.querySelector('input[name="techs"]:checked');
             if (!firstChecked) {
+              previewTitle.textContent = '👁️ Preview';
               previewContent.innerHTML = '<em style="color: #999;">Select at least one tech to see preview</em>';
               return;
             }
 
-            const techName = firstChecked.dataset.name.split(' ')[0]; // First name only
+            const techFullName = firstChecked.dataset.name;
+            const techName = techFullName.split(' ')[0]; // First name only
+            previewTitle.textContent = \`👁️ Preview (what \${techFullName} will receive):\`;
+
             const message = messageTextarea.value;
 
             // Replace placeholders with example values
