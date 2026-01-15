@@ -167,7 +167,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
 
       // Update lead status to Payment Received
       await airtableService.updateLead(leadId, {
-        Status: 'Payment Received'
+        Status: 'Payment Received ✅'
       });
       console.log(`✓ Lead status updated to Payment Received (Payment ID: ${paymentId})`);
 
