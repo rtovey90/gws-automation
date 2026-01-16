@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const shortLinkService = require('../services/shortlink.service');
+const twilioService = require('../services/twilio.service');
 
 /**
  * Schedule Controllers - Tech schedules job date/time
@@ -317,6 +318,53 @@ exports.scheduleJob = async (req, res) => {
     const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     console.log(`🔗 Completion short link: ${shortUrl}`);
+
+    // Get lead and tech details to send SMS
+    const lead = await airtableService.getLead(leadId);
+    const clientFirstName = lead.fields['First Name'] || 'the client';
+    const assignedTechIds = lead.fields['Assigned Tech Name'];
+
+    if (assignedTechIds && assignedTechIds.length > 0) {
+      const techId = assignedTechIds[0];
+      const tech = await airtableService.getTech(techId);
+      const techFirstName = tech.fields['First Name'] || 'there';
+      const techPhone = tech.fields.Phone;
+
+      if (techPhone) {
+        // Send SMS to tech with completion link
+        const message = `Hey ${techFirstName},
+
+Thanks for scheduling the job with ${clientFirstName}.
+
+Please fill out the completion form BEFORE leaving the site:
+
+${shortUrl}
+
+This helps us track system details, codes, and upgrade opportunities.
+
+Cheers,
+Ricky (Great White Security)`;
+
+        await twilioService.sendSMS(
+          techPhone,
+          message,
+          { leadId, type: 'completion_reminder' }
+        );
+
+        console.log(`✓ Completion SMS sent to ${techFirstName}`);
+
+        // Log the message
+        await airtableService.logMessage({
+          leadId: leadId,
+          direction: 'Outbound',
+          type: 'SMS',
+          to: techPhone,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          content: message,
+          status: 'Sent',
+        });
+      }
+    }
 
     res.status(200).json({ success: true, completionLink: shortUrl });
   } catch (error) {
