@@ -55,9 +55,10 @@ exports.showAssignmentForm = async (req, res) => {
     // Build tech dropdown options
     const techOptions = techs.map(tech => {
       const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
+      const location = tech.fields['Home Location'] || 'Unknown location';
       const skills = tech.fields.Skills ? tech.fields.Skills.join(', ') : 'No skills';
       const availability = tech.fields['Availability Status'] || 'Unknown';
-      return `<option value="${tech.id}">${techName} - ${availability} - ${skills}</option>`;
+      return `<option value="${tech.id}">${techName} (${location}) - ${availability} - ${skills}</option>`;
     }).join('');
 
     // Default message template
