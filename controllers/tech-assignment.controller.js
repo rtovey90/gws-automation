@@ -50,10 +50,10 @@ exports.showAssignmentForm = async (req, res) => {
     const clientAddress = lead.fields['Address/Location'] || '';
     const scope = lead.fields.Notes || 'Service requested';
 
-    // Handle Lead Type - could be string (single select) or array (multiple select)
-    const leadType = lead.fields['Lead Type'];
-    const systemType = leadType
-      ? (Array.isArray(leadType) ? leadType.join(', ') : leadType)
+    // Handle System Type - could be string (single select) or array (multiple select)
+    const systemTypeField = lead.fields['System Type'];
+    const systemType = systemTypeField
+      ? (Array.isArray(systemTypeField) ? systemTypeField.join(', ') : systemTypeField)
       : 'System';
 
     // Get all techs
