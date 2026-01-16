@@ -302,6 +302,12 @@ exports.scheduleJob = async (req, res) => {
 
     console.log(`📅 Scheduling job for lead ${leadId} on ${scheduledDate}`);
 
+    // Get lead first to check if already scheduled
+    const lead = await airtableService.getLead(leadId);
+    const wasAlreadyScheduled = lead.fields['Scheduled 📅']; // Check if already scheduled
+    const clientFirstName = lead.fields['First Name'] || 'the client';
+    const assignedTechIds = lead.fields['Assigned Tech Name'];
+
     // Convert datetime-local format to ISO 8601 for Airtable
     // Input: "2026-01-22T10:40" -> Output: "2026-01-22T10:40:00.000Z"
     const isoDate = new Date(scheduledDate).toISOString();
@@ -313,7 +319,7 @@ exports.scheduleJob = async (req, res) => {
       Status: 'Scheduled 📅',
     });
 
-    console.log(`✓ Lead scheduled successfully`);
+    console.log(wasAlreadyScheduled ? `✓ Lead re-scheduled successfully (no SMS sent)` : `✓ Lead scheduled successfully`);
 
     // Create a short link for the completion form
     const completionUrl = `/c/${leadId}`;
@@ -322,12 +328,8 @@ exports.scheduleJob = async (req, res) => {
 
     console.log(`🔗 Completion short link: ${shortUrl}`);
 
-    // Get lead and tech details to send SMS
-    const lead = await airtableService.getLead(leadId);
-    const clientFirstName = lead.fields['First Name'] || 'the client';
-    const assignedTechIds = lead.fields['Assigned Tech Name'];
-
-    if (assignedTechIds && assignedTechIds.length > 0) {
+    // Only send SMS if this is the FIRST time scheduling (not a re-schedule)
+    if (!wasAlreadyScheduled && assignedTechIds && assignedTechIds.length > 0) {
       const techId = assignedTechIds[0];
       const tech = await airtableService.getTech(techId);
       const techFirstName = tech.fields['First Name'] || 'there';
