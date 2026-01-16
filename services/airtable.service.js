@@ -177,10 +177,9 @@ class AirtableService {
         Business: engagementData.business || 'Great White Security',
       };
 
-      // Only add Notes if it exists in the table
+      // Add Client intake info (initial message/notes from customer)
       if (engagementData.notes) {
-        // Try Tech Notes field (common in engagement workflows)
-        fields['Tech Notes'] = engagementData.notes;
+        fields['Client intake info'] = engagementData.notes;
       }
 
       // Add Lead Type if provided (single select: Service Call or Project)
