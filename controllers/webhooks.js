@@ -32,10 +32,15 @@ async function createCustomerAndEngagement(data) {
     // If customer doesn't exist, create them
     if (!customer) {
       console.log('🆕 Creating new customer');
+
+      // Determine if phone should go to Phone or Mobile Phone based on source
+      const isFormOrCall = data.source === 'Form' || data.source === 'Call';
+
       customer = await airtableService.createCustomer({
         firstName: firstName,
         lastName: lastName,
-        phone: data.phone || '',
+        phone: isFormOrCall ? '' : (data.phone || ''), // Business phone for other sources
+        mobilePhone: isFormOrCall ? (data.phone || '') : '', // Mobile for forms/calls
         email: data.email || '',
         address: data.address || data.location || '',
         notes: '',
