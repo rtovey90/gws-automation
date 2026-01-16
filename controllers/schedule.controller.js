@@ -220,6 +220,7 @@ exports.showScheduleForm = async (req, res) => {
 
           document.getElementById('scheduleForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('Form submit handler triggered');
 
             const formData = new FormData(e.target);
 
@@ -228,7 +229,7 @@ exports.showScheduleForm = async (req, res) => {
             const time = formData.get('scheduledTime');
             const scheduledDate = date + 'T' + time;
 
-            console.log('Submitting schedule:', { date, time, scheduledDate });
+            console.log('Submitting schedule:', date, time, scheduledDate);
 
             const data = {
               leadId: formData.get('leadId'),
@@ -261,7 +262,7 @@ exports.showScheduleForm = async (req, res) => {
                   '<div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0;">' +
                   '<p style="color: #856404; font-weight: 600; margin-bottom: 10px;">📋 Important:</p>' +
                   '<p style="color: #856404; margin: 0;">Please fill out the completion form BEFORE leaving the site.</p>' +
-                  '<p style="color: #856404; margin-top: 10px; font-size: 14px;">📱 A link will be SMS\'d to you</p>' +
+                  '<p style="color: #856404; margin-top: 10px; font-size: 14px;">📱 A link will be sent via SMS</p>' +
                   '</div>' +
                   '<p style="color: #999; margin-top: 20px;">You can close this window.</p>' +
                   '</div>';
