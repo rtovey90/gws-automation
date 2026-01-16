@@ -296,7 +296,7 @@ exports.scheduleJob = async (req, res) => {
 
     // Update lead with scheduled date and status
     await airtableService.updateLead(leadId, {
-      'Scheduled Date': isoDate,
+      'Scheduled 📅': isoDate,
       Status: 'Scheduled 📅',
     });
 
