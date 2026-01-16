@@ -178,9 +178,14 @@ class AirtableService {
         Business: engagementData.business || 'Great White Security',
       };
 
-      // Only add Lead Type if provided (it's optional)
+      // Add Lead Type if provided (single select: Service Call or Project)
       if (engagementData.leadType) {
-        fields['Lead Type'] = Array.isArray(engagementData.leadType) ? engagementData.leadType : [engagementData.leadType];
+        fields['Lead Type'] = engagementData.leadType;
+      }
+
+      // Add System Type if provided (multiple select: CCTV, Alarm, etc.)
+      if (engagementData.systemType) {
+        fields['System Type'] = Array.isArray(engagementData.systemType) ? engagementData.systemType : [engagementData.systemType];
       }
 
       // Link to customer

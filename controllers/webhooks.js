@@ -53,7 +53,8 @@ async function createCustomerAndEngagement(data) {
     const engagement = await airtableService.createEngagement({
       customerId: customer.id,
       status: 'New Lead',
-      leadType: data.serviceType || 'Other',
+      leadType: data.leadType || 'Service Call', // Service Call or Project
+      systemType: data.systemType || 'Other', // CCTV, Alarm, Intercom, etc.
       source: data.source || 'Form',
       notes: data.notes || '',
       rawData: data.rawData || '',
@@ -81,13 +82,13 @@ exports.handleFormspree = async (req, res) => {
 
     console.log('Form data received:', JSON.stringify(formData, null, 2));
 
-    // Map service types to match exact Airtable options
-    const serviceTypeMap = {
-      cctv: 'CCTV System',
-      alarms: 'Alarm System',
-      'access-control': 'Access Control System',
-      intercom: 'Intercom System',
-      complete: 'Other', // Map complete package to Other since it's not a specific option
+    // Map service types to match exact Airtable System Type options
+    const systemTypeMap = {
+      cctv: 'CCTV',
+      alarms: 'Alarm',
+      'access-control': 'Access Control',
+      intercom: 'Intercom',
+      complete: 'Other',
       'not-sure': 'Other',
     };
 
@@ -100,7 +101,8 @@ exports.handleFormspree = async (req, res) => {
       address: formData.propertyAddress || (formData.suburb ? `${formData.suburb}, Perth` : ''),
       location: formData.propertyAddress || formData.suburb || '',
       source: 'Form',
-      serviceType: serviceTypeMap[formData.services] || 'Other',
+      systemType: systemTypeMap[formData.services] || 'Other',
+      leadType: 'Service Call', // Forms are typically service calls
       notes: formData.message || '',
       rawData: JSON.stringify(formData, null, 2),
     };
@@ -116,7 +118,7 @@ exports.handleFormspree = async (req, res) => {
 
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.serviceType || 'Other'}${message}\n\nView in Airtable`,
+        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.systemType || 'Other'}${message}\n\nView in Airtable`,
         { leadId: engagement.id }
       );
     } catch (smsError) {
@@ -275,7 +277,8 @@ exports.handleEmailTranscript = async (req, res) => {
         address: location || '',
         location: location || '',
         source: 'Call',
-        serviceType: 'Other',
+        systemType: 'Other', // Can't determine from call transcript
+        leadType: 'Service Call', // Calls are typically service calls
         notes: notes || '',
         rawData: transcript || '',
       };
