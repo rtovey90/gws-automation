@@ -104,6 +104,11 @@ exports.showMessageForm = async (req, res) => {
     const firstName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
     const uploadLink = `${process.env.BASE_URL}/upload-photos/${leadId}`;
 
+    // Get customer phone for disabled checks
+    const customerPhone = (customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) ||
+                          lead.fields['Mobile Phone (from Customer)'] ||
+                          lead.fields['Phone (from Customer)'];
+
     messageContent = messageContent
       .replace(/{{FIRST_NAME}}/g, firstName)
       .replace(/{{UPLOAD_LINK}}/g, uploadLink)
@@ -305,7 +310,7 @@ exports.showMessageForm = async (req, res) => {
                 id="message"
                 name="message"
                 required
-                ${!lead.fields.Phone ? 'disabled' : ''}
+                ${!customerPhone ? 'disabled' : ''}
               >${messageContent}</textarea>
               <div class="character-count">
                 <span id="charCount">${messageContent.length}</span> characters
@@ -325,7 +330,7 @@ exports.showMessageForm = async (req, res) => {
                   type="submit"
                   class="btn-send"
                   id="sendBtn"
-                  ${!lead.fields.Phone ? 'disabled' : ''}
+                  ${!customerPhone ? 'disabled' : ''}
                 >
                   📤 Send SMS
                 </button>
