@@ -79,7 +79,7 @@ ${scope}
 Next steps: Please call ${clientName} within 24 hours to schedule a time to attend within the next week.
 
 Once scheduled, please update the booking here so I can track when jobs are confirmed:
-${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/schedule-job/${leadId}
+${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${leadId}
 
 Feel free to call if you have any questions!
 
