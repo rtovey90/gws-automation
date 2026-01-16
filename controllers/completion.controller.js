@@ -136,20 +136,53 @@ exports.showCompletionForm = async (req, res) => {
             margin-bottom: 8px;
             font-size: 16px;
           }
+          input[type="text"],
+          input[type="password"],
           textarea {
             width: 100%;
-            min-height: 120px;
             padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 16px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             font-family: inherit;
+          }
+          textarea {
+            min-height: 100px;
             resize: vertical;
           }
+          input:focus,
           textarea:focus {
             outline: none;
             border-color: #667eea;
+          }
+          .radio-group {
+            margin-bottom: 20px;
+          }
+          .radio-option {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+          }
+          .radio-option input[type="radio"] {
+            margin-right: 8px;
+            width: auto;
+          }
+          .radio-option label {
+            display: inline;
+            font-weight: normal;
+            margin: 0;
+          }
+          .conditional-field {
+            display: none;
+          }
+          .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
           }
           .file-input-wrapper {
             position: relative;
@@ -225,13 +258,60 @@ exports.showCompletionForm = async (req, res) => {
           <form id="completionForm" enctype="multipart/form-data">
             <input type="hidden" name="leadId" value="${leadId}">
 
-            <label for="notes">📝 Completion Notes:</label>
-            <textarea name="notes" id="notes" placeholder="Describe the work completed, any issues encountered, parts used, etc." required></textarea>
+            <div class="section-title">🔧 System Information</div>
+
+            <label for="alarmSystemType">Alarm System Type:</label>
+            <input type="text" name="alarmSystemType" id="alarmSystemType" placeholder="e.g., Bosch Solution 6000">
+
+            <label for="nvrType">NVR Type:</label>
+            <input type="text" name="nvrType" id="nvrType" placeholder="e.g., Dahua 8CH">
+
+            <label for="intercomType">Intercom Type:</label>
+            <input type="text" name="intercomType" id="intercomType" placeholder="e.g., 2N IP Intercom">
+
+            <div class="section-title">🔑 Access Codes</div>
+
+            <label for="nvrLogin">NVR Login:</label>
+            <input type="text" name="nvrLogin" id="nvrLogin" placeholder="Username">
+
+            <label for="nvrPassword">NVR Password:</label>
+            <input type="password" name="nvrPassword" id="nvrPassword" placeholder="Password">
+
+            <label for="installerCode">Installer Code:</label>
+            <input type="text" name="installerCode" id="installerCode" placeholder="Installer code">
+
+            <label for="masterCode">Master Code:</label>
+            <input type="text" name="masterCode" id="masterCode" placeholder="Master code">
+
+            <div class="section-title">📝 Job Details</div>
+
+            <label for="jobNotes">Job Notes:</label>
+            <textarea name="jobNotes" id="jobNotes" placeholder="Describe the work completed, parts used, etc." required></textarea>
+
+            <label>Issue Resolved:</label>
+            <div class="radio-group">
+              <div class="radio-option">
+                <input type="radio" name="issueResolved" id="resolvedYes" value="Yes" required>
+                <label for="resolvedYes">Yes ✅</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="issueResolved" id="resolvedNo" value="No">
+                <label for="resolvedNo">No ❌</label>
+              </div>
+            </div>
+
+            <div id="nextStepsField" class="conditional-field">
+              <label for="nextSteps">Next Steps (Required if not resolved):</label>
+              <textarea name="nextSteps" id="nextSteps" placeholder="What needs to be done to resolve the issue?"></textarea>
+            </div>
+
+            <label for="upgradeOpportunities">💡 Potential Upgrade Opportunities (Important!):</label>
+            <textarea name="upgradeOpportunities" id="upgradeOpportunities" placeholder="Note any potential upgrades or additional services the client might need..." style="min-height: 120px;"></textarea>
 
             <label for="photos">📷 Upload Photos:</label>
             <div class="file-input-wrapper">
               <input type="file" name="photos" id="photos" multiple accept="image/*">
-              <div class="file-note">Optional - You can select multiple photos</div>
+              <div class="file-note">You can select multiple photos</div>
             </div>
 
             <button type="submit" class="btn">Mark as Complete</button>
@@ -240,6 +320,22 @@ exports.showCompletionForm = async (req, res) => {
         </div>
 
         <script>
+          // Show/hide next steps field based on issue resolved selection
+          const resolvedYes = document.getElementById('resolvedYes');
+          const resolvedNo = document.getElementById('resolvedNo');
+          const nextStepsField = document.getElementById('nextStepsField');
+          const nextStepsTextarea = document.getElementById('nextSteps');
+
+          resolvedYes.addEventListener('change', () => {
+            nextStepsField.style.display = 'none';
+            nextStepsTextarea.required = false;
+          });
+
+          resolvedNo.addEventListener('change', () => {
+            nextStepsField.style.display = 'block';
+            nextStepsTextarea.required = true;
+          });
+
           document.getElementById('completionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -294,15 +390,29 @@ exports.showCompletionForm = async (req, res) => {
  */
 exports.completeJob = async (req, res) => {
   try {
-    const { leadId, notes } = req.body;
+    const {
+      leadId,
+      alarmSystemType,
+      nvrType,
+      intercomType,
+      nvrLogin,
+      nvrPassword,
+      installerCode,
+      masterCode,
+      jobNotes,
+      issueResolved,
+      nextSteps,
+      upgradeOpportunities
+    } = req.body;
     const files = req.files;
 
-    if (!leadId || !notes) {
+    if (!leadId || !jobNotes) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     console.log(`✅ Completing job for lead ${leadId}`);
-    console.log(`📝 Notes: ${notes}`);
+    console.log(`📝 Job Notes: ${jobNotes}`);
+    console.log(`✅ Issue Resolved: ${issueResolved}`);
     console.log(`📷 Photos: ${files ? files.length : 0}`);
 
     // Prepare photo attachments for Airtable
@@ -315,12 +425,32 @@ exports.completeJob = async (req, res) => {
       }
     }
 
+    // Build comprehensive completion notes
+    let completionNotes = `${jobNotes}`;
+
+    if (alarmSystemType) completionNotes += `\n\nAlarm System: ${alarmSystemType}`;
+    if (nvrType) completionNotes += `\nNVR Type: ${nvrType}`;
+    if (intercomType) completionNotes += `\nIntercom Type: ${intercomType}`;
+    if (nvrLogin) completionNotes += `\n\nNVR Login: ${nvrLogin}`;
+    if (nvrPassword) completionNotes += `\nNVR Password: ${nvrPassword}`;
+    if (installerCode) completionNotes += `\nInstaller Code: ${installerCode}`;
+    if (masterCode) completionNotes += `\nMaster Code: ${masterCode}`;
+    if (issueResolved) completionNotes += `\n\nIssue Resolved: ${issueResolved}`;
+    if (nextSteps) completionNotes += `\nNext Steps: ${nextSteps}`;
+    if (upgradeOpportunities) completionNotes += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
+
     // Update lead with completion info
     const updates = {
-      'Tech Notes': notes,
+      'Tech Notes': completionNotes,
       'Completion Date': new Date().toISOString().split('T')[0],
+      'Issue Resolved': issueResolved || 'N/A',
       Status: 'Completed ✅',
     };
+
+    // Add upgrade opportunities as separate field if provided
+    if (upgradeOpportunities) {
+      updates['Upgrade Opportunities'] = upgradeOpportunities;
+    }
 
     // Add photos if any were uploaded
     if (photoAttachments.length > 0) {
