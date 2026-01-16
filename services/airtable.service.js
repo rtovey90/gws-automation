@@ -172,12 +172,16 @@ class AirtableService {
     try {
       const fields = {
         Status: engagementData.status || 'New Lead',
-        'Lead Type': Array.isArray(engagementData.leadType) ? engagementData.leadType : [engagementData.leadType || 'Other'],
         ' Source': engagementData.source || 'Form',
         Notes: engagementData.notes || '',
         'Original Transcript/Form Data': engagementData.rawData || '',
         Business: engagementData.business || 'Great White Security',
       };
+
+      // Only add Lead Type if provided (it's optional)
+      if (engagementData.leadType) {
+        fields['Lead Type'] = Array.isArray(engagementData.leadType) ? engagementData.leadType : [engagementData.leadType];
+      }
 
       // Link to customer
       if (engagementData.customerId) {
