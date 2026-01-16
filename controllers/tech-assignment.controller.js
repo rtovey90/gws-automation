@@ -71,7 +71,7 @@ exports.showAssignmentForm = async (req, res) => {
     // Default message template
     const defaultMessage = `Hey [TECH_NAME], Ricky here from Great White Security.
 
-The following has been approved by client.
+Here are the details for the confirmed booking:
 
 Client: ${clientFirstName}
 Phone: ${clientPhone}
