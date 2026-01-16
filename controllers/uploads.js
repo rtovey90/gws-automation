@@ -373,12 +373,13 @@ exports.showUploadForm = async (req, res) => {
                 loading.classList.remove('show');
                 successMessage.classList.add('show');
               } else {
-                throw new Error('Upload failed');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Upload failed');
               }
             } catch (error) {
               loading.classList.remove('show');
               uploadSection.style.display = 'block';
-              alert('Upload failed. Please try again or contact us for assistance.');
+              alert(error.message || 'Upload failed. Please try again or contact us for assistance.');
             }
           });
 
