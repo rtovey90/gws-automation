@@ -258,34 +258,7 @@ exports.showCompletionForm = async (req, res) => {
           <form id="completionForm" enctype="multipart/form-data">
             <input type="hidden" name="leadId" value="${leadId}">
 
-            <div class="section-title">🔧 System Information</div>
-
-            <label for="alarmSystemType">Alarm System Type:</label>
-            <input type="text" name="alarmSystemType" id="alarmSystemType" placeholder="e.g., Bosch Solution 6000">
-
-            <label for="nvrType">NVR Type:</label>
-            <input type="text" name="nvrType" id="nvrType" placeholder="e.g., Dahua 8CH">
-
-            <label for="intercomType">Intercom Type:</label>
-            <input type="text" name="intercomType" id="intercomType" placeholder="e.g., 2N IP Intercom">
-
-            <div class="section-title">🔑 Access Codes</div>
-
-            <label for="nvrLogin">NVR Login:</label>
-            <input type="text" name="nvrLogin" id="nvrLogin" placeholder="Username">
-
-            <label for="nvrPassword">NVR Password:</label>
-            <input type="password" name="nvrPassword" id="nvrPassword" placeholder="Password">
-
-            <label for="installerCode">Installer Code:</label>
-            <input type="text" name="installerCode" id="installerCode" placeholder="Installer code">
-
-            <label for="masterCode">Master Code:</label>
-            <input type="text" name="masterCode" id="masterCode" placeholder="Master code">
-
-            <div class="section-title">📝 Job Details</div>
-
-            <label for="jobNotes">Job Notes:</label>
+            <label for="jobNotes">📝 Job Notes:</label>
             <textarea name="jobNotes" id="jobNotes" placeholder="Describe the work completed, parts used, etc." required></textarea>
 
             <label>Issue Resolved:</label>
@@ -308,7 +281,21 @@ exports.showCompletionForm = async (req, res) => {
             <label for="upgradeOpportunities">💡 Potential Upgrade Opportunities (Important!):</label>
             <textarea name="upgradeOpportunities" id="upgradeOpportunities" placeholder="Note any potential upgrades or additional services the client might need..." style="min-height: 120px;"></textarea>
 
-            <label for="photos">📷 Upload Photos:</label>
+            <div class="section-title">🔑 Access Codes (if used)</div>
+
+            <label for="nvrLogin">NVR Login:</label>
+            <input type="text" name="nvrLogin" id="nvrLogin" placeholder="Username">
+
+            <label for="nvrPassword">NVR Password:</label>
+            <input type="password" name="nvrPassword" id="nvrPassword" placeholder="Password">
+
+            <label for="installerCode">Installer Code:</label>
+            <input type="text" name="installerCode" id="installerCode" placeholder="Installer code">
+
+            <label for="masterCode">Master Code:</label>
+            <input type="text" name="masterCode" id="masterCode" placeholder="Master code">
+
+            <label for="photos">📷 Please upload photos of site equipment:</label>
             <div class="file-input-wrapper">
               <input type="file" name="photos" id="photos" multiple accept="image/*">
               <div class="file-note">You can select multiple photos</div>
@@ -392,9 +379,6 @@ exports.completeJob = async (req, res) => {
   try {
     const {
       leadId,
-      alarmSystemType,
-      nvrType,
-      intercomType,
       nvrLogin,
       nvrPassword,
       installerCode,
@@ -428,9 +412,6 @@ exports.completeJob = async (req, res) => {
     // Build comprehensive completion notes
     let completionNotes = `${jobNotes}`;
 
-    if (alarmSystemType) completionNotes += `\n\nAlarm System: ${alarmSystemType}`;
-    if (nvrType) completionNotes += `\nNVR Type: ${nvrType}`;
-    if (intercomType) completionNotes += `\nIntercom Type: ${intercomType}`;
     if (nvrLogin) completionNotes += `\n\nNVR Login: ${nvrLogin}`;
     if (nvrPassword) completionNotes += `\nNVR Password: ${nvrPassword}`;
     if (installerCode) completionNotes += `\nInstaller Code: ${installerCode}`;
