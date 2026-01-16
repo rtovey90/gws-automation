@@ -147,6 +147,7 @@ app.post('/api/send-pricing', communicationsController.sendPricing);
 // Message form routes
 app.get('/send-message-form/:leadId/:messageType', messageFormsController.showMessageForm);
 app.post('/api/send-message-form', messageFormsController.sendMessage);
+app.get('/api/message-form-link/:leadId/:messageType', messageFormsController.generateMessageFormLink);
 
 // Tech availability form routes
 app.get('/send-tech-availability-form/:leadId', messageFormsController.showTechAvailabilityForm);

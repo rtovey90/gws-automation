@@ -257,6 +257,30 @@ exports.showMessageForm = async (req, res) => {
             margin-bottom: 20px;
             color: #856404;
           }
+          .preview-section {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+          }
+          .preview-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+          }
+          .preview-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            white-space: pre-wrap;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            min-height: 100px;
+          }
         </style>
       </head>
       <body>
@@ -288,6 +312,11 @@ exports.showMessageForm = async (req, res) => {
                 <span id="smsCount"></span>
               </div>
 
+              <div class="preview-section">
+                <h3>👁️ Preview (what ${firstName} will receive):</h3>
+                <div class="preview-content" id="preview"></div>
+              </div>
+
               <div class="buttons">
                 <button type="button" class="btn-cancel" onclick="window.close()">
                   Cancel
@@ -317,8 +346,14 @@ exports.showMessageForm = async (req, res) => {
           const form = document.getElementById('messageForm');
           const sendBtn = document.getElementById('sendBtn');
           const loading = document.getElementById('loading');
+          const preview = document.getElementById('preview');
 
-          // Update character count
+          // Update preview
+          function updatePreview() {
+            preview.textContent = textarea.value;
+          }
+
+          // Update character count and preview
           textarea.addEventListener('input', () => {
             const length = textarea.value.length;
             charCount.textContent = length;
@@ -326,7 +361,13 @@ exports.showMessageForm = async (req, res) => {
             // Calculate SMS segments (160 chars per SMS)
             const segments = Math.ceil(length / 160);
             smsCount.textContent = segments > 1 ? \`(\${segments} SMS messages)\` : '';
+
+            // Update preview
+            updatePreview();
           });
+
+          // Initial preview
+          updatePreview();
 
           // Handle form submission
           form.addEventListener('submit', async (e) => {
@@ -1699,6 +1740,43 @@ exports.createCheckoutSession = async (req, res) => {
   } catch (error) {
     console.error('Error creating checkout session:', error);
     res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+};
+
+/**
+ * Generate short link for message form
+ * GET /api/message-form-link/:leadId/:messageType
+ */
+exports.generateMessageFormLink = async (req, res) => {
+  try {
+    const { leadId, messageType } = req.params;
+
+    console.log(`🔗 Generating short link for ${messageType} form: ${leadId}`);
+
+    // Verify lead exists
+    const result = await airtableService.getEngagementWithCustomer(leadId);
+    if (!result || !result.engagement) {
+      return res.status(404).json({ error: 'Engagement not found' });
+    }
+
+    // Create the full message form URL
+    const fullUrl = `/send-message-form/${leadId}/${messageType}`;
+
+    // Create short link
+    const shortCode = shortLinkService.createShortLink(fullUrl, leadId);
+    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+
+    console.log(`✓ Short link created: ${shortUrl}`);
+
+    res.status(200).json({
+      success: true,
+      shortUrl: shortUrl,
+      shortCode: shortCode,
+      fullUrl: `${process.env.BASE_URL}${fullUrl}`
+    });
+  } catch (error) {
+    console.error('Error generating message form link:', error);
+    res.status(500).json({ error: 'Failed to generate short link' });
   }
 };
 
