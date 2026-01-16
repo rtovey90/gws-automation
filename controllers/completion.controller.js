@@ -1,0 +1,347 @@
+const airtableService = require('../services/airtable.service');
+const multer = require('multer');
+const path = require('path');
+
+/**
+ * Completion Controllers - Tech marks job complete and uploads photos
+ */
+
+// Configure multer for photo uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'job-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+/**
+ * Show completion form for tech
+ * GET /c/:leadId
+ */
+exports.showCompletionForm = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+
+    console.log(`✅ Opening completion form for lead: ${leadId}`);
+
+    // Get lead details
+    const lead = await airtableService.getLead(leadId);
+
+    if (!lead) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .error { color: #dc3545; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Error</h1>
+          <p>Job not found</p>
+        </body>
+        </html>
+      `);
+    }
+
+    const clientName = lead.fields['First Name'] || 'Client';
+    const clientAddress = lead.fields['Address/Location'] || '';
+    const scope = lead.fields.Notes || '';
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Complete Job - Great White Security</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          }
+          h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+          }
+          .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.5;
+          }
+          .job-details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+          }
+          .detail-row {
+            margin-bottom: 10px;
+          }
+          .detail-label {
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 5px;
+          }
+          .detail-value {
+            color: #333;
+          }
+          label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+          }
+          textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 25px;
+            font-family: inherit;
+            resize: vertical;
+          }
+          textarea:focus {
+            outline: none;
+            border-color: #667eea;
+          }
+          .file-input-wrapper {
+            position: relative;
+            margin-bottom: 25px;
+          }
+          input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+          }
+          input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+          }
+          .file-note {
+            color: #999;
+            font-size: 14px;
+            margin-top: 8px;
+          }
+          .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: background 0.2s;
+          }
+          .btn:hover {
+            background: #5568d3;
+          }
+          .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+          }
+          .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>✅ Complete Job</h1>
+          <p class="subtitle">Upload photos and add any notes about the completed work.</p>
+
+          <div class="job-details">
+            <div class="detail-row">
+              <div class="detail-label">Client:</div>
+              <div class="detail-value">${clientName}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Address:</div>
+              <div class="detail-value">${clientAddress}</div>
+            </div>
+            ${scope ? `
+            <div class="detail-row">
+              <div class="detail-label">Scope:</div>
+              <div class="detail-value">${scope}</div>
+            </div>
+            ` : ''}
+          </div>
+
+          <form id="completionForm" enctype="multipart/form-data">
+            <input type="hidden" name="leadId" value="${leadId}">
+
+            <label for="notes">📝 Completion Notes:</label>
+            <textarea name="notes" id="notes" placeholder="Describe the work completed, any issues encountered, parts used, etc." required></textarea>
+
+            <label for="photos">📷 Upload Photos:</label>
+            <div class="file-input-wrapper">
+              <input type="file" name="photos" id="photos" multiple accept="image/*">
+              <div class="file-note">Optional - You can select multiple photos</div>
+            </div>
+
+            <button type="submit" class="btn">Mark as Complete</button>
+            <div class="loading" id="loading">Uploading...</div>
+          </form>
+        </div>
+
+        <script>
+          document.getElementById('completionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+
+            // Disable button and show loading
+            const btn = e.target.querySelector('.btn');
+            btn.disabled = true;
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+              const response = await fetch('/api/complete-job', {
+                method: 'POST',
+                body: formData,
+              });
+
+              const result = await response.json();
+
+              if (result.success) {
+                document.querySelector('.container').innerHTML = \`
+                  <div style="text-align: center; padding: 40px 0;">
+                    <div style="font-size: 72px; margin-bottom: 20px;">✅</div>
+                    <h1 style="color: #28a745; margin-bottom: 20px;">Job Completed!</h1>
+                    <p style="color: #666; font-size: 18px;">Your notes and photos have been submitted.</p>
+                    <p style="color: #999; margin-top: 20px;">You can close this window.</p>
+                  </div>
+                \`;
+              } else {
+                alert('Error: ' + result.error);
+                btn.disabled = false;
+                document.getElementById('loading').style.display = 'none';
+              }
+            } catch (error) {
+              alert('Error completing job: ' + error.message);
+              btn.disabled = false;
+              document.getElementById('loading').style.display = 'none';
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error showing completion form:', error);
+    res.status(500).send('Internal server error');
+  }
+};
+
+/**
+ * Complete job with photos and notes
+ * POST /api/complete-job
+ */
+exports.completeJob = async (req, res) => {
+  try {
+    const { leadId, notes } = req.body;
+    const files = req.files;
+
+    if (!leadId || !notes) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(`✅ Completing job for lead ${leadId}`);
+    console.log(`📝 Notes: ${notes}`);
+    console.log(`📷 Photos: ${files ? files.length : 0}`);
+
+    // Prepare photo attachments for Airtable
+    const photoAttachments = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        // Create public URL for the uploaded file
+        const fileUrl = `${process.env.BASE_URL}/uploads/${file.filename}`;
+        photoAttachments.push({ url: fileUrl });
+      }
+    }
+
+    // Update lead with completion info
+    const updates = {
+      'Tech Notes': notes,
+      'Completion Date': new Date().toISOString().split('T')[0],
+      Status: 'Completed ✅',
+    };
+
+    // Add photos if any were uploaded
+    if (photoAttachments.length > 0) {
+      // Get existing photos
+      const lead = await airtableService.getLead(leadId);
+      const existingPhotos = lead.fields.Photos || [];
+      updates.Photos = [...existingPhotos, ...photoAttachments];
+    }
+
+    await airtableService.updateLead(leadId, updates);
+
+    console.log(`✓ Job marked as completed`);
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error completing job:', error);
+    res.status(500).json({ error: 'Failed to complete job' });
+  }
+};
+
+// Export multer middleware
+exports.uploadMiddleware = upload.array('photos', 10); // Max 10 photos
+
+module.exports = exports;

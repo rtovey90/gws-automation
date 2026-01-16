@@ -15,6 +15,7 @@ const messageFormsController = require('./controllers/message-forms');
 const shortLinkController = require('./controllers/shortlink.controller');
 const techAssignmentController = require('./controllers/tech-assignment.controller');
 const scheduleController = require('./controllers/schedule.controller');
+const completionController = require('./controllers/completion.controller');
 
 const app = express();
 
@@ -162,6 +163,10 @@ app.post('/api/assign-tech', techAssignmentController.assignTech);
 // Schedule routes
 app.get('/s/:leadId', scheduleController.showScheduleForm);
 app.post('/api/schedule-job', scheduleController.scheduleJob);
+
+// Completion routes
+app.get('/c/:leadId', completionController.showCompletionForm);
+app.post('/api/complete-job', completionController.uploadMiddleware, completionController.completeJob);
 
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
