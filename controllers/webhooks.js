@@ -98,6 +98,7 @@ exports.handleFormspree = async (req, res) => {
       name: formData.firstName || formData.name || 'Unknown',
       phone: formData.phone,
       email: formData.email,
+      businessName: formData.companyName || formData.company || '',
       address: formData.propertyAddress || (formData.suburb ? `${formData.suburb}, Perth` : ''),
       location: formData.propertyAddress || formData.suburb || '',
       source: 'Form',

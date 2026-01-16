@@ -173,10 +173,15 @@ class AirtableService {
       const fields = {
         Status: engagementData.status || 'New Lead',
         ' Source': engagementData.source || 'Form',
-        Notes: engagementData.notes || '',
         'Original Transcript/Form Data': engagementData.rawData || '',
         Business: engagementData.business || 'Great White Security',
       };
+
+      // Only add Notes if it exists in the table
+      if (engagementData.notes) {
+        // Try Tech Notes field (common in engagement workflows)
+        fields['Tech Notes'] = engagementData.notes;
+      }
 
       // Add Lead Type if provided (single select: Service Call or Project)
       if (engagementData.leadType) {
