@@ -69,7 +69,7 @@ exports.showAssignmentForm = async (req, res) => {
     }).join('');
 
     // Default message template
-    const defaultMessage = `Hey [TECH_NAME], Ricky here from Great White Security.
+    const defaultMessage = `Hey [TECH_NAME],
 
 Here are the details for the confirmed booking:
 
@@ -91,7 +91,7 @@ Feel free to call if you have any questions!
 
 Cheers,
 
-Ricky`;
+Ricky (Great White Security)`;
 
     res.send(`
       <!DOCTYPE html>
