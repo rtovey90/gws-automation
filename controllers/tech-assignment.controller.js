@@ -48,7 +48,12 @@ exports.showAssignmentForm = async (req, res) => {
     const clientPhone = lead.fields.Phone || '';
     const clientAddress = lead.fields['Address/Location'] || '';
     const scope = lead.fields.Notes || 'Service requested';
-    const systemType = lead.fields['Lead Type'] ? lead.fields['Lead Type'].join(', ') : 'System';
+
+    // Handle Lead Type - could be string (single select) or array (multiple select)
+    const leadType = lead.fields['Lead Type'];
+    const systemType = leadType
+      ? (Array.isArray(leadType) ? leadType.join(', ') : leadType)
+      : 'System';
 
     // Get all techs
     const techs = await airtableService.getAllTechs();
