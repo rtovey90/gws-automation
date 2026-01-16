@@ -56,12 +56,12 @@ exports.showMessageForm = async (req, res) => {
     switch (messageType) {
       case 'request-photos':
         templateName = 'Request Photos from Client';
-        sentField = 'Sent: Request Photos';
+        sentField = 'Photos Requested';
         pageTitle = 'Request Photos';
         break;
       case 'checking-availability':
         templateName = 'Checking Availability Message';
-        sentField = 'Sent: Checking Availability';
+        sentField = 'Tech Availability Requested';
         pageTitle = 'Checking Availability';
         break;
       default:
@@ -496,15 +496,10 @@ exports.sendMessage = async (req, res) => {
       status: 'Sent',
     });
 
-    // Mark as sent in Airtable (optional - don't fail if field doesn't exist)
-    try {
-      await airtableService.updateLead(leadId, {
-        [sentField]: true,
-      });
-    } catch (updateError) {
-      console.warn(`⚠️ Could not update ${sentField} field (field may not exist):`, updateError.message);
-      // Continue anyway - the important part (SMS send + logging) succeeded
-    }
+    // Mark as sent in Airtable
+    await airtableService.updateLead(leadId, {
+      [sentField]: true,
+    });
 
     console.log(`✓ ${messageType} sent to ${lead.fields['First Name']}`);
 
