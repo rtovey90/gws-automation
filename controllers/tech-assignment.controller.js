@@ -44,7 +44,8 @@ exports.showAssignmentForm = async (req, res) => {
       `);
     }
 
-    const clientName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
+    const clientFirstName = lead.fields['First Name'] || 'Unknown';
+    const clientFullName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
     const clientPhone = lead.fields.Phone || '';
     const clientAddress = lead.fields['Address/Location'] || '';
     const scope = lead.fields.Notes || 'Service requested';
@@ -72,7 +73,7 @@ exports.showAssignmentForm = async (req, res) => {
 
 The following has been approved by client.
 
-Client: ${clientName}
+Client: ${clientFirstName}
 Phone: ${clientPhone}
 Address: ${clientAddress}
 
@@ -81,10 +82,10 @@ System: ${systemType}
 Scope:
 ${scope}
 
-Next steps: Please call ${clientName} within 24 hours to schedule a time to attend within the next week.
+Next steps:
 
-Once scheduled, please update the booking here so I can track when jobs are confirmed:
-${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${leadId}
+1. Call ${clientFirstName} **within 24 hours** to schedule a time to attend within the next week
+2. Update Calendar: ${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${leadId}
 
 Feel free to call if you have any questions!
 
@@ -239,7 +240,7 @@ Ricky`;
           <div class="client-info">
             <div class="info-row">
               <div class="info-label">Client:</div>
-              <div class="info-value">${clientName}</div>
+              <div class="info-value">${clientFirstName}</div>
             </div>
             <div class="info-row">
               <div class="info-label">Phone:</div>
@@ -278,10 +279,10 @@ Ricky`;
           const messageTextarea = document.getElementById('message');
           const previewDiv = document.getElementById('preview');
 
-          // Store tech data
+          // Store tech data (use first name only for greeting)
           const techData = ${JSON.stringify(techs.map(t => ({
             id: t.id,
-            name: [t.fields['First Name'], t.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown'
+            name: t.fields['First Name'] || 'Unknown'
           })))};
 
           function updatePreview() {
@@ -377,9 +378,9 @@ exports.assignTech = async (req, res) => {
       return res.status(404).json({ error: 'Lead or tech not found' });
     }
 
-    // Replace [TECH_NAME] placeholder in message
-    const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || 'there';
-    const finalMessage = message.replace(/\[TECH_NAME\]/g, techName);
+    // Replace [TECH_NAME] placeholder in message (use first name only)
+    const techFirstName = tech.fields['First Name'] || 'there';
+    const finalMessage = message.replace(/\[TECH_NAME\]/g, techFirstName);
 
     // Update lead with assigned tech and status
     await airtableService.updateLead(leadId, {
@@ -396,7 +397,7 @@ exports.assignTech = async (req, res) => {
       { leadId, techId, type: 'tech_assignment' }
     );
 
-    console.log(`✓ SMS sent to tech: ${techName}`);
+    console.log(`✓ SMS sent to tech: ${techFirstName}`);
 
     // Log message
     await airtableService.logMessage({
