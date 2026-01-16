@@ -418,6 +418,10 @@ exports.handleUpload = async (req, res) => {
     const { engagement, customer } = result;
     const lead = engagement; // For backward compatibility
     const clientName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'Client';
+    const clientPhone = (customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) ||
+                        lead.fields['Mobile Phone (from Customer)'] ||
+                        lead.fields['Phone (from Customer)'] ||
+                        'Unknown';
 
     // Upload files to Cloudinary
     const attachments = [];
@@ -463,7 +467,7 @@ exports.handleUpload = async (req, res) => {
         leadId: leadId,
         direction: 'Inbound',
         type: 'Web Upload',
-        from: lead.fields.Phone,
+        from: clientPhone,
         to: 'Web Form',
         content: `Uploaded ${files.length} photo(s) via web form`,
         status: 'Received',
