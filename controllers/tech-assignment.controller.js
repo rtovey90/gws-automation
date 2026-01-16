@@ -64,25 +64,26 @@ exports.showAssignmentForm = async (req, res) => {
     // Default message template
     const defaultMessage = `Hey [TECH_NAME], Ricky here from Great White Security.
 
-New job has been booked by the client:
+The following has been approved by client.
 
 Client: ${clientName}
 Phone: ${clientPhone}
 Address: ${clientAddress}
 
+System: CCTV
+
 Scope:
 ${scope}
 
-Please call ${clientName} within 24 hours and schedule a time to attend within the next week.
+Next steps: Please call ${clientName} within 24 hours to schedule a time to attend within the next week.
 
-Once scheduled, please update the booking here:
+Once scheduled, please update the booking here so I can track progress and avoid double-bookings:
 ${process.env.BASE_URL || 'https://book.greatwhitesecurity.com'}/schedule-job/${leadId}
 
-Before leaving site, I'll send you a link to upload photos and notes.
-
-Feel free to call if you have any questions.
+Feel free to call if you have any questions!
 
 Cheers,
+
 Ricky`;
 
     res.send(`
