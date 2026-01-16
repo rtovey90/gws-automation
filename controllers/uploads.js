@@ -428,6 +428,8 @@ exports.handleUpload = async (req, res) => {
     const attachments = [];
     for (const file of files) {
       try {
+        console.log(`📤 Uploading ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB) to Cloudinary...`);
+
         // Upload to Cloudinary using base64
         const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
@@ -437,13 +439,13 @@ exports.handleUpload = async (req, res) => {
           public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
         });
 
-        console.log(`✓ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
+        console.log(`✓ Uploaded ${file.originalname} to Cloudinary: ${uploadResult.secure_url}`);
 
         attachments.push({
           url: uploadResult.secure_url,
         });
       } catch (uploadError) {
-        console.error(`Error uploading file to Cloudinary:`, uploadError);
+        console.error(`❌ Failed to upload ${file.originalname} to Cloudinary:`, uploadError.message);
         // Continue with other files even if one fails
       }
     }
@@ -460,17 +462,17 @@ exports.handleUpload = async (req, res) => {
       Photos: [...existingPhotos, ...attachments],
     });
 
-    console.log(`✓ ${files.length} photo(s) saved to lead`);
+    console.log(`✓ ${attachments.length} photo(s) saved to lead (${files.length} attempted)`);
 
     // Log in Messages table
     try {
       await airtableService.logMessage({
         leadId: leadId,
         direction: 'Inbound',
-        type: 'Web Upload',
+        type: 'SMS', // Using SMS since Web Upload is not a valid option
         from: clientPhone,
         to: 'Web Form',
-        content: `Uploaded ${files.length} photo(s) via web form`,
+        content: `📷 Uploaded ${attachments.length} photo(s) via web form`,
         status: 'Received',
       });
     } catch (messageError) {
@@ -482,7 +484,7 @@ exports.handleUpload = async (req, res) => {
       const twilioService = require('../services/twilio.service');
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `📷 ${clientName} uploaded ${files.length} photo(s)!\n\nView in Airtable`,
+        `📷 ${clientName} uploaded ${attachments.length} photo(s)!\n\nView in Airtable`,
         { leadId }
       );
     } catch (smsError) {
@@ -491,7 +493,8 @@ exports.handleUpload = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      count: files.length,
+      count: attachments.length,
+      attempted: files.length,
     });
   } catch (error) {
     console.error('Error handling upload:', error);
