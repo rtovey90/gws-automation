@@ -56,15 +56,15 @@ exports.showUploadForm = async (req, res) => {
   try {
     const { leadId } = req.params;
 
-    // Get lead to show name
-    const lead = await airtableService.getLead(leadId);
+    // Get engagement and customer details
+    const result = await airtableService.getEngagementWithCustomer(leadId);
 
-    if (!lead) {
+    if (!result || !result.engagement) {
       return res.status(404).send(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Lead Not Found</title>
+          <title>Engagement Not Found</title>
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             body {
@@ -84,6 +84,11 @@ exports.showUploadForm = async (req, res) => {
         </html>
       `);
     }
+
+    const { engagement, customer } = result;
+    const lead = engagement; // For backward compatibility
+
+    const clientName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
 
     res.send(`
       <!DOCTYPE html>
@@ -241,7 +246,7 @@ exports.showUploadForm = async (req, res) => {
       <body>
         <div class="container">
           <h1>📸 Upload Photos</h1>
-          <p class="subtitle">Hi ${lead.fields['First Name']}, to help us determine what's required and who to dispatch, could you please upload a few photos of your system. Please include serial numbers/part numbers if possible.</p>
+          <p class="subtitle">Hi ${clientName}, to help us determine what's required and who to dispatch, could you please upload a few photos of your system. Please include serial numbers/part numbers if possible.</p>
 
           <div id="upload-section">
             <div class="upload-area" id="uploadArea">
@@ -404,11 +409,15 @@ exports.handleUpload = async (req, res) => {
 
     console.log(`📷 Uploading ${files.length} photos for lead: ${leadId}`);
 
-    // Get lead
-    const lead = await airtableService.getLead(leadId);
-    if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+    // Get engagement and customer
+    const result = await airtableService.getEngagementWithCustomer(leadId);
+    if (!result || !result.engagement) {
+      return res.status(404).json({ error: 'Engagement not found' });
     }
+
+    const { engagement, customer } = result;
+    const lead = engagement; // For backward compatibility
+    const clientName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'Client';
 
     // Upload files to Cloudinary
     const attachments = [];
@@ -468,7 +477,7 @@ exports.handleUpload = async (req, res) => {
       const twilioService = require('../services/twilio.service');
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `📷 ${lead.fields['First Name']} uploaded ${files.length} photo(s)!\n\nView in Airtable`,
+        `📷 ${clientName} uploaded ${files.length} photo(s)!\n\nView in Airtable`,
         { leadId }
       );
     } catch (smsError) {

@@ -16,10 +16,10 @@ exports.showScheduleForm = async (req, res) => {
 
     console.log(`📅 Opening schedule form for lead: ${leadId}`);
 
-    // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    // Get engagement and customer details
+    const result = await airtableService.getEngagementWithCustomer(leadId);
 
-    if (!lead) {
+    if (!result || !result.engagement) {
       return res.status(404).send(`
         <!DOCTYPE html>
         <html>
@@ -45,9 +45,12 @@ exports.showScheduleForm = async (req, res) => {
       `);
     }
 
-    const clientName = lead.fields['First Name'] || 'Client';
-    const clientAddress = lead.fields['Address/Location'] || '';
-    const scope = lead.fields.Notes || '';
+    const { engagement, customer } = result;
+    const lead = engagement; // For backward compatibility
+
+    const clientName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'Client';
+    const clientAddress = (customer && customer.fields.Address) || lead.fields['Address (from Customer)'] || '';
+    const scope = lead.fields['Job Scope'] || lead.fields['Client intake info'] || '';
 
     res.send(`
       <!DOCTYPE html>
