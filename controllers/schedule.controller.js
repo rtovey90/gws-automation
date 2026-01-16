@@ -248,20 +248,16 @@ exports.showScheduleForm = async (req, res) => {
               const result = await response.json();
 
               if (result.success) {
-                const completionLink = result.completionLink || '';
-                const linkSection = completionLink ?
-                  '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">' +
-                  '<p style="color: #333; font-weight: 600; margin-bottom: 10px;">✅ Complete the job here:</p>' +
-                  '<a href="' + completionLink + '" style="color: #667eea; font-size: 20px; font-weight: 700; text-decoration: none; word-break: break-all;">' + completionLink + '</a>' +
-                  '<p style="color: #999; font-size: 14px; margin-top: 10px;">💾 Save this link to mark the job complete when you are done</p>' +
-                  '</div>' : '';
-
                 document.querySelector('.container').innerHTML =
                   '<div style="text-align: center; padding: 40px 0;">' +
                   '<div style="font-size: 72px; margin-bottom: 20px;">✅</div>' +
                   '<h1 style="color: #28a745; margin-bottom: 20px;">Job Scheduled!</h1>' +
-                  '<p style="color: #666; font-size: 18px;">The booking has been updated in the calendar.</p>' +
-                  linkSection +
+                  '<p style="color: #666; font-size: 18px; margin-bottom: 20px;">The booking has been updated in the calendar.</p>' +
+                  '<div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0;">' +
+                  '<p style="color: #856404; font-weight: 600; margin-bottom: 10px;">📋 Important:</p>' +
+                  '<p style="color: #856404; margin: 0;">Please fill out the completion form BEFORE leaving the site.</p>' +
+                  '<p style="color: #856404; margin-top: 10px; font-size: 14px;">📱 A link will be SMS\'d to you</p>' +
+                  '</div>' +
                   '<p style="color: #999; margin-top: 20px;">You can close this window.</p>' +
                   '</div>';
               } else {
