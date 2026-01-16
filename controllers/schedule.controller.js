@@ -107,7 +107,8 @@ exports.showScheduleForm = async (req, res) => {
             margin-bottom: 8px;
             font-size: 16px;
           }
-          input[type="datetime-local"] {
+          input[type="date"],
+          select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -116,7 +117,8 @@ exports.showScheduleForm = async (req, res) => {
             margin-bottom: 25px;
             font-family: inherit;
           }
-          input:focus {
+          input:focus,
+          select:focus {
             outline: none;
             border-color: #667eea;
           }
@@ -173,8 +175,34 @@ exports.showScheduleForm = async (req, res) => {
           <form id="scheduleForm">
             <input type="hidden" name="leadId" value="${leadId}">
 
-            <label for="scheduledDate">📆 Scheduled Date & Time:</label>
-            <input type="datetime-local" name="scheduledDate" id="scheduledDate" required>
+            <label for="scheduledDate">📆 Date:</label>
+            <input type="date" name="scheduledDate" id="scheduledDate" required>
+
+            <label for="scheduledTime">⏰ Time:</label>
+            <select name="scheduledTime" id="scheduledTime" required>
+              <option value="">-- Select time --</option>
+              <option value="08:00">8:00 AM</option>
+              <option value="08:30">8:30 AM</option>
+              <option value="09:00">9:00 AM</option>
+              <option value="09:30">9:30 AM</option>
+              <option value="10:00">10:00 AM</option>
+              <option value="10:30">10:30 AM</option>
+              <option value="11:00">11:00 AM</option>
+              <option value="11:30">11:30 AM</option>
+              <option value="12:00">12:00 PM</option>
+              <option value="12:30">12:30 PM</option>
+              <option value="13:00">1:00 PM</option>
+              <option value="13:30">1:30 PM</option>
+              <option value="14:00">2:00 PM</option>
+              <option value="14:30">2:30 PM</option>
+              <option value="15:00">3:00 PM</option>
+              <option value="15:30">3:30 PM</option>
+              <option value="16:00">4:00 PM</option>
+              <option value="16:30">4:30 PM</option>
+              <option value="17:00">5:00 PM</option>
+              <option value="17:30">5:30 PM</option>
+              <option value="18:00">6:00 PM</option>
+            </select>
 
             <button type="submit" class="btn">Confirm Schedule</button>
             <div class="loading" id="loading">Updating...</div>
@@ -185,16 +213,22 @@ exports.showScheduleForm = async (req, res) => {
           // Set minimum date to today
           const dateInput = document.getElementById('scheduledDate');
           const now = new Date();
-          now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-          dateInput.min = now.toISOString().slice(0, 16);
+          const today = now.toISOString().split('T')[0];
+          dateInput.min = today;
 
           document.getElementById('scheduleForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const formData = new FormData(e.target);
+
+            // Combine date and time into datetime string
+            const date = formData.get('scheduledDate');
+            const time = formData.get('scheduledTime');
+            const scheduledDate = `${date}T${time}`;
+
             const data = {
               leadId: formData.get('leadId'),
-              scheduledDate: formData.get('scheduledDate'),
+              scheduledDate: scheduledDate,
             };
 
             // Disable button and show loading
