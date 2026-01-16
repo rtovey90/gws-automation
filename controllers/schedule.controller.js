@@ -1,4 +1,5 @@
 const airtableService = require('../services/airtable.service');
+const shortLinkService = require('../services/shortlink.service');
 
 /**
  * Schedule Controllers - Tech schedules job date/time
@@ -246,14 +247,22 @@ exports.showScheduleForm = async (req, res) => {
               const result = await response.json();
 
               if (result.success) {
-                document.querySelector('.container').innerHTML = \`
-                  <div style="text-align: center; padding: 40px 0;">
-                    <div style="font-size: 72px; margin-bottom: 20px;">✅</div>
-                    <h1 style="color: #28a745; margin-bottom: 20px;">Job Scheduled!</h1>
-                    <p style="color: #666; font-size: 18px;">The booking has been updated in the calendar.</p>
-                    <p style="color: #999; margin-top: 20px;">You can close this window.</p>
-                  </div>
-                \`;
+                const completionLink = result.completionLink || '';
+                const linkSection = completionLink ?
+                  '<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">' +
+                  '<p style="color: #333; font-weight: 600; margin-bottom: 10px;">✅ Complete the job here:</p>' +
+                  '<a href="' + completionLink + '" style="color: #667eea; font-size: 20px; font-weight: 700; text-decoration: none; word-break: break-all;">' + completionLink + '</a>' +
+                  '<p style="color: #999; font-size: 14px; margin-top: 10px;">💾 Save this link to mark the job complete when you are done</p>' +
+                  '</div>' : '';
+
+                document.querySelector('.container').innerHTML =
+                  '<div style="text-align: center; padding: 40px 0;">' +
+                  '<div style="font-size: 72px; margin-bottom: 20px;">✅</div>' +
+                  '<h1 style="color: #28a745; margin-bottom: 20px;">Job Scheduled!</h1>' +
+                  '<p style="color: #666; font-size: 18px;">The booking has been updated in the calendar.</p>' +
+                  linkSection +
+                  '<p style="color: #999; margin-top: 20px;">You can close this window.</p>' +
+                  '</div>';
               } else {
                 alert('Error: ' + result.error);
                 btn.disabled = false;
@@ -302,7 +311,14 @@ exports.scheduleJob = async (req, res) => {
 
     console.log(`✓ Lead scheduled successfully`);
 
-    res.status(200).json({ success: true });
+    // Create a short link for the completion form
+    const completionUrl = `/c/${leadId}`;
+    const shortCode = shortLinkService.createShortLink(completionUrl, leadId);
+    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+
+    console.log(`🔗 Completion short link: ${shortUrl}`);
+
+    res.status(200).json({ success: true, completionLink: shortUrl });
   } catch (error) {
     console.error('Error scheduling job:', error);
     console.error('Error details:', error.message);
