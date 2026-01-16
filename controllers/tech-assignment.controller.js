@@ -48,6 +48,7 @@ exports.showAssignmentForm = async (req, res) => {
     const clientPhone = lead.fields.Phone || '';
     const clientAddress = lead.fields['Address/Location'] || '';
     const scope = lead.fields.Notes || 'Service requested';
+    const systemType = lead.fields['Lead Type'] ? lead.fields['Lead Type'].join(', ') : 'System';
 
     // Get all techs
     const techs = await airtableService.getAllTechs();
@@ -70,15 +71,15 @@ Client: ${clientName}
 Phone: ${clientPhone}
 Address: ${clientAddress}
 
-System: CCTV
+System: ${systemType}
 
 Scope:
 ${scope}
 
 Next steps: Please call ${clientName} within 24 hours to schedule a time to attend within the next week.
 
-Once scheduled, please update the booking here so I can track progress and avoid double-bookings:
-${process.env.BASE_URL || 'https://book.greatwhitesecurity.com'}/schedule-job/${leadId}
+Once scheduled, please update the booking here so I can track when jobs are confirmed:
+${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/schedule-job/${leadId}
 
 Feel free to call if you have any questions!
 
