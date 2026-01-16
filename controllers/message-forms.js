@@ -16,10 +16,10 @@ exports.showMessageForm = async (req, res) => {
 
     console.log(`📝 Opening message form: ${messageType} for lead: ${leadId}`);
 
-    // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    // Get engagement and customer details
+    const result = await airtableService.getEngagementWithCustomer(leadId);
 
-    if (!lead) {
+    if (!result || !result.engagement) {
       return res.status(404).send(`
         <!DOCTYPE html>
         <html>
@@ -39,11 +39,14 @@ exports.showMessageForm = async (req, res) => {
         </head>
         <body>
           <h1 class="error">❌ Error</h1>
-          <p>Lead not found</p>
+          <p>Engagement not found</p>
         </body>
         </html>
       `);
     }
+
+    const { engagement, customer } = result;
+    const lead = engagement; // For backward compatibility with existing code
 
     // Determine template name and field mappings based on message type
     let templateName;
@@ -97,7 +100,8 @@ exports.showMessageForm = async (req, res) => {
 
     // Get template content and replace variables
     let messageContent = template.fields.Content || '';
-    const firstName = lead.fields['First Name'] || 'there';
+    // Get first name from customer if available, fallback to engagement
+    const firstName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
     const uploadLink = `${process.env.BASE_URL}/upload-photos/${leadId}`;
 
     messageContent = messageContent
@@ -265,11 +269,11 @@ exports.showMessageForm = async (req, res) => {
           <div class="content">
             <div class="lead-info">
               <p><strong>To:</strong> ${firstName}</p>
-              <p><strong>Phone:</strong> ${lead.fields.Phone || 'No phone number'}</p>
-              <p><strong>Address:</strong> ${lead.fields['Address/Location'] || 'N/A'}</p>
+              <p><strong>Phone:</strong> ${(customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) || lead.fields['Mobile Phone (from Customer)'] || lead.fields['Phone (from Customer)'] || 'No phone number'}</p>
+              <p><strong>Address:</strong> ${(customer && customer.fields.Address) || lead.fields['Address (from Customer)'] || 'N/A'}</p>
             </div>
 
-            ${!lead.fields.Phone ? '<div class="warning">⚠️ Warning: This lead has no phone number!</div>' : ''}
+            ${!(customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) && !lead.fields['Mobile Phone (from Customer)'] && !lead.fields['Phone (from Customer)'] ? '<div class="warning">⚠️ Warning: This lead has no phone number!</div>' : ''}
 
             <form id="messageForm">
               <label for="message">Message (edit as needed):</label>
@@ -409,20 +413,28 @@ exports.sendMessage = async (req, res) => {
 
     console.log(`📤 Sending ${messageType} message for lead: ${leadId}`);
 
-    // Get lead
-    const lead = await airtableService.getLead(leadId);
+    // Get engagement and customer
+    const result = await airtableService.getEngagementWithCustomer(leadId);
 
-    if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+    if (!result || !result.engagement) {
+      return res.status(404).json({ error: 'Engagement not found' });
     }
 
-    if (!lead.fields.Phone) {
-      return res.status(400).json({ error: 'Lead has no phone number' });
+    const { engagement, customer } = result;
+    const lead = engagement; // For backward compatibility
+
+    // Get phone from customer
+    const customerPhone = (customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) ||
+                          lead.fields['Mobile Phone (from Customer)'] ||
+                          lead.fields['Phone (from Customer)'];
+
+    if (!customerPhone) {
+      return res.status(400).json({ error: 'Customer has no phone number' });
     }
 
     // Send SMS
     await twilioService.sendSMS(
-      lead.fields.Phone,
+      customerPhone,
       message,
       { leadId, messageType }
     );
@@ -432,7 +444,7 @@ exports.sendMessage = async (req, res) => {
       leadId: leadId,
       direction: 'Outbound',
       type: 'SMS',
-      to: lead.fields.Phone,
+      to: customerPhone,
       from: process.env.TWILIO_PHONE_NUMBER,
       content: message,
       status: 'Sent',

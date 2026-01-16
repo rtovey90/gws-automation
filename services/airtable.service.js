@@ -238,6 +238,32 @@ class AirtableService {
     }
   }
 
+  /**
+   * Get engagement with customer data
+   * Helper method that fetches engagement and its linked customer
+   */
+  async getEngagementWithCustomer(engagementId) {
+    try {
+      const engagement = await this.getEngagement(engagementId);
+
+      if (!engagement) {
+        return null;
+      }
+
+      // Get linked customer if exists
+      let customer = null;
+      const customerIds = engagement.fields.Customer;
+      if (customerIds && customerIds.length > 0) {
+        customer = await this.getCustomer(customerIds[0]);
+      }
+
+      return { engagement, customer };
+    } catch (error) {
+      console.error('Error getting engagement with customer:', error);
+      throw error;
+    }
+  }
+
   // ============ JOBS ============
 
   /**
