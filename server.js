@@ -16,6 +16,7 @@ const shortLinkController = require('./controllers/shortlink.controller');
 const techAssignmentController = require('./controllers/tech-assignment.controller');
 const scheduleController = require('./controllers/schedule.controller');
 const completionController = require('./controllers/completion.controller');
+const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
 
 const app = express();
 
@@ -196,6 +197,9 @@ Endpoints ready:
 
 Press Ctrl+C to stop
   `);
+
+  // Start scheduled jobs
+  startScheduledJobChecker();
 });
 
 module.exports = app;
