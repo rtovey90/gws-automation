@@ -81,6 +81,7 @@ exports.showScheduleForm = async (req, res) => {
           .subtitle {
             color: #666;
             margin-bottom: 30px;
+            line-height: 1.5;
           }
           .job-details {
             background: #f8f9fa;
@@ -150,7 +151,7 @@ exports.showScheduleForm = async (req, res) => {
       <body>
         <div class="container">
           <h1>📅 Schedule Job</h1>
-          <p class="subtitle">Enter the scheduled date and time</p>
+          <p class="subtitle">Please select the time and date you've scheduled to attend with ${clientName} so we can be available to support.</p>
 
           <div class="job-details">
             <div class="detail-row">
