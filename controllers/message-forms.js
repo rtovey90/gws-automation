@@ -496,10 +496,15 @@ exports.sendMessage = async (req, res) => {
       status: 'Sent',
     });
 
-    // Mark as sent in Airtable
-    await airtableService.updateLead(leadId, {
-      [sentField]: true,
-    });
+    // Mark as sent in Airtable (optional - don't fail if field doesn't exist)
+    try {
+      await airtableService.updateLead(leadId, {
+        [sentField]: true,
+      });
+    } catch (updateError) {
+      console.warn(`⚠️ Could not update ${sentField} field (field may not exist):`, updateError.message);
+      // Continue anyway - the important part (SMS send + logging) succeeded
+    }
 
     console.log(`✓ ${messageType} sent to ${lead.fields['First Name']}`);
 
