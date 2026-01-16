@@ -255,9 +255,14 @@ exports.scheduleJob = async (req, res) => {
 
     console.log(`📅 Scheduling job for lead ${leadId} on ${scheduledDate}`);
 
+    // Convert datetime-local format to ISO 8601 for Airtable
+    // Input: "2026-01-22T10:40" -> Output: "2026-01-22T10:40:00.000Z"
+    const isoDate = new Date(scheduledDate).toISOString();
+    console.log(`📅 Converted date to ISO: ${isoDate}`);
+
     // Update lead with scheduled date and status
     await airtableService.updateLead(leadId, {
-      'Scheduled Date': scheduledDate,
+      'Scheduled Date': isoDate,
       Status: 'Scheduled 📅',
     });
 
@@ -266,7 +271,9 @@ exports.scheduleJob = async (req, res) => {
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error scheduling job:', error);
-    res.status(500).json({ error: 'Failed to schedule job' });
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ error: 'Failed to schedule job', details: error.message });
   }
 };
 
