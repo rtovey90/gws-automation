@@ -228,6 +228,8 @@ exports.showScheduleForm = async (req, res) => {
             const time = formData.get('scheduledTime');
             const scheduledDate = date + 'T' + time;
 
+            console.log('Submitting schedule:', { date, time, scheduledDate });
+
             const data = {
               leadId: formData.get('leadId'),
               scheduledDate: scheduledDate,
@@ -239,13 +241,16 @@ exports.showScheduleForm = async (req, res) => {
             document.getElementById('loading').style.display = 'block';
 
             try {
+              console.log('Sending request to /api/schedule-job');
               const response = await fetch('/api/schedule-job', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
               });
 
+              console.log('Response status:', response.status);
               const result = await response.json();
+              console.log('Response data:', result);
 
               if (result.success) {
                 document.querySelector('.container').innerHTML =
@@ -261,12 +266,14 @@ exports.showScheduleForm = async (req, res) => {
                   '<p style="color: #999; margin-top: 20px;">You can close this window.</p>' +
                   '</div>';
               } else {
-                alert('Error: ' + result.error);
+                console.error('Schedule failed:', result);
+                alert('Error: ' + (result.error || 'Failed to schedule job') + (result.details ? '\\n\\nDetails: ' + result.details : ''));
                 btn.disabled = false;
                 document.getElementById('loading').style.display = 'none';
               }
             } catch (error) {
-              alert('Error scheduling job: ' + error.message);
+              console.error('Schedule error:', error);
+              alert('Error scheduling job: ' + error.message + '\\n\\nPlease check your internet connection and try again.');
               btn.disabled = false;
               document.getElementById('loading').style.display = 'none';
             }
