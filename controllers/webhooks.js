@@ -7,6 +7,64 @@ const twilioService = require('../services/twilio.service');
  */
 
 /**
+ * Helper function to create or get existing customer, then create engagement
+ * @param {Object} data - Lead data from form/call/etc
+ * @returns {Object} - { customer, engagement }
+ */
+async function createCustomerAndEngagement(data) {
+  try {
+    // Extract first and last names if we have a full name
+    let firstName = data.name || '';
+    let lastName = '';
+
+    if (firstName && firstName.includes(' ')) {
+      const nameParts = firstName.split(' ');
+      firstName = nameParts[0];
+      lastName = nameParts.slice(1).join(' ');
+    }
+
+    // Check if customer already exists by phone
+    let customer = null;
+    if (data.phone) {
+      customer = await airtableService.getCustomerByPhone(data.phone);
+    }
+
+    // If customer doesn't exist, create them
+    if (!customer) {
+      console.log('🆕 Creating new customer');
+      customer = await airtableService.createCustomer({
+        firstName: firstName,
+        lastName: lastName,
+        phone: data.phone || '',
+        email: data.email || '',
+        address: data.address || data.location || '',
+        notes: '',
+      });
+    } else {
+      console.log('✓ Found existing customer:', customer.id);
+    }
+
+    // Create engagement linked to customer
+    const engagement = await airtableService.createEngagement({
+      customerId: customer.id,
+      status: 'New Lead',
+      leadType: data.serviceType || 'Other',
+      source: data.source || 'Form',
+      notes: data.notes || '',
+      rawData: data.rawData || '',
+      business: data.business || 'Great White Security',
+      serviceCallAmount: data.serviceCallAmount,
+      projectValue: data.projectValue,
+    });
+
+    return { customer, engagement };
+  } catch (error) {
+    console.error('Error creating customer and engagement:', error);
+    throw error;
+  }
+}
+
+/**
  * Handle Formspree contact form submissions
  * POST /webhooks/formspree
  */
@@ -28,7 +86,7 @@ exports.handleFormspree = async (req, res) => {
       'not-sure': 'Other',
     };
 
-    // Create lead in Airtable
+    // Prepare data for customer + engagement creation
     // Support both old form structure (firstName/suburb) and new form (firstName/propertyAddress)
     const leadData = {
       name: formData.firstName || formData.name || 'Unknown',
@@ -42,9 +100,10 @@ exports.handleFormspree = async (req, res) => {
       rawData: JSON.stringify(formData, null, 2),
     };
 
-    const lead = await airtableService.createLead(leadData);
+    // Create customer and engagement
+    const { customer, engagement } = await createCustomerAndEngagement(leadData);
 
-    console.log(`✓ Lead created: ${lead.id} - ${leadData.name}`);
+    console.log(`✓ Customer & Engagement created: ${engagement.id} - ${leadData.name}`);
 
     // Send notification to admin
     try {
@@ -53,14 +112,14 @@ exports.handleFormspree = async (req, res) => {
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
         `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.serviceType || 'Other'}${message}\n\nView in Airtable`,
-        { leadId: lead.id }
+        { leadId: engagement.id }
       );
     } catch (smsError) {
       console.error('Error sending notification SMS:', smsError);
       // Don't fail the webhook if notification fails
     }
 
-    res.status(200).json({ success: true, leadId: lead.id });
+    res.status(200).json({ success: true, leadId: engagement.id, customerId: customer.id });
   } catch (error) {
     console.error('Error handling Formspree webhook:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -218,9 +277,10 @@ exports.handleEmailTranscript = async (req, res) => {
 
       console.log('Lead data being created:', JSON.stringify(leadData, null, 2));
 
-      const lead = await airtableService.createLead(leadData);
+      // Create customer and engagement
+      const { customer, engagement } = await createCustomerAndEngagement(leadData);
 
-      console.log(`✓ Lead created from call: ${lead.id} - ${leadData.name}`);
+      console.log(`✓ Customer & Engagement created from call: ${engagement.id} - ${leadData.name}`);
 
       // Send notification to admin
       try {
@@ -230,13 +290,13 @@ exports.handleEmailTranscript = async (req, res) => {
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
           `🆕 NEW LEAD from phone call!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nLocation: ${leadData.location || 'N/A'}${notesPreview}\n\nView in Airtable`,
-          { leadId: lead.id }
+          { leadId: engagement.id }
         );
       } catch (smsError) {
         console.error('Error sending notification SMS:', smsError);
       }
 
-      res.status(200).json({ success: true, leadId: lead.id });
+      res.status(200).json({ success: true, leadId: engagement.id, customerId: customer.id });
     } else {
       console.log('ℹ️ Call transcript received but not flagged as lead');
       res.status(200).json({ success: true, message: 'Not a lead' });

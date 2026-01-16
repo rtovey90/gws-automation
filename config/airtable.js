@@ -7,7 +7,9 @@ const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
 
 // Table references
 const tables = {
-  leads: base(process.env.AIRTABLE_LEADS_TABLE),
+  customers: base(process.env.AIRTABLE_CUSTOMERS_TABLE),
+  engagements: base(process.env.AIRTABLE_ENGAGEMENTS_TABLE),
+  leads: base(process.env.AIRTABLE_ENGAGEMENTS_TABLE), // Alias for backward compatibility
   jobs: base(process.env.AIRTABLE_JOBS_TABLE),
   techs: base(process.env.AIRTABLE_TECHS_TABLE),
   messages: base(process.env.AIRTABLE_MESSAGES_TABLE),

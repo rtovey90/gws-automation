@@ -93,6 +93,138 @@ class AirtableService {
     }
   }
 
+  // ============ CUSTOMERS ============
+
+  /**
+   * Get customer by phone number (checks both Phone and Mobile Phone fields)
+   */
+  async getCustomerByPhone(phone) {
+    try {
+      const records = await tables.customers
+        .select({
+          filterByFormula: `OR({Phone} = '${phone}', {Mobile Phone} = '${phone}')`,
+          maxRecords: 1,
+        })
+        .firstPage();
+
+      return records[0] || null;
+    } catch (error) {
+      console.error('Error getting customer by phone:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new customer
+   */
+  async createCustomer(customerData) {
+    try {
+      const fields = {
+        'First Name': customerData.firstName || '',
+        'Last Name': customerData.lastName || '',
+        Phone: customerData.phone || '',
+        'Mobile Phone': customerData.mobilePhone || '',
+        Email: customerData.email || '',
+        'Business Name': customerData.businessName || '',
+        Address: customerData.address || '',
+        Notes: customerData.notes || '',
+      };
+
+      const records = await tables.customers.create([{ fields }]);
+      console.log('✓ Customer created:', records[0].id);
+      return records[0];
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get customer by ID
+   */
+  async getCustomer(customerId) {
+    try {
+      return await tables.customers.find(customerId);
+    } catch (error) {
+      console.error('Error getting customer:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update customer
+   */
+  async updateCustomer(customerId, updates) {
+    try {
+      return await tables.customers.update(customerId, updates);
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      throw error;
+    }
+  }
+
+  // ============ ENGAGEMENTS ============
+
+  /**
+   * Create a new engagement linked to a customer
+   */
+  async createEngagement(engagementData) {
+    try {
+      const fields = {
+        Status: engagementData.status || 'New Lead',
+        'Lead Type': Array.isArray(engagementData.leadType) ? engagementData.leadType : [engagementData.leadType || 'Other'],
+        ' Source': engagementData.source || 'Form',
+        Notes: engagementData.notes || '',
+        'Original Transcript/Form Data': engagementData.rawData || '',
+        Business: engagementData.business || 'Great White Security',
+      };
+
+      // Link to customer
+      if (engagementData.customerId) {
+        fields.Customer = [engagementData.customerId];
+      }
+
+      // Add pricing fields if provided
+      if (engagementData.serviceCallAmount) {
+        fields['Service Call Amount'] = engagementData.serviceCallAmount;
+      }
+      if (engagementData.projectValue) {
+        fields['Project Value'] = engagementData.projectValue;
+      }
+
+      const records = await tables.engagements.create([{ fields }]);
+      console.log('✓ Engagement created:', records[0].id);
+      return records[0];
+    } catch (error) {
+      console.error('Error creating engagement:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get engagement by ID
+   */
+  async getEngagement(engagementId) {
+    try {
+      return await tables.engagements.find(engagementId);
+    } catch (error) {
+      console.error('Error getting engagement:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update engagement
+   */
+  async updateEngagement(engagementId, updates) {
+    try {
+      return await tables.engagements.update(engagementId, updates);
+    } catch (error) {
+      console.error('Error updating engagement:', error);
+      throw error;
+    }
+  }
+
   // ============ JOBS ============
 
   /**
