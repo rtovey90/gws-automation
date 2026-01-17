@@ -359,23 +359,42 @@ exports.handleTwilioSMS = async (req, res) => {
       }
     }
 
-    // Find lead by phone number
-    let lead = null;
+    // Find customer by phone number, then get their most recent engagement
+    let customer = null;
+    let engagement = null;
+    let customerName = 'Unknown';
+
     try {
-      const records = await airtableService.getLeadByPhone(clientPhone);
-      lead = records;
+      customer = await airtableService.getCustomerByPhone(clientPhone);
+
+      if (customer) {
+        console.log(`✓ Found customer: ${customer.id}`);
+
+        // Get customer name
+        const firstName = customer.fields['First Name'] || '';
+        const lastName = customer.fields['Last Name'] || '';
+        customerName = [firstName, lastName].filter(Boolean).join(' ') || clientPhone;
+
+        // Get most recent engagement for this customer
+        const engagementIds = customer.fields.Engagements;
+        if (engagementIds && engagementIds.length > 0) {
+          // Get the first linked engagement (most recent)
+          engagement = await airtableService.getEngagement(engagementIds[0]);
+          console.log(`✓ Found engagement: ${engagement.id}`);
+        }
+      }
     } catch (error) {
-      console.error('Error finding lead by phone:', error);
+      console.error('Error finding customer by phone:', error);
     }
 
-    if (!lead) {
-      console.log(`⚠️ No lead found for phone number: ${clientPhone}`);
+    if (!customer) {
+      console.log(`⚠️ No customer found for phone number: ${clientPhone}`);
 
       // Send notification to admin about unknown number
       try {
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
-          `📨 NEW MESSAGE from unknown number:\n\nFrom: ${clientPhone}\nMessage: ${Body || '(media only)'}\n\nNo matching lead found - may be a new inquiry.`,
+          `📨 NEW MESSAGE from unknown number:\n\nFrom: ${clientPhone}\nMessage: ${Body || '(media only)'}\n\nNo matching customer found - may be a new inquiry.`,
           { from: clientPhone }
         );
       } catch (smsError) {
@@ -385,8 +404,6 @@ exports.handleTwilioSMS = async (req, res) => {
       // Respond to Twilio (required to prevent retries)
       return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
     }
-
-    console.log(`✓ Found lead: ${lead.fields['First Name']} (${lead.id})`);
 
     // Handle media (photos) if present
     const mediaUrls = [];
@@ -406,42 +423,45 @@ exports.handleTwilioSMS = async (req, res) => {
         }
       }
 
-      // Add Twilio auth to media URLs for Airtable to download
-      const authenticatedUrls = mediaUrls.map(media => ({
-        url: `${media.url}?auth=${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`,
-      }));
+      // Add photos to engagement if it exists
+      if (engagement) {
+        // Add Twilio auth to media URLs for Airtable to download
+        const authenticatedUrls = mediaUrls.map(media => ({
+          url: `${media.url}?auth=${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`,
+        }));
 
-      // Update lead with photos
-      try {
-        // Get existing photos
-        const existingPhotos = lead.fields.Photos || [];
+        // Update engagement with photos
+        try {
+          // Get existing photos
+          const existingPhotos = engagement.fields.Photos || [];
 
-        // Append new photos
-        const updatedPhotos = [
-          ...existingPhotos,
-          ...authenticatedUrls,
-        ];
+          // Append new photos
+          const updatedPhotos = [
+            ...existingPhotos,
+            ...authenticatedUrls,
+          ];
 
-        await airtableService.updateLead(lead.id, {
-          Photos: updatedPhotos,
-        });
+          await airtableService.updateEngagement(engagement.id, {
+            Photos: updatedPhotos,
+          });
 
-        console.log(`✓ ${mediaUrls.length} photo(s) saved to lead`);
-      } catch (photoError) {
-        console.error('Error saving photos to lead:', photoError);
+          console.log(`✓ ${mediaUrls.length} photo(s) saved to engagement`);
+        } catch (photoError) {
+          console.error('Error saving photos to engagement:', photoError);
+        }
       }
     }
 
     // Log the message in Messages table
     try {
       await airtableService.logMessage({
-        leadId: lead.id,
+        leadId: engagement ? engagement.id : null,
         direction: 'Inbound',
         type: 'SMS',
         from: clientPhone,
         to: twilioNumber,
         content: Body || '(media only)',
-        status: 'Delivered',
+        status: 'Received',
       });
 
       console.log('✓ Message logged in Messages table');
@@ -455,8 +475,8 @@ exports.handleTwilioSMS = async (req, res) => {
 
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
-        `📨 NEW REPLY from ${lead.fields['First Name']}:\n\n${Body || '(no text)'}${photoText}\n\nView lead in Airtable`,
-        { leadId: lead.id, from: clientPhone }
+        `📨 NEW REPLY from ${customerName}:\n\n${Body || '(no text)'}${photoText}\n\nView in Airtable`,
+        { leadId: engagement ? engagement.id : null, from: clientPhone }
       );
 
       console.log('✓ Admin notification sent');
