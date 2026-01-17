@@ -127,6 +127,21 @@ app.post('/webhooks/twilio-sms-debug', (req, res) => {
   console.log('DEBUG webhook called:', lastWebhookData);
   res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
 });
+
+// Simple test endpoint that accepts both GET and POST
+app.all('/test-webhook', (req, res) => {
+  const data = {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    headers: req.headers
+  };
+  lastWebhookData = data;
+  console.log('TEST WEBHOOK CALLED:', JSON.stringify(data, null, 2));
+  res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response><Message>Webhook received!</Message></Response>');
+});
+
 app.get('/api/last-webhook', (req, res) => {
   res.json(lastWebhookData);
 });
