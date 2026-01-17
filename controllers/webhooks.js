@@ -317,20 +317,47 @@ exports.handleEmailTranscript = async (req, res) => {
 };
 
 /**
+ * Normalize phone number to E.164 format for comparison
+ * Handles: 0456123456, +61456123456, 61456123456, 0456 123 456, etc.
+ */
+function normalizePhone(phone) {
+  if (!phone) return null;
+
+  // Remove all spaces, dashes, parentheses
+  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+  // If starts with 0, replace with +61
+  if (cleaned.startsWith('0')) {
+    cleaned = '+61' + cleaned.substring(1);
+  }
+  // If starts with 61 but no +, add it
+  else if (cleaned.startsWith('61') && !cleaned.startsWith('+')) {
+    cleaned = '+' + cleaned;
+  }
+  // If doesn't start with +61, assume it's missing
+  else if (!cleaned.startsWith('+')) {
+    cleaned = '+61' + cleaned;
+  }
+
+  return cleaned;
+}
+
+/**
  * Handle incoming SMS/MMS from Twilio
  * POST /webhooks/twilio-sms
  */
 exports.handleTwilioSMS = async (req, res) => {
   try {
     console.log('📨 Twilio SMS webhook received');
+    console.log('Full webhook body:', JSON.stringify(req.body, null, 2));
 
     const { From, To, Body, NumMedia, MessageSid } = req.body;
 
-    // Clean phone number format (Twilio sends +61...)
-    const clientPhone = From;
+    // Normalize phone numbers for matching
+    const clientPhone = normalizePhone(From);
     const twilioNumber = To;
 
-    console.log(`📱 Incoming message from ${clientPhone}`);
+    console.log(`📱 Incoming message from ${From} (normalized: ${clientPhone})`);
     console.log(`📝 Message: ${Body || '(media only)'}`);
     console.log(`📎 Media count: ${NumMedia || 0}`);
 
@@ -365,7 +392,15 @@ exports.handleTwilioSMS = async (req, res) => {
     let customerName = 'Unknown';
 
     try {
+      // Try normalized phone first
+      console.log(`🔍 Looking up customer by phone: ${clientPhone}`);
       customer = await airtableService.getCustomerByPhone(clientPhone);
+
+      // If not found and phone was in different format, try original
+      if (!customer && From !== clientPhone) {
+        console.log(`🔍 Trying original format: ${From}`);
+        customer = await airtableService.getCustomerByPhone(From);
+      }
 
       if (customer) {
         console.log(`✓ Found customer: ${customer.id}`);
@@ -381,14 +416,35 @@ exports.handleTwilioSMS = async (req, res) => {
           // Get the first linked engagement (most recent)
           engagement = await airtableService.getEngagement(engagementIds[0]);
           console.log(`✓ Found engagement: ${engagement.id}`);
+        } else {
+          console.log(`⚠️ Customer found but no engagements linked`);
         }
+      } else {
+        console.log(`❌ No customer found for phone: ${clientPhone} or ${From}`);
       }
     } catch (error) {
       console.error('Error finding customer by phone:', error);
     }
 
+    // Log the message even if customer not found
     if (!customer) {
       console.log(`⚠️ No customer found for phone number: ${clientPhone}`);
+
+      // Still log the message to Messages table
+      try {
+        await airtableService.logMessage({
+          leadId: null,
+          direction: 'Inbound',
+          type: 'SMS',
+          from: clientPhone,
+          to: twilioNumber,
+          content: Body || '(media only)',
+          status: 'Received',
+        });
+        console.log('✓ Message logged (no customer match)');
+      } catch (messageError) {
+        console.error('Error logging message:', messageError);
+      }
 
       // Send notification to admin about unknown number
       try {
