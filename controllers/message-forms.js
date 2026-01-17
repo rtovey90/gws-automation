@@ -496,10 +496,17 @@ exports.sendMessage = async (req, res) => {
       status: 'Sent',
     });
 
-    // Mark as sent in Airtable
-    await airtableService.updateLead(leadId, {
+    // Mark as sent in Airtable and update status
+    const updates = {
       [sentField]: true,
-    });
+    };
+
+    // Update status based on message type
+    if (messageType === 'request-photos') {
+      updates.Status = 'Photos Requested';
+    }
+
+    await airtableService.updateLead(leadId, updates);
 
     console.log(`✓ ${messageType} sent to ${lead.fields['First Name']}`);
 
