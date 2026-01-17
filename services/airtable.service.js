@@ -489,7 +489,7 @@ class AirtableService {
     try {
       const records = await tables.messages
         .select({
-          sort: [{ field: 'Created', direction: 'desc' }],
+          // Don't sort here - will sort in memory
         })
         .all();
 

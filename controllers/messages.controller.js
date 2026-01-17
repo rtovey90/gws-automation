@@ -1,6 +1,20 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
 
+// Helper function to get timestamp from Airtable record
+function getTimestamp(msg) {
+  try {
+    // Try Timestamp field first, then Created, then use createdTime
+    if (msg.fields && msg.fields.Timestamp) return new Date(msg.fields.Timestamp);
+    if (msg.fields && msg.fields.Created) return new Date(msg.fields.Created);
+    if (msg._rawJson && msg._rawJson.createdTime) return new Date(msg._rawJson.createdTime);
+    // Fallback to now
+    return new Date();
+  } catch (e) {
+    return new Date();
+  }
+}
+
 /**
  * Show messages inbox with all conversations
  * GET /messages
@@ -36,7 +50,7 @@ exports.showInbox = async (req, res) => {
         id: msg.id,
         direction: fields.Direction,
         content: fields.Content,
-        timestamp: msg.fields['Created'] || new Date(msg._rawJson.createdTime),
+        timestamp: getTimestamp(msg),
         status: fields.Status,
       });
     }
@@ -289,10 +303,7 @@ exports.showConversation = async (req, res) => {
     });
 
     // Sort by timestamp
-    messages.sort((a, b) =>
-      new Date(a.fields['Created'] || a._rawJson.createdTime) -
-      new Date(b.fields['Created'] || b._rawJson.createdTime)
-    );
+    messages.sort((a, b) => getTimestamp(a) - getTimestamp(b));
 
     // Get customer info
     let customerName = decodedPhone;
@@ -459,7 +470,7 @@ exports.showConversation = async (req, res) => {
           ` : messages.map(msg => {
             const fields = msg.fields;
             const isOutbound = fields.Direction === 'Outbound';
-            const timestamp = new Date(fields['Created'] || msg._rawJson.createdTime);
+            const timestamp = getTimestamp(msg);
             const timeStr = timestamp.toLocaleTimeString('en-AU', {
               hour: 'numeric',
               minute: '2-digit',
