@@ -488,7 +488,7 @@ exports.completeJob = async (req, res) => {
     // Append to Client Notes (persistent notes field) instead of non-existent Tech Notes
     const updates = {
       'Client Notes': completionNotes,
-      Status: 'Completed',
+      // Status update removed until we know the exact allowed values in Airtable
     };
 
     // Add photos if any were uploaded
