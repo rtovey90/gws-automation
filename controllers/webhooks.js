@@ -221,7 +221,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
 
       // Update engagement status to Payment Received
       await airtableService.updateEngagement(leadId, {
-        Status: 'Payment Received'
+        Status: 'Payment Received ✅'
       });
       console.log(`✓ Engagement status updated to Payment Received (Payment ID: ${paymentId})`);
 
