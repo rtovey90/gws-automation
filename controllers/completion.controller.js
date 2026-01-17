@@ -453,7 +453,7 @@ exports.completeJob = async (req, res) => {
     }
 
     // Build comprehensive completion notes
-    let completionNotes = `${jobNotes}`;
+    let completionNotes = `COMPLETED: ${new Date().toLocaleDateString()}\n\n${jobNotes}`;
 
     if (nvrLogin) completionNotes += `\n\nNVR Login: ${nvrLogin}`;
     if (nvrPassword) completionNotes += `\nNVR Password: ${nvrPassword}`;
@@ -463,18 +463,12 @@ exports.completeJob = async (req, res) => {
     if (nextSteps) completionNotes += `\nNext Steps: ${nextSteps}`;
     if (upgradeOpportunities) completionNotes += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
 
-    // Update lead with completion info
+    // Update engagement with completion info
+    // Append to Client Notes (persistent notes field) instead of non-existent Tech Notes
     const updates = {
-      'Tech Notes': completionNotes,
-      'Completion Date': new Date().toISOString().split('T')[0],
-      'Issue Resolved': issueResolved || 'N/A',
+      'Client Notes': completionNotes,
       Status: 'Completed ✅',
     };
-
-    // Add upgrade opportunities as separate field if provided
-    if (upgradeOpportunities) {
-      updates['Upgrade Opportunities'] = upgradeOpportunities;
-    }
 
     // Add photos if any were uploaded
     if (photoAttachments.length > 0) {
