@@ -426,10 +426,22 @@ exports.completeJob = async (req, res) => {
 
     // Upload photos to Cloudinary
     const photoAttachments = [];
+    const skippedFiles = [];
+    const cloudinaryLimit = 10 * 1024 * 1024; // 10MB Cloudinary free tier limit
+
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          console.log(`📤 Uploading ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB) to Cloudinary...`);
+          const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+
+          // Skip files over 10MB (Cloudinary free tier limit)
+          if (file.size > cloudinaryLimit) {
+            console.log(`⚠️ Skipping ${file.originalname} (${fileSizeMB}MB) - exceeds Cloudinary 10MB limit`);
+            skippedFiles.push(`${file.originalname} (${fileSizeMB}MB - too large)`);
+            continue;
+          }
+
+          console.log(`📤 Uploading ${file.originalname} (${fileSizeMB}MB) to Cloudinary...`);
 
           // Upload to Cloudinary using base64
           const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
@@ -447,6 +459,7 @@ exports.completeJob = async (req, res) => {
           });
         } catch (uploadError) {
           console.error(`❌ Failed to upload ${file.originalname} to Cloudinary:`, uploadError.message);
+          skippedFiles.push(`${file.originalname} (upload error)`);
           // Continue with other files even if one fails
         }
       }
@@ -463,6 +476,14 @@ exports.completeJob = async (req, res) => {
     if (nextSteps) completionNotes += `\nNext Steps: ${nextSteps}`;
     if (upgradeOpportunities) completionNotes += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
 
+    // Add note about photos
+    if (photoAttachments.length > 0) {
+      completionNotes += `\n\n📷 ${photoAttachments.length} photo(s) uploaded`;
+    }
+    if (skippedFiles.length > 0) {
+      completionNotes += `\n⚠️ Skipped files (too large): ${skippedFiles.join(', ')}`;
+    }
+
     // Update engagement with completion info
     // Append to Client Notes (persistent notes field) instead of non-existent Tech Notes
     const updates = {
@@ -474,8 +495,8 @@ exports.completeJob = async (req, res) => {
     if (photoAttachments.length > 0) {
       // Get existing photos
       const engagement = await airtableService.getEngagement(leadId);
-      const existingPhotos = engagement.fields['Tech Uploaded Photos (from Customer)'] || [];
-      updates['Tech Uploaded Photos (from Customer)'] = [...existingPhotos, ...photoAttachments];
+      const existingPhotos = engagement.fields.Photos || [];
+      updates.Photos = [...existingPhotos, ...photoAttachments];
     }
 
     await airtableService.updateEngagement(leadId, updates);

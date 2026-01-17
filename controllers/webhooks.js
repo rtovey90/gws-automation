@@ -489,7 +489,7 @@ exports.handleTwilioSMS = async (req, res) => {
         // Update engagement with photos (client sent via SMS)
         try {
           // Get existing photos
-          const existingPhotos = engagement.fields['Client Uploaded Photos (from Customer)'] || [];
+          const existingPhotos = engagement.fields.Photos || [];
 
           // Append new photos
           const updatedPhotos = [
@@ -498,10 +498,10 @@ exports.handleTwilioSMS = async (req, res) => {
           ];
 
           await airtableService.updateEngagement(engagement.id, {
-            'Client Uploaded Photos (from Customer)': updatedPhotos,
+            Photos: updatedPhotos,
           });
 
-          console.log(`✓ ${mediaUrls.length} photo(s) saved to engagement (Client Uploaded Photos)`);
+          console.log(`✓ ${mediaUrls.length} photo(s) saved to engagement`);
         } catch (photoError) {
           console.error('Error saving photos to engagement:', photoError);
         }

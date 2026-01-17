@@ -426,9 +426,19 @@ exports.handleUpload = async (req, res) => {
 
     // Upload files to Cloudinary
     const attachments = [];
+    const cloudinaryLimit = 10 * 1024 * 1024; // 10MB Cloudinary free tier limit
+
     for (const file of files) {
       try {
-        console.log(`📤 Uploading ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB) to Cloudinary...`);
+        const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+
+        // Skip files over 10MB (Cloudinary free tier limit)
+        if (file.size > cloudinaryLimit) {
+          console.log(`⚠️ Skipping ${file.originalname} (${fileSizeMB}MB) - exceeds Cloudinary 10MB limit`);
+          continue;
+        }
+
+        console.log(`📤 Uploading ${file.originalname} (${fileSizeMB}MB) to Cloudinary...`);
 
         // Upload to Cloudinary using base64
         const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
@@ -455,11 +465,11 @@ exports.handleUpload = async (req, res) => {
     }
 
     // Get existing photos
-    const existingPhotos = lead.fields['Client Uploaded Photos (from Customer)'] || [];
+    const existingPhotos = lead.fields.Photos || [];
 
     // Append new photos and update status to Reviewing
     await airtableService.updateEngagement(leadId, {
-      'Client Uploaded Photos (from Customer)': [...existingPhotos, ...attachments],
+      Photos: [...existingPhotos, ...attachments],
       Status: 'Reviewing 👀',
     });
 
