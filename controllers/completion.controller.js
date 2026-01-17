@@ -1,25 +1,47 @@
 const airtableService = require('../services/airtable.service');
 const multer = require('multer');
 const path = require('path');
+const cloudinary = require('cloudinary').v2;
 
 /**
  * Completion Controllers - Tech marks job complete and uploads photos
  */
 
-// Configure multer for photo uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'job-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// Configure Cloudinary (prefer CLOUDINARY_URL when available)
+const cloudinaryUrl = process.env.CLOUDINARY_URL;
+let cloudinaryConfig = null;
+
+if (cloudinaryUrl) {
+  try {
+    const parsed = new URL(cloudinaryUrl);
+    cloudinaryConfig = {
+      cloud_name: parsed.hostname,
+      api_key: decodeURIComponent(parsed.username),
+      api_secret: decodeURIComponent(parsed.password),
+      secure: true,
+    };
+  } catch (error) {
+    console.error('Invalid CLOUDINARY_URL format. Falling back to discrete variables.');
+  }
+}
+
+if (!cloudinaryConfig) {
+  cloudinaryConfig = {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  };
+}
+
+cloudinary.config(cloudinaryConfig);
+
+// Configure multer for memory storage (upload to Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -397,18 +419,36 @@ exports.completeJob = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`✅ Completing job for lead ${leadId}`);
+    console.log(`✅ Completing job for engagement ${leadId}`);
     console.log(`📝 Job Notes: ${jobNotes}`);
     console.log(`✅ Issue Resolved: ${issueResolved}`);
     console.log(`📷 Photos: ${files ? files.length : 0}`);
 
-    // Prepare photo attachments for Airtable
+    // Upload photos to Cloudinary
     const photoAttachments = [];
     if (files && files.length > 0) {
       for (const file of files) {
-        // Create public URL for the uploaded file
-        const fileUrl = `${process.env.BASE_URL}/uploads/${file.filename}`;
-        photoAttachments.push({ url: fileUrl });
+        try {
+          console.log(`📤 Uploading ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB) to Cloudinary...`);
+
+          // Upload to Cloudinary using base64
+          const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+
+          const uploadResult = await cloudinary.uploader.upload(base64Data, {
+            folder: `gws-jobs/${leadId}`,
+            resource_type: 'auto',
+            public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
+          });
+
+          console.log(`✓ Uploaded ${file.originalname} to Cloudinary: ${uploadResult.secure_url}`);
+
+          photoAttachments.push({
+            url: uploadResult.secure_url,
+          });
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload ${file.originalname} to Cloudinary:`, uploadError.message);
+          // Continue with other files even if one fails
+        }
       }
     }
 
