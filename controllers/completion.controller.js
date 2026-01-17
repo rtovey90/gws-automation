@@ -439,12 +439,12 @@ exports.completeJob = async (req, res) => {
     // Add photos if any were uploaded
     if (photoAttachments.length > 0) {
       // Get existing photos
-      const lead = await airtableService.getLead(leadId);
-      const existingPhotos = lead.fields.Photos || [];
+      const engagement = await airtableService.getEngagement(leadId);
+      const existingPhotos = engagement.fields.Photos || [];
       updates.Photos = [...existingPhotos, ...photoAttachments];
     }
 
-    await airtableService.updateLead(leadId, updates);
+    await airtableService.updateEngagement(leadId, updates);
 
     console.log(`✓ Job marked as completed`);
 
