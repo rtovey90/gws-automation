@@ -373,27 +373,28 @@ exports.assignTech = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`👷 Assigning tech ${techId} to lead ${leadId}`);
+    console.log(`👷 Assigning tech ${techId} to engagement ${leadId}`);
 
-    // Get lead and tech details
-    const lead = await airtableService.getLead(leadId);
+    // Get engagement and tech details
+    const engagement = await airtableService.getEngagement(leadId);
+    const lead = engagement; // For backward compatibility
     const tech = await airtableService.getTech(techId);
 
-    if (!lead || !tech) {
-      return res.status(404).json({ error: 'Lead or tech not found' });
+    if (!engagement || !tech) {
+      return res.status(404).json({ error: 'Engagement or tech not found' });
     }
 
     // Replace [TECH_NAME] placeholder in message (use first name only)
     const techFirstName = tech.fields['First Name'] || 'there';
     const finalMessage = message.replace(/\[TECH_NAME\]/g, techFirstName);
 
-    // Update lead with assigned tech and status
-    await airtableService.updateLead(leadId, {
+    // Update engagement with assigned tech and status
+    await airtableService.updateEngagement(leadId, {
       'Assigned Tech Name': [techId],
       Status: 'Tech Assigned 👷',
     });
 
-    console.log(`✓ Lead updated with assigned tech`);
+    console.log(`✓ Engagement updated with assigned tech`);
 
     // Send SMS to tech
     await twilioService.sendSMS(

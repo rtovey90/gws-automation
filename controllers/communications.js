@@ -20,7 +20,7 @@ exports.sendPricing = async (req, res) => {
     console.log(`💵 Sending pricing SMS for lead: ${leadId}`);
 
     // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    const lead = await airtableService.getEngagement(leadId);
 
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
@@ -83,7 +83,7 @@ Ricky`;
     });
 
     // Update lead status and pricing sent checkbox
-    await airtableService.updateLead(leadId, {
+    await airtableService.updateEngagement(leadId, {
       Status: 'Payment Link Sent',
       'Pricing Sent': true,
     });
@@ -277,7 +277,7 @@ exports.sendMessage = async (req, res) => {
     console.log(`📨 Sending message: ${type} for lead: ${leadId}`);
 
     // Get lead from Airtable
-    const lead = await airtableService.getLead(leadId);
+    const lead = await airtableService.getEngagement(leadId);
 
     if (!lead) {
       return res.status(404).send(`
@@ -417,7 +417,7 @@ exports.sendMessage = async (req, res) => {
     );
 
     // Mark as sent in Airtable
-    await airtableService.updateLead(leadId, {
+    await airtableService.updateEngagement(leadId, {
       [sentField]: true,
     });
 

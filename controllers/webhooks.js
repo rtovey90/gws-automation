@@ -204,26 +204,26 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       console.log(`PaymentIntent metadata - lead_id: ${leadId}, job_id: ${jobId}`);
     }
 
-    // New workflow: Payment for a Lead → Update Lead status (no Job creation)
+    // New workflow: Payment for an Engagement → Update Engagement status (no Job creation)
     if (leadId) {
-      console.log(`✓ Payment received for lead: ${leadId}`);
+      console.log(`✓ Payment received for engagement: ${leadId}`);
 
-      // Get the lead
-      const lead = await airtableService.getLead(leadId);
+      // Get the engagement
+      const engagement = await airtableService.getEngagement(leadId);
 
-      if (!lead) {
-        console.error(`❌ Lead not found: ${leadId}`);
+      if (!engagement) {
+        console.error(`❌ Engagement not found: ${leadId}`);
         return;
       }
 
-      const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
-      console.log(`✓ Found lead: ${leadName}`);
+      const customerName = engagement.fields['First Name (from Customer)'] || 'Unknown';
+      console.log(`✓ Found engagement: ${customerName}`);
 
-      // Update lead status to Payment Received (no Job creation - keeping everything in Leads table)
-      await airtableService.updateLead(leadId, {
+      // Update engagement status to Payment Received
+      await airtableService.updateEngagement(leadId, {
         Status: 'Payment Received ✅'
       });
-      console.log(`✓ Lead status updated to Payment Received (Payment ID: ${paymentId})`);
+      console.log(`✓ Engagement status updated to Payment Received (Payment ID: ${paymentId})`);
 
       return;
     }

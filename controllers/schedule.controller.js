@@ -304,26 +304,27 @@ exports.scheduleJob = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`📅 Scheduling job for lead ${leadId} on ${scheduledDate}`);
+    console.log(`📅 Scheduling job for engagement ${leadId} on ${scheduledDate}`);
 
-    // Get lead first to check if already scheduled
-    const lead = await airtableService.getLead(leadId);
-    const wasAlreadyScheduled = lead.fields['Scheduled 📅']; // Check if already scheduled
-    const clientFirstName = lead.fields['First Name'] || 'the client';
-    const assignedTechIds = lead.fields['Assigned Tech Name'];
+    // Get engagement first to check if already scheduled
+    const engagement = await airtableService.getEngagement(leadId);
+    const lead = engagement; // For backward compatibility
+    const wasAlreadyScheduled = engagement.fields['Scheduled 📅']; // Check if already scheduled
+    const clientFirstName = engagement.fields['First Name (from Customer)'] || 'the client';
+    const assignedTechIds = engagement.fields['Assigned Tech Name'];
 
     // Convert datetime-local format to ISO 8601 for Airtable
     // Input: "2026-01-22T10:40" -> Output: "2026-01-22T10:40:00.000Z"
     const isoDate = new Date(scheduledDate).toISOString();
     console.log(`📅 Converted date to ISO: ${isoDate}`);
 
-    // Update lead with scheduled date and status
-    await airtableService.updateLead(leadId, {
+    // Update engagement with scheduled date and status
+    await airtableService.updateEngagement(leadId, {
       'Scheduled 📅': isoDate,
       Status: 'Scheduled 📅',
     });
 
-    console.log(wasAlreadyScheduled ? `✓ Lead re-scheduled successfully (no SMS sent)` : `✓ Lead scheduled successfully`);
+    console.log(wasAlreadyScheduled ? `✓ Engagement re-scheduled successfully (no SMS sent)` : `✓ Engagement scheduled successfully`);
 
     // Create a short link for the completion form
     const completionUrl = `/c/${leadId}`;

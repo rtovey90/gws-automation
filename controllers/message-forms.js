@@ -506,7 +506,7 @@ exports.sendMessage = async (req, res) => {
       updates.Status = 'Photos Requested';
     }
 
-    await airtableService.updateLead(leadId, updates);
+    await airtableService.updateEngagement(leadId, updates);
 
     console.log(`✓ ${messageType} sent to ${lead.fields['First Name']}`);
 
@@ -531,7 +531,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
     console.log(`📋 Opening tech availability form for lead: ${leadId}`);
 
     // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    const lead = await airtableService.getEngagement(leadId);
 
     if (!lead) {
       return res.status(404).send(`
@@ -1111,7 +1111,7 @@ exports.sendTechAvailability = async (req, res) => {
     }
 
     // Update lead to mark availability requested
-    await airtableService.updateLead(leadId, {
+    await airtableService.updateEngagement(leadId, {
       'Tech Availability Requested': true,
       'Tech Availability Responses': `Availability check sent to ${selectedTechs.length} techs at ${new Date().toISOString()}`
     });
@@ -1139,7 +1139,7 @@ exports.showPricingForm = async (req, res) => {
     console.log(`💵 Opening pricing form for lead: ${leadId}`);
 
     // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    const lead = await airtableService.getEngagement(leadId);
 
     if (!lead) {
       return res.status(404).send(`
@@ -1612,7 +1612,7 @@ exports.sendPricingForm = async (req, res) => {
     console.log(`💵 Sending pricing message for lead: ${leadId}`);
 
     // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    const lead = await airtableService.getEngagement(leadId);
 
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
@@ -1673,7 +1673,7 @@ exports.sendPricingForm = async (req, res) => {
     });
 
     // Update lead with selected product, status, and pricing sent checkbox
-    await airtableService.updateLead(leadId, {
+    await airtableService.updateEngagement(leadId, {
       'Selected Product': [productId],
       Status: 'Payment Link Sent',
       'Pricing Sent': true,
@@ -1706,7 +1706,7 @@ exports.createCheckoutSession = async (req, res) => {
     console.log(`💳 Creating checkout session for lead: ${leadId}, product: ${productId}`);
 
     // Get lead details
-    const lead = await airtableService.getLead(leadId);
+    const lead = await airtableService.getEngagement(leadId);
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
     }
