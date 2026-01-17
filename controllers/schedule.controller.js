@@ -320,7 +320,7 @@ exports.scheduleJob = async (req, res) => {
     // Update engagement with scheduled date and status
     await airtableService.updateEngagement(leadId, {
       'Scheduled 📅': isoDate,
-      Status: 'Scheduled',
+      Status: 'Scheduled 📅',
     });
 
     console.log(wasAlreadyScheduled ? `✓ Engagement re-scheduled successfully (no SMS sent)` : `✓ Engagement scheduled successfully`);
