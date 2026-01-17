@@ -482,6 +482,24 @@ class AirtableService {
     }
   }
 
+  /**
+   * Get all messages
+   */
+  async getAllMessages() {
+    try {
+      const records = await tables.messages
+        .select({
+          sort: [{ field: 'Created', direction: 'desc' }],
+        })
+        .all();
+
+      return records;
+    } catch (error) {
+      console.error('Error getting all messages:', error);
+      throw error;
+    }
+  }
+
   // ============ TEMPLATES ============
 
   /**
