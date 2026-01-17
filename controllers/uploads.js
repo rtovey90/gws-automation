@@ -455,11 +455,11 @@ exports.handleUpload = async (req, res) => {
     }
 
     // Get existing photos
-    const existingPhotos = lead.fields.Photos || [];
+    const existingPhotos = lead.fields['Client Uploaded Photos (from Customer)'] || [];
 
     // Append new photos and update status to Reviewing
     await airtableService.updateEngagement(leadId, {
-      Photos: [...existingPhotos, ...attachments],
+      'Client Uploaded Photos (from Customer)': [...existingPhotos, ...attachments],
       Status: 'Reviewing 👀',
     });
 

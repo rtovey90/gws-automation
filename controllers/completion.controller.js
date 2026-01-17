@@ -480,8 +480,8 @@ exports.completeJob = async (req, res) => {
     if (photoAttachments.length > 0) {
       // Get existing photos
       const engagement = await airtableService.getEngagement(leadId);
-      const existingPhotos = engagement.fields.Photos || [];
-      updates.Photos = [...existingPhotos, ...photoAttachments];
+      const existingPhotos = engagement.fields['Tech Uploaded Photos (from Customer)'] || [];
+      updates['Tech Uploaded Photos (from Customer)'] = [...existingPhotos, ...photoAttachments];
     }
 
     await airtableService.updateEngagement(leadId, updates);
