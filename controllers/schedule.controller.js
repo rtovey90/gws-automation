@@ -326,12 +326,10 @@ exports.scheduleJob = async (req, res) => {
 
     console.log(wasAlreadyScheduled ? `✓ Engagement re-scheduled successfully (no SMS sent)` : `✓ Engagement scheduled successfully`);
 
-    // Create a short link for the completion form
-    const completionUrl = `/c/${leadId}`;
-    const shortCode = shortLinkService.createShortLink(completionUrl, leadId);
-    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    // Create completion form URL (no short link needed - direct URL)
+    const completionUrl = `${process.env.BASE_URL}/c/${leadId}`;
 
-    console.log(`🔗 Completion short link: ${shortUrl}`);
+    console.log(`🔗 Completion URL: ${completionUrl}`);
 
     // Only send SMS if this is the FIRST time scheduling (not a re-schedule)
     if (!wasAlreadyScheduled && assignedTechIds && assignedTechIds.length > 0) {
@@ -348,7 +346,7 @@ Thanks for scheduling the job with ${clientFirstName}.
 
 Please fill out the completion form BEFORE leaving the site:
 
-${shortUrl}
+${completionUrl}
 
 This helps us track system details, codes, and upgrade opportunities.
 
