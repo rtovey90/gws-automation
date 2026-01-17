@@ -469,9 +469,9 @@ class AirtableService {
         fields['Related Job'] = [messageData.jobId];
       }
 
-      // Link to lead if provided
-      if (messageData.leadId) {
-        fields['Related Lead'] = [messageData.leadId];
+      // Link to engagement if provided
+      if (messageData.engagementId) {
+        fields['Related Lead'] = [messageData.engagementId]; // Field still named 'Related Lead' in Airtable
       }
 
       const records = await tables.messages.create([{ fields }]);

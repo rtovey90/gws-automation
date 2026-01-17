@@ -54,10 +54,10 @@ const upload = multer({
  */
 exports.showUploadForm = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
 
     // Get engagement and customer details
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     if (!result || !result.engagement) {
       return res.status(404).send(`
@@ -364,7 +364,7 @@ exports.showUploadForm = async (req, res) => {
             loading.classList.add('show');
 
             try {
-              const response = await fetch('/api/upload-photos/${leadId}', {
+              const response = await fetch('/api/upload-photos/${engagementId}', {
                 method: 'POST',
                 body: formData
               });
@@ -401,17 +401,17 @@ exports.showUploadForm = async (req, res) => {
  */
 exports.handleUpload = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
     const files = req.files;
 
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    console.log(`📷 Uploading ${files.length} photos for lead: ${leadId}`);
+    console.log(`📷 Uploading ${files.length} photos for engagement: ${engagementId}`);
 
     // Get engagement and customer
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
     if (!result || !result.engagement) {
       return res.status(404).json({ error: 'Engagement not found' });
     }
@@ -444,7 +444,7 @@ exports.handleUpload = async (req, res) => {
         const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
         const uploadResult = await cloudinary.uploader.upload(base64Data, {
-          folder: `gws-leads/${leadId}`,
+          folder: `gws-leads/${engagementId}`,
           resource_type: 'auto',
           public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
         });
@@ -468,17 +468,17 @@ exports.handleUpload = async (req, res) => {
     const existingPhotos = lead.fields.Photos || [];
 
     // Append new photos and update status to Reviewing
-    await airtableService.updateEngagement(leadId, {
+    await airtableService.updateEngagement(engagementId, {
       Photos: [...existingPhotos, ...attachments],
       Status: 'Reviewing 👀',
     });
 
-    console.log(`✓ ${attachments.length} photo(s) saved to lead (${files.length} attempted)`);
+    console.log(`✓ ${attachments.length} photo(s) saved to engagement (${files.length} attempted)`);
 
     // Log in Messages table
     try {
       await airtableService.logMessage({
-        leadId: leadId,
+        engagementId: engagementId,
         direction: 'Inbound',
         type: 'SMS', // Using SMS since Web Upload is not a valid option
         from: clientPhone,
@@ -496,7 +496,7 @@ exports.handleUpload = async (req, res) => {
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
         `📷 ${clientName} uploaded ${attachments.length} photo(s)!\n\nView in Airtable`,
-        { leadId }
+        { leadId: engagementId }
       );
     } catch (smsError) {
       console.error('Error sending notification:', smsError);

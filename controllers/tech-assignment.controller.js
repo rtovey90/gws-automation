@@ -11,12 +11,12 @@ const twilioService = require('../services/twilio.service');
  */
 exports.showAssignmentForm = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
 
-    console.log(`👷 Opening tech assignment form for lead: ${leadId}`);
+    console.log(`👷 Opening tech assignment form for engagement: ${engagementId}`);
 
     // Get engagement and customer details
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     if (!result || !result.engagement) {
       return res.status(404).send(`
@@ -90,7 +90,7 @@ ${scope}
 Next steps:
 
 1. Call ${clientFirstName} **within 24 hours** to schedule a time to attend within the next week
-2. Update Calendar: ${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${leadId}
+2. Update Calendar: ${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${engagementId}
 
 Feel free to call if you have any questions!
 
@@ -258,7 +258,7 @@ Ricky (Great White Security)`;
           </div>
 
           <form id="assignmentForm">
-            <input type="hidden" name="leadId" value="${leadId}">
+            <input type="hidden" name="leadId" value="${engagementId}">
 
             <label for="techId">📱 Select Technician:</label>
             <select name="techId" id="techId" required>
@@ -367,16 +367,17 @@ Ricky (Great White Security)`;
  */
 exports.assignTech = async (req, res) => {
   try {
-    const { leadId, techId, message } = req.body;
+    const engagementId = req.body.leadId;
+    const { techId, message } = req.body;
 
-    if (!leadId || !techId || !message) {
+    if (!engagementId || !techId || !message) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`👷 Assigning tech ${techId} to engagement ${leadId}`);
+    console.log(`👷 Assigning tech ${techId} to engagement ${engagementId}`);
 
     // Get engagement and tech details
-    const engagement = await airtableService.getEngagement(leadId);
+    const engagement = await airtableService.getEngagement(engagementId);
     const lead = engagement; // For backward compatibility
     const tech = await airtableService.getTech(techId);
 
@@ -389,7 +390,7 @@ exports.assignTech = async (req, res) => {
     const finalMessage = message.replace(/\[TECH_NAME\]/g, techFirstName);
 
     // Update engagement with assigned tech and status
-    await airtableService.updateEngagement(leadId, {
+    await airtableService.updateEngagement(engagementId, {
       'Assigned Tech Name': [techId],
       Status: 'Tech Assigned 👷',
     });
@@ -400,14 +401,14 @@ exports.assignTech = async (req, res) => {
     await twilioService.sendSMS(
       tech.fields.Phone,
       finalMessage,
-      { leadId, techId, type: 'tech_assignment' }
+      { leadId: engagementId, techId, type: 'tech_assignment' }
     );
 
     console.log(`✓ SMS sent to tech: ${techFirstName}`);
 
     // Log message
     await airtableService.logMessage({
-      leadId: leadId,
+      engagementId: engagementId,
       direction: 'Outbound',
       type: 'SMS',
       to: tech.fields.Phone,

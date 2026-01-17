@@ -11,12 +11,12 @@ const twilioService = require('../services/twilio.service');
  */
 exports.showScheduleForm = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
 
-    console.log(`📅 Opening schedule form for lead: ${leadId}`);
+    console.log(`📅 Opening schedule form for engagement: ${engagementId}`);
 
     // Get engagement and customer details
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     if (!result || !result.engagement) {
       return res.status(404).send(`
@@ -177,7 +177,7 @@ exports.showScheduleForm = async (req, res) => {
           </div>
 
           <form id="scheduleForm">
-            <input type="hidden" name="leadId" value="${leadId}">
+            <input type="hidden" name="leadId" value="${engagementId}">
 
             <label for="scheduledDate">📆 Date:</label>
             <input type="date" name="scheduledDate" id="scheduledDate" required>
@@ -297,16 +297,17 @@ exports.showScheduleForm = async (req, res) => {
  */
 exports.scheduleJob = async (req, res) => {
   try {
-    const { leadId, scheduledDate } = req.body;
+    const engagementId = req.body.leadId;
+    const { scheduledDate } = req.body;
 
-    if (!leadId || !scheduledDate) {
+    if (!engagementId || !scheduledDate) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`📅 Scheduling job for engagement ${leadId} on ${scheduledDate}`);
+    console.log(`📅 Scheduling job for engagement ${engagementId} on ${scheduledDate}`);
 
     // Get engagement first to check if already scheduled
-    const engagement = await airtableService.getEngagement(leadId);
+    const engagement = await airtableService.getEngagement(engagementId);
     const lead = engagement; // For backward compatibility
     const wasAlreadyScheduled = engagement.fields['Scheduled 📅']; // Check if already scheduled
     const clientFirstName = engagement.fields['First Name (from Customer)'] || 'the client';
@@ -318,7 +319,7 @@ exports.scheduleJob = async (req, res) => {
     console.log(`📅 Converted date to ISO: ${isoDate}`);
 
     // Update engagement with scheduled date and status
-    await airtableService.updateEngagement(leadId, {
+    await airtableService.updateEngagement(engagementId, {
       'Scheduled 📅': isoDate,
       Status: 'Scheduled 📅',
     });
@@ -326,7 +327,7 @@ exports.scheduleJob = async (req, res) => {
     console.log(wasAlreadyScheduled ? `✓ Engagement re-scheduled successfully (no SMS sent)` : `✓ Engagement scheduled successfully`);
 
     // Create completion form URL (no short link needed - direct URL)
-    const completionUrl = `${process.env.BASE_URL}/c/${leadId}`;
+    const completionUrl = `${process.env.BASE_URL}/c/${engagementId}`;
 
     console.log(`🔗 Completion URL: ${completionUrl}`);
 
@@ -355,14 +356,14 @@ Ricky (Great White Security)`;
         await twilioService.sendSMS(
           techPhone,
           message,
-          { leadId, type: 'completion_reminder' }
+          { leadId: engagementId, type: 'completion_reminder' }
         );
 
         console.log(`✓ Completion SMS sent to ${techFirstName}`);
 
         // Log the message
         await airtableService.logMessage({
-          leadId: leadId,
+          engagementId: engagementId,
           direction: 'Outbound',
           type: 'SMS',
           to: techPhone,

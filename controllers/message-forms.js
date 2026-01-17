@@ -12,12 +12,13 @@ const shortLinkService = require('../services/shortlink.service');
  */
 exports.showMessageForm = async (req, res) => {
   try {
-    const { leadId, messageType } = req.params;
+    const engagementId = req.params.leadId;
+    const { messageType } = req.params;
 
-    console.log(`📝 Opening message form: ${messageType} for lead: ${leadId}`);
+    console.log(`📝 Opening message form: ${messageType} for engagement: ${engagementId}`);
 
     // Get engagement and customer details
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     if (!result || !result.engagement) {
       return res.status(404).send(`
@@ -102,7 +103,7 @@ exports.showMessageForm = async (req, res) => {
     let messageContent = template.fields.Content || '';
     // Get first name from customer if available, fallback to engagement
     const firstName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
-    const uploadLink = `${process.env.BASE_URL}/upload-photos/${leadId}`;
+    const uploadLink = `${process.env.BASE_URL}/upload-photos/${engagementId}`;
 
     // Get customer phone for disabled checks
     const customerPhone = (customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) ||
@@ -397,7 +398,7 @@ exports.showMessageForm = async (req, res) => {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  leadId: '${leadId}',
+                  leadId: '${engagementId}',
                   messageType: '${messageType}',
                   message: message,
                   sentField: '${sentField}'
@@ -455,12 +456,13 @@ exports.showMessageForm = async (req, res) => {
  */
 exports.sendMessage = async (req, res) => {
   try {
-    const { leadId, messageType, message, sentField } = req.body;
+    const engagementId = req.body.leadId;
+    const { messageType, message, sentField } = req.body;
 
-    console.log(`📤 Sending ${messageType} message for lead: ${leadId}`);
+    console.log(`📤 Sending ${messageType} message for engagement: ${engagementId}`);
 
     // Get engagement and customer
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     if (!result || !result.engagement) {
       return res.status(404).json({ error: 'Engagement not found' });
@@ -482,12 +484,12 @@ exports.sendMessage = async (req, res) => {
     await twilioService.sendSMS(
       customerPhone,
       message,
-      { leadId, messageType }
+      { leadId: engagementId, messageType }
     );
 
     // Log message
     await airtableService.logMessage({
-      leadId: leadId,
+      engagementId: engagementId,
       direction: 'Outbound',
       type: 'SMS',
       to: customerPhone,
@@ -506,7 +508,7 @@ exports.sendMessage = async (req, res) => {
       updates.Status = 'Photos Requested';
     }
 
-    await airtableService.updateEngagement(leadId, updates);
+    await airtableService.updateEngagement(engagementId, updates);
 
     console.log(`✓ ${messageType} sent to ${lead.fields['First Name']}`);
 
@@ -526,12 +528,12 @@ exports.sendMessage = async (req, res) => {
  */
 exports.showTechAvailabilityForm = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
 
-    console.log(`📋 Opening tech availability form for lead: ${leadId}`);
+    console.log(`📋 Opening tech availability form for engagement: ${engagementId}`);
 
-    // Get lead details
-    const lead = await airtableService.getEngagement(leadId);
+    // Get engagement details
+    const lead = await airtableService.getEngagement(engagementId);
 
     if (!lead) {
       return res.status(404).send(`
@@ -1019,7 +1021,7 @@ Ricky (Great White Security)`;
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  leadId: '${leadId}',
+                  leadId: '${engagementId}',
                   selectedTechs: selectedTechs,
                   messageTemplate: message
                 }),
@@ -1078,17 +1080,18 @@ Ricky (Great White Security)`;
  */
 exports.sendTechAvailability = async (req, res) => {
   try {
-    const { leadId, selectedTechs, messageTemplate } = req.body;
+    const engagementId = req.body.leadId;
+    const { selectedTechs, messageTemplate } = req.body;
 
-    console.log(`📤 Sending tech availability to ${selectedTechs.length} techs for lead: ${leadId}`);
+    console.log(`📤 Sending tech availability to ${selectedTechs.length} techs for engagement: ${engagementId}`);
 
     const results = [];
 
     // Send to each selected tech
     for (const tech of selectedTechs) {
       try {
-        const yesLink = `${process.env.BASE_URL}/tech-availability/${leadId}/${tech.id}/yes`;
-        const noLink = `${process.env.BASE_URL}/tech-availability/${leadId}/${tech.id}/no`;
+        const yesLink = `${process.env.BASE_URL}/tech-availability/${engagementId}/${tech.id}/yes`;
+        const noLink = `${process.env.BASE_URL}/tech-availability/${engagementId}/${tech.id}/no`;
 
         // Replace variables in template
         const message = messageTemplate
@@ -1099,7 +1102,7 @@ exports.sendTechAvailability = async (req, res) => {
         await twilioService.sendSMS(
           tech.phone,
           message,
-          { leadId, techId: tech.id, type: 'availability_check' }
+          { leadId: engagementId, techId: tech.id, type: 'availability_check' }
         );
 
         results.push({ techId: tech.id, tech: tech.name, status: 'sent' });
@@ -1110,15 +1113,15 @@ exports.sendTechAvailability = async (req, res) => {
       }
     }
 
-    // Update lead to mark availability requested
-    await airtableService.updateEngagement(leadId, {
+    // Update engagement to mark availability requested
+    await airtableService.updateEngagement(engagementId, {
       'Tech Availability Requested': true,
       'Tech Availability Responses': `Availability check sent to ${selectedTechs.length} techs at ${new Date().toISOString()}`
     });
 
     res.status(200).json({
       success: true,
-      leadId,
+      leadId: engagementId,
       techsContacted: selectedTechs.length,
       results,
     });
@@ -1134,12 +1137,12 @@ exports.sendTechAvailability = async (req, res) => {
  */
 exports.showPricingForm = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
 
-    console.log(`💵 Opening pricing form for lead: ${leadId}`);
+    console.log(`💵 Opening pricing form for engagement: ${engagementId}`);
 
-    // Get lead details
-    const lead = await airtableService.getEngagement(leadId);
+    // Get engagement details
+    const lead = await airtableService.getEngagement(engagementId);
 
     if (!lead) {
       return res.status(404).send(`
@@ -1480,7 +1483,7 @@ Ricky (Great White Security)`;
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  leadId: '${leadId}',
+                  leadId: '${engagementId}',
                   productId: selectedProductId,
                 }),
               });
@@ -1562,7 +1565,7 @@ Ricky (Great White Security)\`;
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  leadId: '${leadId}',
+                  leadId: '${engagementId}',
                   message: message,
                   productId: productSelect.value,
                 }),
@@ -1603,16 +1606,17 @@ Ricky (Great White Security)\`;
  */
 exports.sendPricingForm = async (req, res) => {
   try {
-    const { leadId, message, productId } = req.body;
+    const engagementId = req.body.leadId;
+    const { message, productId } = req.body;
 
-    if (!leadId || !message || !productId) {
+    if (!engagementId || !message || !productId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`💵 Sending pricing message for lead: ${leadId}`);
+    console.log(`💵 Sending pricing message for engagement: ${engagementId}`);
 
-    // Get lead details
-    const lead = await airtableService.getEngagement(leadId);
+    // Get engagement details
+    const lead = await airtableService.getEngagement(engagementId);
 
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
@@ -1636,19 +1640,19 @@ exports.sendPricingForm = async (req, res) => {
     const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
 
     const session = await stripeService.createCheckoutSession({
-      leadId: leadId,
+      leadId: engagementId,
       productId: productId,
       priceId: price.id,
       leadName: leadName,
       leadPhone: lead.fields.Phone || '',
       successUrl: `${process.env.BASE_URL}/payment-success.html`,
-      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${leadId}`,
+      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
     });
 
     console.log(`✓ Checkout session created: ${session.id}`);
 
     // Create short link for the checkout URL
-    const shortCode = shortLinkService.createShortLink(session.url, leadId);
+    const shortCode = shortLinkService.createShortLink(session.url, engagementId);
     const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     // Replace payment link placeholder with short URL
@@ -1658,12 +1662,12 @@ exports.sendPricingForm = async (req, res) => {
     await twilioService.sendSMS(
       lead.fields.Phone,
       finalMessage,
-      { leadId, type: 'pricing', checkoutSessionId: session.id, shortCode }
+      { leadId: engagementId, type: 'pricing', checkoutSessionId: session.id, shortCode }
     );
 
     // Log message with actual checkout URL
     await airtableService.logMessage({
-      leadId: leadId,
+      engagementId: engagementId,
       direction: 'Outbound',
       type: 'SMS',
       to: lead.fields.Phone,
@@ -1672,8 +1676,8 @@ exports.sendPricingForm = async (req, res) => {
       status: 'Sent',
     });
 
-    // Update lead with selected product, status, and pricing sent checkbox
-    await airtableService.updateEngagement(leadId, {
+    // Update engagement with selected product, status, and pricing sent checkbox
+    await airtableService.updateEngagement(engagementId, {
       'Selected Product': [productId],
       Status: 'Payment Link Sent',
       'Pricing Sent': true,
@@ -1697,18 +1701,19 @@ exports.sendPricingForm = async (req, res) => {
  */
 exports.createCheckoutSession = async (req, res) => {
   try {
-    const { leadId, productId } = req.body;
+    const engagementId = req.body.leadId;
+    const { productId } = req.body;
 
-    if (!leadId || !productId) {
+    if (!engagementId || !productId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`💳 Creating checkout session for lead: ${leadId}, product: ${productId}`);
+    console.log(`💳 Creating checkout session for engagement: ${engagementId}, product: ${productId}`);
 
-    // Get lead details
-    const lead = await airtableService.getEngagement(leadId);
+    // Get engagement details
+    const lead = await airtableService.getEngagement(engagementId);
     if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+      return res.status(404).json({ error: 'Engagement not found' });
     }
 
     // Get product from Airtable (which has Stripe Product ID)
@@ -1730,19 +1735,19 @@ exports.createCheckoutSession = async (req, res) => {
 
     // Create checkout session with metadata
     const session = await stripeService.createCheckoutSession({
-      leadId: leadId,
+      leadId: engagementId,
       productId: productId,
       priceId: price.id,
       leadName: leadName,
       leadPhone: lead.fields.Phone || '',
       successUrl: `${process.env.BASE_URL}/payment-success.html`,
-      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${leadId}`,
+      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
     });
 
     console.log(`✓ Checkout session created: ${session.id}`);
 
     // Create short link for the checkout URL
-    const shortCode = shortLinkService.createShortLink(session.url, leadId);
+    const shortCode = shortLinkService.createShortLink(session.url, engagementId);
     const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     res.status(200).json({
@@ -1761,21 +1766,22 @@ exports.createCheckoutSession = async (req, res) => {
  */
 exports.generateMessageFormLink = async (req, res) => {
   try {
-    const { leadId, messageType } = req.params;
+    const engagementId = req.params.leadId;
+    const { messageType } = req.params;
 
-    console.log(`🔗 Generating short link for ${messageType} form: ${leadId}`);
+    console.log(`🔗 Generating short link for ${messageType} form: ${engagementId}`);
 
-    // Verify lead exists
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    // Verify engagement exists
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
     if (!result || !result.engagement) {
       return res.status(404).json({ error: 'Engagement not found' });
     }
 
     // Create the full message form URL
-    const fullUrl = `/send-message-form/${leadId}/${messageType}`;
+    const fullUrl = `/send-message-form/${engagementId}/${messageType}`;
 
     // Create short link
-    const shortCode = shortLinkService.createShortLink(fullUrl, leadId);
+    const shortCode = shortLinkService.createShortLink(fullUrl, engagementId);
     const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     console.log(`✓ Short link created: ${shortUrl}`);

@@ -120,7 +120,7 @@ exports.handleFormspree = async (req, res) => {
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
         `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.systemType || 'Other'}${message}\n\nView in Airtable`,
-        { leadId: engagement.id }
+        { leadId: engagement.id } // Keep as leadId for backwards compatibility with twilioService
       );
     } catch (smsError) {
       console.error('Error sending notification SMS:', smsError);
@@ -188,31 +188,31 @@ async function handlePaymentSuccess(paymentObject, eventType) {
     console.log(`Processing ${eventType} payment...`);
 
     // Extract metadata based on event type
-    let leadId, jobId, paymentId;
+    let engagementId, jobId, paymentId;
 
     if (eventType === 'session') {
       // For checkout sessions, metadata is directly on the object
-      leadId = paymentObject.metadata?.lead_id;
+      engagementId = paymentObject.metadata?.lead_id; // Still named lead_id in Stripe metadata for backwards compatibility
       jobId = paymentObject.metadata?.job_id;
       paymentId = paymentObject.payment_intent; // Session has payment_intent ID
-      console.log(`Session metadata - lead_id: ${leadId}, job_id: ${jobId}`);
+      console.log(`Session metadata - lead_id: ${engagementId}, job_id: ${jobId}`);
     } else {
       // For payment intents, metadata is on the object (old workflow)
-      leadId = paymentObject.metadata?.lead_id;
+      engagementId = paymentObject.metadata?.lead_id; // Still named lead_id in Stripe metadata for backwards compatibility
       jobId = paymentObject.metadata?.job_id;
       paymentId = paymentObject.id;
-      console.log(`PaymentIntent metadata - lead_id: ${leadId}, job_id: ${jobId}`);
+      console.log(`PaymentIntent metadata - lead_id: ${engagementId}, job_id: ${jobId}`);
     }
 
     // New workflow: Payment for an Engagement → Update Engagement status (no Job creation)
-    if (leadId) {
-      console.log(`✓ Payment received for engagement: ${leadId}`);
+    if (engagementId) {
+      console.log(`✓ Payment received for engagement: ${engagementId}`);
 
       // Get the engagement
-      const engagement = await airtableService.getEngagement(leadId);
+      const engagement = await airtableService.getEngagement(engagementId);
 
       if (!engagement) {
-        console.error(`❌ Engagement not found: ${leadId}`);
+        console.error(`❌ Engagement not found: ${engagementId}`);
         return;
       }
 
@@ -220,7 +220,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       console.log(`✓ Found engagement: ${customerName}`);
 
       // Update engagement status to Payment Received
-      await airtableService.updateEngagement(leadId, {
+      await airtableService.updateEngagement(engagementId, {
         Status: 'Payment Received ✅'
       });
       console.log(`✓ Engagement status updated to Payment Received (Payment ID: ${paymentId})`);
@@ -299,7 +299,7 @@ exports.handleEmailTranscript = async (req, res) => {
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
           `🆕 NEW LEAD from phone call!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nLocation: ${leadData.location || 'N/A'}${notesPreview}\n\nView in Airtable`,
-          { leadId: engagement.id }
+          { leadId: engagement.id } // Keep as leadId for backwards compatibility with twilioService
         );
       } catch (smsError) {
         console.error('Error sending notification SMS:', smsError);
@@ -433,7 +433,7 @@ exports.handleTwilioSMS = async (req, res) => {
       // Still log the message to Messages table
       try {
         await airtableService.logMessage({
-          leadId: null,
+          engagementId: null,
           direction: 'Inbound',
           type: 'SMS',
           from: clientPhone,
@@ -511,7 +511,7 @@ exports.handleTwilioSMS = async (req, res) => {
     // Log the message in Messages table
     try {
       await airtableService.logMessage({
-        leadId: engagement ? engagement.id : null,
+        engagementId: engagement ? engagement.id : null,
         direction: 'Inbound',
         type: 'SMS',
         from: clientPhone,
@@ -532,7 +532,7 @@ exports.handleTwilioSMS = async (req, res) => {
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
         `📨 NEW REPLY from ${customerName}:\n\n${Body || '(no text)'}${photoText}\n\nView in Airtable`,
-        { leadId: engagement ? engagement.id : null, from: clientPhone }
+        { leadId: engagement ? engagement.id : null, from: clientPhone } // Keep as leadId for backwards compatibility with twilioService
       );
 
       console.log('✓ Admin notification sent');

@@ -257,14 +257,15 @@ exports.showInbox = async (req, res) => {
  */
 exports.sendSMS = async (req, res) => {
   try {
-    const { to, message, leadId } = req.body;
+    const engagementId = req.body.leadId;
+    const { to, message } = req.body;
 
     if (!to || !message) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Send SMS via Twilio (this also logs to Airtable)
-    await twilioService.sendSMS(to, message, { leadId, type: 'manual' });
+    await twilioService.sendSMS(to, message, { leadId: engagementId, type: 'manual' });
 
     res.status(200).json({ success: true });
   } catch (error) {

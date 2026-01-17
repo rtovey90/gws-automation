@@ -61,12 +61,12 @@ const upload = multer({
  */
 exports.showCompletionForm = async (req, res) => {
   try {
-    const { leadId } = req.params;
+    const engagementId = req.params.leadId;
 
-    console.log(`✅ Opening completion form for lead: ${leadId}`);
+    console.log(`✅ Opening completion form for engagement: ${engagementId}`);
 
     // Get engagement and customer details
-    const result = await airtableService.getEngagementWithCustomer(leadId);
+    const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     if (!result || !result.engagement) {
       return res.status(404).send(`
@@ -281,7 +281,7 @@ exports.showCompletionForm = async (req, res) => {
           </div>
 
           <form id="completionForm" enctype="multipart/form-data">
-            <input type="hidden" name="leadId" value="${leadId}">
+            <input type="hidden" name="leadId" value="${engagementId}">
 
             <label for="jobNotes">📝 Job Notes:</label>
             <textarea name="jobNotes" id="jobNotes" placeholder="Describe the work completed, parts used, etc." required></textarea>
@@ -403,7 +403,7 @@ exports.showCompletionForm = async (req, res) => {
 exports.completeJob = async (req, res) => {
   try {
     const {
-      leadId,
+      leadId, // Keep as leadId from form for backwards compatibility
       nvrLogin,
       nvrPassword,
       installerCode,
@@ -414,12 +414,13 @@ exports.completeJob = async (req, res) => {
       upgradeOpportunities
     } = req.body;
     const files = req.files;
+    const engagementId = leadId; // Extract to engagementId variable
 
-    if (!leadId || !jobNotes) {
+    if (!engagementId || !jobNotes) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`✅ Completing job for engagement ${leadId}`);
+    console.log(`✅ Completing job for engagement ${engagementId}`);
     console.log(`📝 Job Notes: ${jobNotes}`);
     console.log(`✅ Issue Resolved: ${issueResolved}`);
     console.log(`📷 Photos: ${files ? files.length : 0}`);
@@ -447,7 +448,7 @@ exports.completeJob = async (req, res) => {
           const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
           const uploadResult = await cloudinary.uploader.upload(base64Data, {
-            folder: `gws-jobs/${leadId}`,
+            folder: `gws-jobs/${engagementId}`,
             resource_type: 'auto',
             public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
           });
@@ -494,12 +495,12 @@ exports.completeJob = async (req, res) => {
     // Add photos if any were uploaded
     if (photoAttachments.length > 0) {
       // Get existing photos
-      const engagement = await airtableService.getEngagement(leadId);
+      const engagement = await airtableService.getEngagement(engagementId);
       const existingPhotos = engagement.fields.Photos || [];
       updates.Photos = [...existingPhotos, ...photoAttachments];
     }
 
-    await airtableService.updateEngagement(leadId, updates);
+    await airtableService.updateEngagement(engagementId, updates);
 
     console.log(`✓ Job marked as completed`);
 

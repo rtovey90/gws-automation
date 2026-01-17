@@ -11,16 +11,16 @@ const twilioService = require('../services/twilio.service');
  */
 exports.sendPricing = async (req, res) => {
   try {
-    const leadId = req.params.leadId || req.body?.leadId;
+    const engagementId = req.params.leadId || req.body?.leadId;
 
-    if (!leadId) {
+    if (!engagementId) {
       return res.status(400).json({ error: 'leadId is required' });
     }
 
-    console.log(`💵 Sending pricing SMS for lead: ${leadId}`);
+    console.log(`💵 Sending pricing SMS for engagement: ${engagementId}`);
 
-    // Get lead details
-    const lead = await airtableService.getEngagement(leadId);
+    // Get engagement details
+    const lead = await airtableService.getEngagement(engagementId);
 
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
@@ -68,12 +68,12 @@ Ricky`;
     await twilioService.sendSMS(
       lead.fields.Phone,
       message,
-      { leadId, productId, type: 'pricing' }
+      { leadId: engagementId, productId, type: 'pricing' }
     );
 
     // Log message
     await airtableService.logMessage({
-      leadId: leadId,
+      engagementId: engagementId,
       direction: 'Outbound',
       type: 'SMS',
       to: lead.fields.Phone,
@@ -82,8 +82,8 @@ Ricky`;
       status: 'Sent',
     });
 
-    // Update lead status and pricing sent checkbox
-    await airtableService.updateEngagement(leadId, {
+    // Update engagement status and pricing sent checkbox
+    await airtableService.updateEngagement(engagementId, {
       Status: 'Payment Link Sent',
       'Pricing Sent': true,
     });
@@ -246,9 +246,10 @@ exports.reviewFollowUp = async (req, res) => {
  */
 exports.sendMessage = async (req, res) => {
   try {
-    const { leadId, type } = req.query;
+    const engagementId = req.query.leadId;
+    const { type } = req.query;
 
-    if (!leadId || !type) {
+    if (!engagementId || !type) {
       return res.status(400).send(`
         <!DOCTYPE html>
         <html>
@@ -274,10 +275,10 @@ exports.sendMessage = async (req, res) => {
       `);
     }
 
-    console.log(`📨 Sending message: ${type} for lead: ${leadId}`);
+    console.log(`📨 Sending message: ${type} for engagement: ${engagementId}`);
 
-    // Get lead from Airtable
-    const lead = await airtableService.getEngagement(leadId);
+    // Get engagement from Airtable
+    const lead = await airtableService.getEngagement(engagementId);
 
     if (!lead) {
       return res.status(404).send(`
@@ -299,7 +300,7 @@ exports.sendMessage = async (req, res) => {
         </head>
         <body>
           <h1 class="error">❌ Error</h1>
-          <p>Lead not found: ${leadId}</p>
+          <p>Engagement not found: ${engagementId}</p>
         </body>
         </html>
       `);
@@ -413,18 +414,18 @@ exports.sendMessage = async (req, res) => {
     await twilioService.sendSMS(
       lead.fields.Phone,
       message,
-      { leadId, messageType: type }
+      { leadId: engagementId, messageType: type }
     );
 
     // Mark as sent in Airtable
-    await airtableService.updateEngagement(leadId, {
+    await airtableService.updateEngagement(engagementId, {
       [sentField]: true,
     });
 
     // Log the message in Messages table
     try {
       await airtableService.logMessage({
-        leadId: leadId,
+        engagementId: engagementId,
         direction: 'Outbound',
         type: 'SMS',
         to: lead.fields.Phone,
