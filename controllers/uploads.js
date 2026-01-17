@@ -37,7 +37,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max (supports high-res phone photos)
+    fileSize: 100 * 1024 * 1024, // 100MB max (supports high-res phone photos/videos)
   },
   fileFilter: (req, file, cb) => {
     // Accept images only
