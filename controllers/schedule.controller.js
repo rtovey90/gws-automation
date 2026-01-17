@@ -1,5 +1,4 @@
 const airtableService = require('../services/airtable.service');
-const shortLinkService = require('../services/shortlink.service');
 const twilioService = require('../services/twilio.service');
 
 /**
@@ -374,7 +373,7 @@ Ricky (Great White Security)`;
       }
     }
 
-    res.status(200).json({ success: true, completionLink: shortUrl });
+    res.status(200).json({ success: true, completionLink: completionUrl });
   } catch (error) {
     console.error('Error scheduling job:', error);
     console.error('Error details:', error.message);
