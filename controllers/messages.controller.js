@@ -263,19 +263,8 @@ exports.sendSMS = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Send SMS via Twilio
+    // Send SMS via Twilio (this also logs to Airtable)
     await twilioService.sendSMS(to, message, { leadId, type: 'manual' });
-
-    // Log message
-    await airtableService.logMessage({
-      leadId: leadId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: to,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
-      status: 'Sent',
-    });
 
     res.status(200).json({ success: true });
   } catch (error) {
