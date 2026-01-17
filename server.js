@@ -117,6 +117,41 @@ app.post('/webhooks/formspree', webhooksController.handleFormspree);
 app.post('/webhooks/email-transcript', webhooksController.handleEmailTranscript);
 app.post('/webhooks/twilio-sms', webhooksController.handleTwilioSMS);
 
+// Debug endpoint to check last webhook
+let lastWebhookData = { timestamp: null, data: null };
+app.post('/webhooks/twilio-sms-debug', (req, res) => {
+  lastWebhookData = {
+    timestamp: new Date().toISOString(),
+    data: req.body
+  };
+  console.log('DEBUG webhook called:', lastWebhookData);
+  res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+});
+app.get('/api/last-webhook', (req, res) => {
+  res.json(lastWebhookData);
+});
+
+// Debug endpoint to check Messages table
+app.get('/api/debug-messages', async (req, res) => {
+  try {
+    const airtableService = require('./services/airtable.service');
+    const messages = await airtableService.getAllMessages();
+    res.json({
+      count: messages.length,
+      latest10: messages.slice(0, 10).map(m => ({
+        id: m.id,
+        from: m.fields.From,
+        to: m.fields.To,
+        content: m.fields.Content,
+        direction: m.fields.Direction,
+        created: m.fields.Created || m._rawJson?.createdTime
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Job management routes
 app.post('/api/send-job-offer', jobsController.sendJobOffer);
 app.get('/accept-job/:jobId/:techId', jobsController.acceptJob);
