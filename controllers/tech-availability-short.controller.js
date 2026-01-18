@@ -259,8 +259,13 @@ exports.techNo = async (req, res) => {
       ? `${currentResponses}\n${techName} - NO (${new Date().toLocaleString()})`
       : `${techName} - NO (${new Date().toLocaleString()})`;
 
+    // Remove tech from Available Techs if they were previously added
+    const currentAvailableTechs = engagement.fields['Available Techs'] || [];
+    const updatedAvailableTechs = currentAvailableTechs.filter(id => id !== techId);
+
     await airtableService.updateEngagement(engagementId, {
       'Tech Availability Responses': updatedResponses,
+      'Available Techs': updatedAvailableTechs,
       'Status': 'Tech Availability Check',
     });
 
