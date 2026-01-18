@@ -186,36 +186,35 @@ exports.showInbox = async (req, res) => {
             height: 100vh;
             display: flex;
             flex-direction: column;
-            font-size: 14px;
           }
           .header {
             background: #0f1419;
             color: white;
-            padding: 12px 16px;
+            padding: 20px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
           }
           .header h1 {
-            font-size: 18px;
+            font-size: 24px;
             font-weight: 700;
           }
           .tabs {
             display: flex;
             background: rgba(0, 212, 255, 0.1);
-            border-radius: 8px;
-            padding: 3px;
-            margin-top: 10px;
-            gap: 3px;
+            border-radius: 12px;
+            padding: 4px;
+            margin-top: 15px;
+            gap: 4px;
           }
           .tab {
             flex: 1;
-            padding: 6px 12px;
+            padding: 10px 16px;
             border: none;
             background: transparent;
             color: rgba(255,255,255,0.6);
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            border-radius: 6px;
+            border-radius: 8px;
             transition: all 0.3s;
           }
           .tab.active {
@@ -228,20 +227,17 @@ exports.showInbox = async (req, res) => {
             color: white;
           }
           .tab-count {
-            font-size: 10px;
+            font-size: 12px;
             opacity: 0.8;
-            margin-left: 4px;
+            margin-left: 6px;
           }
           .conversations-container {
             flex: 1;
             overflow-y: auto;
             background: white;
-            margin: 12px;
-            border-radius: 12px;
+            margin: 20px;
+            border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            max-width: 900px;
-            margin-left: auto;
-            margin-right: auto;
           }
           .tab-content {
             display: none;
@@ -252,7 +248,7 @@ exports.showInbox = async (req, res) => {
           .conversation {
             display: flex;
             align-items: center;
-            padding: 10px 14px;
+            padding: 16px 20px;
             border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
             transition: all 0.2s;
@@ -264,8 +260,8 @@ exports.showInbox = async (req, res) => {
             background: linear-gradient(90deg, #f8f9ff 0%, #f5f3ff 100%);
           }
           .conversation-avatar {
-            width: 40px;
-            height: 40px;
+            width: 54px;
+            height: 54px;
             border-radius: 50%;
             background: #00d4ff;
             display: flex;
@@ -273,10 +269,10 @@ exports.showInbox = async (req, res) => {
             justify-content: center;
             color: #0f1419;
             font-weight: 700;
-            font-size: 15px;
-            margin-right: 12px;
+            font-size: 20px;
+            margin-right: 16px;
             flex-shrink: 0;
-            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
           }
           .conversation-content {
             flex: 1;
@@ -285,21 +281,21 @@ exports.showInbox = async (req, res) => {
           .conversation-header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
           }
           .conversation-name {
             font-weight: 600;
-            font-size: 14px;
+            font-size: 16px;
             color: #1a202c;
           }
           .conversation-time {
-            font-size: 11px;
+            font-size: 12px;
             color: #a0aec0;
             font-weight: 500;
           }
           .conversation-preview {
             color: #718096;
-            font-size: 13px;
+            font-size: 14px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -309,21 +305,21 @@ exports.showInbox = async (req, res) => {
           }
           .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 80px 20px;
             color: #a0aec0;
           }
           .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
+            font-size: 72px;
+            margin-bottom: 24px;
             opacity: 0.5;
           }
           .empty-state h2 {
             color: #4a5568;
-            font-size: 16px;
-            margin-bottom: 6px;
+            font-size: 20px;
+            margin-bottom: 8px;
           }
           .empty-state p {
-            font-size: 13px;
+            font-size: 14px;
           }
         </style>
       </head>
@@ -467,12 +463,11 @@ exports.showConversation = async (req, res) => {
             height: 100vh;
             display: flex;
             flex-direction: column;
-            font-size: 14px;
           }
           .header {
             background: #0f1419;
             color: white;
-            padding: 10px 16px;
+            padding: 15px 20px;
             display: flex;
             align-items: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
@@ -481,41 +476,37 @@ exports.showConversation = async (req, res) => {
             background: none;
             border: none;
             color: white;
-            font-size: 20px;
+            font-size: 24px;
             cursor: pointer;
-            margin-right: 12px;
+            margin-right: 15px;
             padding: 0;
           }
           .header-info {
             flex: 1;
           }
           .header-name {
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 600;
           }
           .header-phone {
-            font-size: 12px;
-            opacity: 0.7;
+            font-size: 13px;
+            opacity: 0.8;
           }
           .messages-container {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            max-width: 900px;
-            margin: 0 auto;
-            width: 100%;
           }
           .message {
-            max-width: 70%;
-            margin-bottom: 8px;
-            padding: 8px 12px;
-            border-radius: 16px;
+            max-width: 65%;
+            margin-bottom: 10px;
+            padding: 12px 16px;
+            border-radius: 18px;
             word-wrap: break-word;
             white-space: pre-wrap;
             line-height: 1.4;
-            font-size: 14px;
           }
           .message.outbound {
             background: #00d4ff;
@@ -529,9 +520,9 @@ exports.showConversation = async (req, res) => {
             align-self: flex-start;
           }
           .message-time {
-            font-size: 10px;
+            font-size: 11px;
             color: #999;
-            margin-top: 3px;
+            margin-top: 4px;
             text-align: right;
           }
           .message.outbound .message-time {
@@ -543,21 +534,18 @@ exports.showConversation = async (req, res) => {
           }
           .input-container {
             background: #f0f0f0;
-            padding: 8px 16px;
+            padding: 10px 20px;
             display: flex;
-            gap: 8px;
+            gap: 10px;
             border-top: 1px solid #ddd;
-            max-width: 900px;
-            margin: 0 auto;
-            width: 100%;
           }
           .input-container textarea {
             flex: 1;
-            padding: 8px 12px;
+            padding: 10px 15px;
             border: 1px solid #ddd;
-            border-radius: 18px;
+            border-radius: 20px;
             font-family: inherit;
-            font-size: 14px;
+            font-size: 15px;
             resize: none;
             max-height: 100px;
           }
@@ -570,20 +558,19 @@ exports.showConversation = async (req, res) => {
             color: #0f1419;
             border: none;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            font-size: 16px;
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.3s;
-            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
-            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
           }
           .send-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6);
           }
           .send-btn:disabled {
             background: #ccc;
@@ -591,9 +578,8 @@ exports.showConversation = async (req, res) => {
           }
           .empty-state {
             text-align: center;
-            padding: 30px 20px;
+            padding: 40px 20px;
             color: #999;
-            font-size: 13px;
           }
         </style>
       </head>
