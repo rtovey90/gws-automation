@@ -110,6 +110,10 @@ exports.showInbox = async (req, res) => {
     techsConversations.sort(sortByLastMessage);
     suppliersConversations.sort(sortByLastMessage);
 
+    // Create "All Messages" list (combination of all)
+    const allConversations = [...customersConversations, ...techsConversations, ...suppliersConversations];
+    allConversations.sort(sortByLastMessage);
+
     // Helper function for time display
     const getTimeAgo = (timestamp) => {
       const now = new Date();
@@ -178,16 +182,16 @@ exports.showInbox = async (req, res) => {
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1a2332;
             height: 100vh;
             display: flex;
             flex-direction: column;
           }
           .header {
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            background: #0f1419;
             color: white;
             padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
           }
           .header h1 {
             font-size: 24px;
@@ -195,7 +199,7 @@ exports.showInbox = async (req, res) => {
           }
           .tabs {
             display: flex;
-            background: rgba(255,255,255,0.1);
+            background: rgba(0, 212, 255, 0.1);
             border-radius: 12px;
             padding: 4px;
             margin-top: 15px;
@@ -206,20 +210,20 @@ exports.showInbox = async (req, res) => {
             padding: 10px 16px;
             border: none;
             background: transparent;
-            color: rgba(255,255,255,0.7);
-            font-size: 15px;
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             border-radius: 8px;
             transition: all 0.3s;
           }
           .tab.active {
-            background: white;
-            color: #4F46E5;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: #00d4ff;
+            color: #0f1419;
+            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
           }
           .tab:hover:not(.active) {
-            background: rgba(255,255,255,0.15);
+            background: rgba(0, 212, 255, 0.2);
             color: white;
           }
           .tab-count {
@@ -259,16 +263,16 @@ exports.showInbox = async (req, res) => {
             width: 54px;
             height: 54px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #00d4ff;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: #0f1419;
             font-weight: 700;
             font-size: 20px;
             margin-right: 16px;
             flex-shrink: 0;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
           }
           .conversation-content {
             flex: 1;
@@ -332,6 +336,9 @@ exports.showInbox = async (req, res) => {
             <button class="tab" onclick="switchTab('suppliers')">
               Suppliers <span class="tab-count">${suppliersConversations.length}</span>
             </button>
+            <button class="tab" onclick="switchTab('all')">
+              All <span class="tab-count">${allConversations.length}</span>
+            </button>
           </div>
         </div>
 
@@ -344,6 +351,9 @@ exports.showInbox = async (req, res) => {
           </div>
           <div class="tab-content" id="suppliers">
             ${renderConversations(suppliersConversations)}
+          </div>
+          <div class="tab-content" id="all">
+            ${renderConversations(allConversations)}
           </div>
         </div>
 
@@ -449,18 +459,18 @@ exports.showConversation = async (req, res) => {
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #e5ddd5;
+            background: #1a2332;
             height: 100vh;
             display: flex;
             flex-direction: column;
           }
           .header {
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            background: #0f1419;
             color: white;
             padding: 15px 20px;
             display: flex;
             align-items: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
           }
           .back-btn {
             background: none;
@@ -497,8 +507,8 @@ exports.showConversation = async (req, res) => {
             word-wrap: break-word;
           }
           .message.outbound {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #00d4ff;
+            color: #0f1419;
             align-self: flex-end;
             margin-left: auto;
           }
@@ -514,7 +524,7 @@ exports.showConversation = async (req, res) => {
             text-align: right;
           }
           .message.outbound .message-time {
-            color: rgba(255,255,255,0.8);
+            color: rgba(15,20,25,0.6);
           }
           .message.inbound .message-time {
             text-align: left;
@@ -539,11 +549,11 @@ exports.showConversation = async (req, res) => {
           }
           .input-container textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00d4ff;
           }
           .send-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #00d4ff;
+            color: #0f1419;
             border: none;
             border-radius: 50%;
             width: 45px;
@@ -554,11 +564,11 @@ exports.showConversation = async (req, res) => {
             align-items: center;
             justify-content: center;
             transition: all 0.3s;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
           }
           .send-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6);
           }
           .send-btn:disabled {
             background: #ccc;
