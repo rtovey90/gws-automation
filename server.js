@@ -17,6 +17,7 @@ const techAssignmentController = require('./controllers/tech-assignment.controll
 const scheduleController = require('./controllers/schedule.controller');
 const completionController = require('./controllers/completion.controller');
 const messagesController = require('./controllers/messages.controller');
+const engagementsController = require('./controllers/engagements.controller');
 const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
 
 const app = express();
@@ -225,6 +226,9 @@ app.post('/api/complete-job', completionController.uploadMiddleware, completionC
 app.get('/messages', messagesController.showInbox);
 app.get('/messages/:phone', messagesController.showConversation);
 app.post('/api/send-sms-conversation', messagesController.sendSMS);
+
+// Engagement routes
+app.get('/api/create-engagement', engagementsController.createEngagement);
 
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
