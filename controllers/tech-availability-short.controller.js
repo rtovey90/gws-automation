@@ -124,14 +124,20 @@ exports.techYes = async (req, res) => {
 
     const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ');
 
-    // Update tech availability responses (long text field)
+    // Update tech availability responses (long text field for logging)
     const currentResponses = engagement.fields['Tech Availability Responses'] || '';
     const updatedResponses = currentResponses
       ? `${currentResponses}\n${techName} - YES (${new Date().toLocaleString()})`
       : `${techName} - YES (${new Date().toLocaleString()})`;
 
+    // Add tech to Available Techs linked field
+    const currentAvailableTechs = engagement.fields['Available Techs'] || [];
+    const updatedAvailableTechs = [...currentAvailableTechs, techId];
+
     await airtableService.updateEngagement(engagementId, {
       'Tech Availability Responses': updatedResponses,
+      'Available Techs': updatedAvailableTechs,
+      'Status': 'Tech Availability Check',
     });
 
     console.log(`✓ Recorded YES response from ${techName}`);
@@ -247,7 +253,7 @@ exports.techNo = async (req, res) => {
 
     const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ');
 
-    // Update tech availability responses (long text field)
+    // Update tech availability responses (long text field for logging)
     const currentResponses = engagement.fields['Tech Availability Responses'] || '';
     const updatedResponses = currentResponses
       ? `${currentResponses}\n${techName} - NO (${new Date().toLocaleString()})`
@@ -255,6 +261,7 @@ exports.techNo = async (req, res) => {
 
     await airtableService.updateEngagement(engagementId, {
       'Tech Availability Responses': updatedResponses,
+      'Status': 'Tech Availability Check',
     });
 
     console.log(`✓ Recorded NO response from ${techName}`);
