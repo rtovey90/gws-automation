@@ -581,6 +581,40 @@ exports.showConversation = async (req, res) => {
             padding: 40px 20px;
             color: #999;
           }
+          .templates-container {
+            background: rgba(0, 212, 255, 0.05);
+            padding: 10px 20px;
+            border-top: 1px solid rgba(0, 212, 255, 0.2);
+          }
+          .templates-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+          }
+          .template-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+          .template-btn {
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+          }
+          .template-btn:hover {
+            background: rgba(0, 212, 255, 0.25);
+            border-color: #00d4ff;
+            transform: translateY(-1px);
+          }
         </style>
       </head>
       <body>
@@ -616,6 +650,15 @@ exports.showConversation = async (req, res) => {
           }).join('')}
         </div>
 
+        <div class="templates-container">
+          <div class="templates-label">Quick Messages</div>
+          <div class="template-buttons">
+            <button class="template-btn" onclick="loadTemplate('photos')">Request Photos from Client</button>
+            <button class="template-btn" onclick="loadTemplate('payment')">Send Payment Link to Client</button>
+            <button class="template-btn" onclick="loadTemplate('review')">Request Review</button>
+          </div>
+        </div>
+
         <div class="input-container">
           <textarea
             id="messageInput"
@@ -631,6 +674,42 @@ exports.showConversation = async (req, res) => {
           const messageInput = document.getElementById('messageInput');
           const sendBtn = document.getElementById('sendBtn');
 
+          // Template messages
+          const templates = {
+            photos: \`Hi ${customerName},
+
+Thanks for choosing Great White Security!
+
+Could you please send me some photos of your current setup? This will help me understand what you need and provide an accurate quote.
+
+You can reply with photos directly to this message.
+
+Thanks!
+Ricky\`,
+            payment: \`Hi ${customerName},
+
+Thanks for choosing Great White Security!
+
+Here's the payment link to lock in your booking: [PAYMENT_LINK]
+
+Once payment is confirmed, I'll be in touch to schedule a time that works for you.
+
+Thanks!
+Ricky\`,
+            review: \`Hi ${customerName},
+
+Thanks again for trusting Great White Security.
+
+If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
+
+Here's the link: https://g.page/r/CWLlmL52RlBEEBM/review
+
+If you need anything else, feel free to reach out anytime!
+
+Thanks,
+Ricky\`
+          };
+
           // Scroll to bottom on load
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
@@ -639,6 +718,24 @@ exports.showConversation = async (req, res) => {
             this.style.height = 'auto';
             this.style.height = this.scrollHeight + 'px';
           });
+
+          // Load template into textarea
+          function loadTemplate(templateKey) {
+            const content = templates[templateKey];
+            if (!content) return;
+
+            messageInput.value = content;
+
+            // Auto-resize
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+
+            // Focus so user can edit
+            messageInput.focus();
+
+            // Move cursor to end
+            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+          }
 
           async function sendMessage() {
             const message = messageInput.value.trim();
