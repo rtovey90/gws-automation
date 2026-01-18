@@ -937,12 +937,6 @@ Ricky (Great White Security)`;
           const previewContent = document.getElementById('previewContent');
           const previewTitle = document.getElementById('previewTitle');
 
-          // Generate short code (matches server-side logic)
-          function generateShortCode(engagementId, techId) {
-            const combined = engagementId + ':' + techId;
-            return btoa(combined).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
-          }
-
           // Update preview
           function updatePreview() {
             const firstChecked = document.querySelector('input[name="techs"]:checked');
@@ -958,10 +952,9 @@ Ricky (Great White Security)`;
 
             const message = messageTextarea.value;
 
-            // Replace placeholders with example values using short codes
-            const shortCode = generateShortCode(engagementId, firstChecked.value);
-            const yesLink = \`\${BASE_URL}/ty/\${shortCode}\`;
-            const noLink = \`\${BASE_URL}/tn/\${shortCode}\`;
+            // Replace placeholders with example values (actual codes generated server-side)
+            const yesLink = \`\${BASE_URL}/ty/abc123\`;
+            const noLink = \`\${BASE_URL}/tn/abc123\`;
 
             const preview = message
               .replace(/{{TECH_NAME}}/g, techName)

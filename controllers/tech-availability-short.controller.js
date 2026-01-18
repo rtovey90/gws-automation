@@ -1,25 +1,77 @@
 const airtableService = require('../services/airtable.service');
 
+// In-memory storage for tech availability codes
+// Structure: { code: { engagementId, techId, created: timestamp } }
+const techAvailabilityCodes = new Map();
+
 /**
- * Generate short code from engagement and tech IDs
+ * Generate random 6-character code
  */
-function generateShortCode(engagementId, techId) {
-  const combined = `${engagementId}:${techId}`;
-  return Buffer.from(combined).toString('base64url');
+function generateRandomCode() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 }
 
 /**
- * Decode short code to get engagement and tech IDs
+ * Generate short code and store mapping
+ */
+function generateShortCode(engagementId, techId) {
+  // Generate unique code
+  let code;
+  do {
+    code = generateRandomCode();
+  } while (techAvailabilityCodes.has(code));
+
+  // Store mapping
+  techAvailabilityCodes.set(code, {
+    engagementId,
+    techId,
+    created: Date.now()
+  });
+
+  console.log(`📝 Generated code ${code} for engagement ${engagementId}, tech ${techId}`);
+
+  return code;
+}
+
+/**
+ * Get engagement and tech IDs from code
  */
 function decodeShortCode(code) {
-  try {
-    const decoded = Buffer.from(code, 'base64url').toString('utf-8');
-    const [engagementId, techId] = decoded.split(':');
-    return { engagementId, techId };
-  } catch (error) {
-    return null;
+  const data = techAvailabilityCodes.get(code);
+  if (!data) return null;
+
+  return {
+    engagementId: data.engagementId,
+    techId: data.techId
+  };
+}
+
+/**
+ * Clean up old codes (older than 30 days)
+ */
+function cleanupOldCodes() {
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  let cleaned = 0;
+
+  for (const [code, data] of techAvailabilityCodes.entries()) {
+    if (data.created < thirtyDaysAgo) {
+      techAvailabilityCodes.delete(code);
+      cleaned++;
+    }
+  }
+
+  if (cleaned > 0) {
+    console.log(`🧹 Cleaned up ${cleaned} old tech availability codes`);
   }
 }
+
+// Run cleanup daily
+setInterval(cleanupOldCodes, 24 * 60 * 60 * 1000);
 
 /**
  * Tech responds YES via short link
