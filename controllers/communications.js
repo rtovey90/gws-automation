@@ -544,7 +544,7 @@ exports.sendMessage = async (req, res) => {
 };
 
 /**
- * Send review request to client for completed engagement
+ * Show review request form (with editable message)
  * GET /api/send-review-request/:leadId
  */
 exports.sendEngagementReviewRequest = async (req, res) => {
@@ -552,40 +552,16 @@ exports.sendEngagementReviewRequest = async (req, res) => {
     const engagementId = req.params.leadId;
 
     if (!engagementId) {
-      return res.status(400).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Error</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-        <body style="font-family: Arial; text-align: center; padding: 50px;">
-          <h1>❌ Error</h1>
-          <p>Missing engagement ID</p>
-        </body>
-        </html>
-      `);
+      return res.status(400).send('<h1>Error: Missing engagement ID</h1>');
     }
 
-    console.log(`⭐ Sending review request for engagement: ${engagementId}`);
+    console.log(`⭐ Opening review request form for engagement: ${engagementId}`);
 
     // Get engagement details
     const engagement = await airtableService.getEngagement(engagementId);
 
     if (!engagement) {
-      return res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Error</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-        <body style="font-family: Arial; text-align: center; padding: 50px;">
-          <h1>❌ Error</h1>
-          <p>Engagement not found</p>
-        </body>
-        </html>
-      `);
+      return res.status(404).send('<h1>Error: Engagement not found</h1>');
     }
 
     // Get customer phone from lookup fields
@@ -594,25 +570,16 @@ exports.sendEngagementReviewRequest = async (req, res) => {
     customerPhone = String(customerPhone || '').trim();
 
     if (!customerPhone) {
-      return res.status(400).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Error</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-        <body style="font-family: Arial; text-align: center; padding: 50px;">
-          <h1>❌ Error</h1>
-          <p>Customer has no phone number</p>
-        </body>
-        </html>
-      `);
+      return res.status(400).send('<h1>Error: Customer has no phone number</h1>');
     }
 
     // Get customer first name
     let firstName = engagement.fields['First Name (from Customer)'];
+    let lastName = engagement.fields['Last Name (from Customer)'];
     if (Array.isArray(firstName)) firstName = firstName[0];
+    if (Array.isArray(lastName)) lastName = lastName[0];
     firstName = firstName || 'there';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Client';
 
     // Get system type for personalized follow-up
     const systemTypes = engagement.fields['System Type'] || [];
@@ -631,9 +598,9 @@ exports.sendEngagementReviewRequest = async (req, res) => {
       systemSuggestion = 'additional security';
     }
 
-    const reviewLink = process.env.GOOGLE_REVIEW_LINK || 'https://g.page/r/CWLImL52RIBEEBM/review';
+    const reviewLink = 'https://g.page/r/CWLImL52RIBEEBM/review';
 
-    const message = `Hey ${firstName}, thanks again for trusting Great White Security.
+    const defaultMessage = `Hey ${firstName}, thanks again for trusting Great White Security.
 
 If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
 
@@ -643,6 +610,276 @@ If you're interested in looking at potentially having ${systemSuggestion} instal
 
 Thanks,
 Ricky`;
+
+    // Show editable form
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Send Review Request - ${fullName}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          }
+          h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 10px;
+          }
+          .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+          }
+          .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+          }
+          .info-box strong {
+            color: #667eea;
+          }
+          label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+          }
+          textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 300px;
+            transition: border-color 0.3s;
+          }
+          textarea:focus {
+            outline: none;
+            border-color: #667eea;
+          }
+          .preview-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+          }
+          .preview-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+          }
+          .preview-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            white-space: pre-wrap;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+          }
+          .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+          }
+          .btn-primary {
+            background: #667eea;
+            color: white;
+          }
+          .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+          }
+          .btn-primary:active {
+            transform: translateY(0);
+          }
+          .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+          }
+          .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+          }
+          .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>⭐ Send Review Request</h1>
+          <p class="subtitle">Review and edit the message before sending</p>
+
+          <div class="info-box">
+            <strong>Client:</strong> ${fullName}<br>
+            <strong>Phone:</strong> ${customerPhone}
+          </div>
+
+          <form id="reviewForm">
+            <label for="message">📝 Edit Message:</label>
+            <textarea id="message" name="message">${defaultMessage}</textarea>
+
+            <div class="preview-section">
+              <h3>👁️ Preview (what ${firstName} will receive):</h3>
+              <div class="preview-content" id="preview"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+              📤 Send Review Request to ${firstName}
+            </button>
+          </form>
+
+          <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Sending message...</p>
+          </div>
+        </div>
+
+        <script>
+          const form = document.getElementById('reviewForm');
+          const messageTextarea = document.getElementById('message');
+          const preview = document.getElementById('preview');
+          const loading = document.getElementById('loading');
+
+          // Update preview when message changes
+          function updatePreview() {
+            preview.textContent = messageTextarea.value;
+          }
+
+          messageTextarea.addEventListener('input', updatePreview);
+          updatePreview(); // Initial preview
+
+          // Handle form submission
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const message = messageTextarea.value.trim();
+
+            if (!message) {
+              alert('Please enter a message');
+              return;
+            }
+
+            // Show loading
+            form.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+              const response = await fetch('/api/submit-review-request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  engagementId: '${engagementId}',
+                  message: message
+                }),
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to send message');
+              }
+
+              // Success!
+              document.querySelector('.container').innerHTML = \`
+                <div style="text-align: center; padding: 50px;">
+                  <div style="font-size: 80px; margin-bottom: 20px;">⭐</div>
+                  <h1 style="color: #667eea; margin-bottom: 15px;">Review Request Sent!</h1>
+                  <p style="color: #666; font-size: 18px;">SMS sent to ${firstName} at ${customerPhone}</p>
+                  <p style="margin-top: 20px; color: #999; font-size: 14px;">You can close this window.</p>
+                </div>
+              \`;
+
+              setTimeout(() => window.close(), 3000);
+            } catch (error) {
+              alert('Error sending message: ' + error.message);
+              form.style.display = 'block';
+              loading.style.display = 'none';
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error showing review request form:', error);
+    res.status(500).send(\`<h1>Error: \${error.message}</h1>\`);
+  }
+};
+
+/**
+ * Actually send the review request SMS
+ * POST /api/submit-review-request
+ */
+exports.submitReviewRequest = async (req, res) => {
+  try {
+    const { engagementId, message } = req.body;
+
+    if (!engagementId || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(\`⭐ Sending review request for engagement: \${engagementId}\`);
+
+    // Get engagement details
+    const engagement = await airtableService.getEngagement(engagementId);
+
+    if (!engagement) {
+      return res.status(404).json({ error: 'Engagement not found' });
+    }
+
+    // Get customer phone from lookup fields
+    let customerPhone = engagement.fields['Mobile Phone (from Customer)'] || engagement.fields['Phone (from Customer)'];
+    if (Array.isArray(customerPhone)) customerPhone = customerPhone[0];
+    customerPhone = String(customerPhone || '').trim();
+
+    if (!customerPhone) {
+      return res.status(400).json({ error: 'Customer has no phone number' });
+    }
 
     // Send SMS
     await twilioService.sendSMS(
@@ -667,77 +904,12 @@ Ricky`;
       'Review Requested': true,
     });
 
-    console.log(`✓ Review request sent to ${firstName} at ${customerPhone}`);
+    console.log(\`✓ Review request sent to \${customerPhone}\`);
 
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Review Request Sent</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 20px;
-          }
-          .container {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            max-width: 500px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-          }
-          .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-          }
-          h1 {
-            color: #667eea;
-            margin-bottom: 15px;
-          }
-          p {
-            color: #666;
-            font-size: 18px;
-            line-height: 1.6;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">⭐</div>
-          <h1>Review Request Sent!</h1>
-          <p>SMS sent to ${firstName} at ${customerPhone}</p>
-          <p style="margin-top: 20px; color: #999; font-size: 14px;">You can close this window.</p>
-        </div>
-        <script>
-          setTimeout(() => window.close(), 3000);
-        </script>
-      </body>
-      </html>
-    `);
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error sending review request:', error);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Error</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-      </head>
-      <body style="font-family: Arial; text-align: center; padding: 50px;">
-        <h1 class="error">❌ Error</h1>
-        <p>Failed to send review request</p>
-        <p style="color: #999; font-size: 12px;">${error.message}</p>
-      </body>
-      </html>
-    `);
+    res.status(500).json({ error: 'Failed to send message' });
   }
 };
 
