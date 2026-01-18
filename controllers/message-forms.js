@@ -921,6 +921,10 @@ Ricky (Great White Security)`;
         </div>
 
         <script>
+          // Server-injected variables
+          const BASE_URL = '${process.env.BASE_URL}';
+          const engagementId = '${engagementId}';
+
           const checkboxes = document.querySelectorAll('input[name="techs"]');
           const selectAll = document.getElementById('selectAll');
           const selectedCount = document.getElementById('selectedCount');
@@ -948,8 +952,8 @@ Ricky (Great White Security)`;
             const message = messageTextarea.value;
 
             // Replace placeholders with example values
-            const yesLink = \`${process.env.BASE_URL}/tech-availability/${engagementId}/\${firstChecked.value}/yes\`;
-            const noLink = \`${process.env.BASE_URL}/tech-availability/${engagementId}/\${firstChecked.value}/no\`;
+            const yesLink = \`\${BASE_URL}/tech-availability/\${engagementId}/\${firstChecked.value}/yes\`;
+            const noLink = \`\${BASE_URL}/tech-availability/\${engagementId}/\${firstChecked.value}/no\`;
 
             const preview = message
               .replace(/{{TECH_NAME}}/g, techName)
