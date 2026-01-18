@@ -1645,7 +1645,17 @@ exports.sendPricingForm = async (req, res) => {
     }
 
     // Verify phone number exists (from Customer lookup fields)
-    const customerPhone = lead.fields['Mobile Phone (from Customer)'] || lead.fields['Phone (from Customer)'];
+    // Lookup fields can return arrays, so we need to extract the first element
+    let customerPhone = lead.fields['Mobile Phone (from Customer)'] || lead.fields['Phone (from Customer)'];
+
+    // If it's an array, get first element
+    if (Array.isArray(customerPhone)) {
+      customerPhone = customerPhone[0];
+    }
+
+    // Ensure it's a string
+    customerPhone = String(customerPhone || '').trim();
+
     if (!customerPhone) {
       return res.status(400).json({ error: 'Lead has no phone number' });
     }
@@ -1660,7 +1670,15 @@ exports.sendPricingForm = async (req, res) => {
     const stripeService = require('../services/stripe.service');
     const price = await stripeService.getPriceForProduct(product.fields['Stripe Product ID']);
 
-    const leadName = [lead.fields['First Name (from Customer)'], lead.fields['Last Name (from Customer)']].filter(Boolean).join(' ') || 'Client';
+    // Get customer name from lookup fields (may be arrays)
+    let firstName = lead.fields['First Name (from Customer)'];
+    let lastName = lead.fields['Last Name (from Customer)'];
+
+    // Extract from arrays if needed
+    if (Array.isArray(firstName)) firstName = firstName[0];
+    if (Array.isArray(lastName)) lastName = lastName[0];
+
+    const leadName = [firstName, lastName].filter(Boolean).join(' ') || 'Client';
 
     const session = await stripeService.createCheckoutSession({
       leadId: engagementId,
