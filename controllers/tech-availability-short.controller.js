@@ -124,14 +124,14 @@ exports.techYes = async (req, res) => {
 
     const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ');
 
-    // Update available techs list
-    const currentAvailableTechs = engagement.fields['Available Techs'] || '';
-    const updatedAvailableTechs = currentAvailableTechs
-      ? `${currentAvailableTechs}\n${techName} - YES (${new Date().toISOString()})`
-      : `${techName} - YES (${new Date().toISOString()})`;
+    // Update tech availability responses (long text field)
+    const currentResponses = engagement.fields['Tech Availability Responses'] || '';
+    const updatedResponses = currentResponses
+      ? `${currentResponses}\n${techName} - YES (${new Date().toLocaleString()})`
+      : `${techName} - YES (${new Date().toLocaleString()})`;
 
     await airtableService.updateEngagement(engagementId, {
-      'Available Techs': updatedAvailableTechs,
+      'Tech Availability Responses': updatedResponses,
     });
 
     console.log(`✓ Recorded YES response from ${techName}`);
@@ -247,14 +247,14 @@ exports.techNo = async (req, res) => {
 
     const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ');
 
-    // Update available techs list
-    const currentAvailableTechs = engagement.fields['Available Techs'] || '';
-    const updatedAvailableTechs = currentAvailableTechs
-      ? `${currentAvailableTechs}\n${techName} - NO (${new Date().toISOString()})`
-      : `${techName} - NO (${new Date().toISOString()})`;
+    // Update tech availability responses (long text field)
+    const currentResponses = engagement.fields['Tech Availability Responses'] || '';
+    const updatedResponses = currentResponses
+      ? `${currentResponses}\n${techName} - NO (${new Date().toLocaleString()})`
+      : `${techName} - NO (${new Date().toLocaleString()})`;
 
     await airtableService.updateEngagement(engagementId, {
-      'Available Techs': updatedAvailableTechs,
+      'Tech Availability Responses': updatedResponses,
     });
 
     console.log(`✓ Recorded NO response from ${techName}`);
