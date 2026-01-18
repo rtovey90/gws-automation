@@ -1441,7 +1441,7 @@ Ricky (Great White Security)`;
             <label for="product">📦 Select Product:</label>
             <select id="product" name="product">
               ${products.map(p => `
-                <option value="${p.id}" data-name="${p.fields['Product Name']}" data-link="${p.fields['Stripe Payment Link']}" ${p.id === selectedProduct.id ? 'selected' : ''}>
+                <option value="${p.id}" data-name="${p.fields['Product Name']}" data-link="${p.fields['Stripe Payment Link']}" data-price="${p.fields.Price || 247}" ${p.id === selectedProduct.id ? 'selected' : ''}>
                   ${p.fields['Product Name']}
                 </option>
               `).join('')}
@@ -1486,6 +1486,7 @@ Ricky (Great White Security)`;
           const success = document.getElementById('success');
           const openCheckoutBtn = document.getElementById('openCheckoutBtn');
           const clientName = '${clientName}';
+          const systemTypeText = '${systemTypeText}';
 
           // Update preview when message changes
           function updatePreview() {
@@ -1529,12 +1530,13 @@ Ricky (Great White Security)`;
           function updateMessage() {
             const selectedOption = productSelect.options[productSelect.selectedIndex];
             const paymentLink = selectedOption.dataset.link;
+            const price = selectedOption.dataset.price;
 
             const newMessage = \`Hi \${clientName}, thank you for sending these over!
 
-Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
+Good news! I can have one of our technicians out this week to troubleshoot your \${systemTypeText}.
 
-The call-out is just $247 inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is just $\${price} inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
