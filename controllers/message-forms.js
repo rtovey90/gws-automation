@@ -1216,12 +1216,25 @@ exports.showPricingForm = async (req, res) => {
 
     const productName = selectedProduct.fields['Product Name'];
     const paymentLink = selectedProduct.fields['Stripe Payment Link'];
+    const price = selectedProduct.fields.Price || 247;
+
+    // Get system type from engagement (multiple select field)
+    const systemTypes = lead.fields['System Type'] || [];
+    let systemTypeText = 'alarm system';
+    if (systemTypes.length > 0) {
+      const typesLowercase = systemTypes.map(s => s.toLowerCase());
+      if (systemTypes.length === 1) {
+        systemTypeText = typesLowercase[0] + ' system';
+      } else {
+        systemTypeText = typesLowercase.join(' and ') + ' systems';
+      }
+    }
 
     const defaultMessage = `Hi ${clientName}, thank you for sending these over!
 
-Good news! I can have one of our technicians out this week to troubleshoot your alarm system.
+Good news! I can have one of our technicians out this week to troubleshoot your ${systemTypeText}.
 
-The call-out is just $247 inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is just $${price} inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
 
 If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
 
