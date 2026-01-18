@@ -21,32 +21,58 @@ function getTimestamp(msg) {
  */
 exports.showInbox = async (req, res) => {
   try {
-    // Get all messages from Airtable
+    // Get all messages, customers, and techs from Airtable
     const messages = await airtableService.getAllMessages();
+    const allCustomers = await airtableService.getAllCustomers();
+    const allTechs = await airtableService.getAllTechs();
 
-    // Group messages by phone number (customer)
+    // Build phone lookup maps
+    const customerPhoneMap = {};
+    const techPhoneMap = {};
+
+    for (const customer of allCustomers) {
+      const mobilePhone = customer.fields['Mobile Phone'];
+      const phone = customer.fields.Phone;
+      const name = [customer.fields['First Name'], customer.fields['Last Name']].filter(Boolean).join(' ') || 'Customer';
+
+      if (mobilePhone) customerPhoneMap[mobilePhone] = { id: customer.id, name, type: 'customer' };
+      if (phone) customerPhoneMap[phone] = { id: customer.id, name, type: 'customer' };
+    }
+
+    for (const tech of allTechs) {
+      const phone = tech.fields.Phone;
+      const name = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name || 'Tech';
+
+      if (phone) techPhoneMap[phone] = { id: tech.id, name, type: 'tech' };
+    }
+
+    // Group messages by phone number
     const conversations = {};
 
     for (const msg of messages) {
       const fields = msg.fields;
 
-      // Determine the customer phone (opposite of your Twilio number)
+      // Determine the contact phone (opposite of your Twilio number)
       const isOutbound = fields.Direction === 'Outbound';
-      const customerPhone = isOutbound ? fields.To : fields.From;
+      const contactPhone = isOutbound ? fields.To : fields.From;
 
-      if (!customerPhone || customerPhone === 'Web Form') continue;
+      if (!contactPhone || contactPhone === 'Web Form') continue;
 
-      if (!conversations[customerPhone]) {
-        conversations[customerPhone] = {
-          phone: customerPhone,
+      if (!conversations[contactPhone]) {
+        // Determine contact type and name
+        let contactInfo = customerPhoneMap[contactPhone] || techPhoneMap[contactPhone];
+
+        conversations[contactPhone] = {
+          phone: contactPhone,
           messages: [],
           lastMessage: null,
-          customerName: null,
+          contactName: contactInfo ? contactInfo.name : contactPhone,
+          contactType: contactInfo ? contactInfo.type : 'unknown',
           leadId: fields['Related Lead'] ? fields['Related Lead'][0] : null,
         };
       }
 
-      conversations[customerPhone].messages.push({
+      conversations[contactPhone].messages.push({
         id: msg.id,
         direction: fields.Direction,
         content: fields.Content,
@@ -55,42 +81,34 @@ exports.showInbox = async (req, res) => {
       });
     }
 
-    // Sort messages and get customer names
-    const conversationsList = [];
+    // Sort messages and create conversation lists by type
+    const customersConversations = [];
+    const techsConversations = [];
+    const suppliersConversations = []; // Empty for now
+
     for (const phone in conversations) {
       const conv = conversations[phone];
-      
+
       // Sort messages by timestamp
       conv.messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       conv.lastMessage = conv.messages[0];
 
-      // Get customer name
-      if (conv.leadId) {
-        try {
-          const result = await airtableService.getEngagementWithCustomer(conv.leadId);
-          if (result && result.customer) {
-            const firstName = result.customer.fields['First Name'] || '';
-            const lastName = result.customer.fields['Last Name'] || '';
-            conv.customerName = [firstName, lastName].filter(Boolean).join(' ');
-          } else if (result && result.engagement) {
-            conv.customerName = result.engagement.fields['First Name (from Customer)'] || phone;
-          }
-        } catch (err) {
-          console.error('Error getting customer name:', err);
-        }
+      // Add to appropriate list
+      if (conv.contactType === 'customer') {
+        customersConversations.push(conv);
+      } else if (conv.contactType === 'tech') {
+        techsConversations.push(conv);
+      } else {
+        // Unknown numbers go to customers for now
+        customersConversations.push(conv);
       }
-
-      if (!conv.customerName) {
-        conv.customerName = phone;
-      }
-
-      conversationsList.push(conv);
     }
 
-    // Sort by last message time
-    conversationsList.sort((a, b) =>
-      new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp)
-    );
+    // Sort each list by last message time
+    const sortByLastMessage = (a, b) => new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
+    customersConversations.sort(sortByLastMessage);
+    techsConversations.sort(sortByLastMessage);
+    suppliersConversations.sort(sortByLastMessage);
 
     // Helper function for time display
     const getTimeAgo = (timestamp) => {
@@ -108,6 +126,43 @@ exports.showInbox = async (req, res) => {
       return date.toLocaleDateString();
     };
 
+    // Helper to render conversation list
+    const renderConversations = (conversations) => {
+      if (conversations.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-state-icon">💬</div>
+            <h2>No conversations yet</h2>
+            <p>Messages will appear here once you start communicating.</p>
+          </div>
+        `;
+      }
+
+      return conversations.map(conv => {
+        const initials = conv.contactName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        const lastMsg = conv.lastMessage;
+        const preview = lastMsg.direction === 'Outbound'
+          ? `You: ${lastMsg.content}`
+          : lastMsg.content;
+        const timeAgo = getTimeAgo(lastMsg.timestamp);
+
+        return `
+          <div class="conversation" onclick="window.location.href='/messages/${encodeURIComponent(conv.phone)}'">
+            <div class="conversation-avatar">${initials}</div>
+            <div class="conversation-content">
+              <div class="conversation-header">
+                <div class="conversation-name">${conv.contactName}</div>
+                <div class="conversation-time">${timeAgo}</div>
+              </div>
+              <div class="conversation-preview ${lastMsg.direction === 'Outbound' ? 'outbound' : ''}">
+                ${preview.substring(0, 60)}${preview.length > 60 ? '...' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
     // Render inbox
     res.send(`
       <!DOCTYPE html>
@@ -123,49 +178,97 @@ exports.showInbox = async (req, res) => {
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             height: 100vh;
             display: flex;
             flex-direction: column;
           }
           .header {
-            background: #075e54;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
             color: white;
-            padding: 15px 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
           }
           .header h1 {
-            font-size: 20px;
+            font-size: 24px;
+            font-weight: 700;
           }
-          .conversations {
+          .tabs {
+            display: flex;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 4px;
+            margin-top: 15px;
+            gap: 4px;
+          }
+          .tab {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+          }
+          .tab.active {
+            background: white;
+            color: #4F46E5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          }
+          .tab:hover:not(.active) {
+            background: rgba(255,255,255,0.15);
+            color: white;
+          }
+          .tab-count {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-left: 6px;
+          }
+          .conversations-container {
             flex: 1;
             overflow-y: auto;
             background: white;
+            margin: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+          }
+          .tab-content {
+            display: none;
+          }
+          .tab-content.active {
+            display: block;
           }
           .conversation {
             display: flex;
             align-items: center;
-            padding: 15px 20px;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
+          }
+          .conversation:last-child {
+            border-bottom: none;
           }
           .conversation:hover {
-            background: #f5f5f5;
+            background: linear-gradient(90deg, #f8f9ff 0%, #f5f3ff 100%);
           }
           .conversation-avatar {
-            width: 50px;
-            height: 50px;
+            width: 54px;
+            height: 54px;
             border-radius: 50%;
-            background: #25d366;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 20px;
-            margin-right: 15px;
+            margin-right: 16px;
             flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
           }
           .conversation-content {
             flex: 1;
@@ -174,74 +277,91 @@ exports.showInbox = async (req, res) => {
           .conversation-header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
           }
           .conversation-name {
             font-weight: 600;
             font-size: 16px;
-            color: #111;
+            color: #1a202c;
           }
           .conversation-time {
             font-size: 12px;
-            color: #999;
+            color: #a0aec0;
+            font-weight: 500;
           }
           .conversation-preview {
-            color: #666;
+            color: #718096;
             font-size: 14px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
           }
           .conversation-preview.outbound {
-            color: #999;
+            color: #a0aec0;
           }
           .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: #999;
+            padding: 80px 20px;
+            color: #a0aec0;
           }
           .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
+            font-size: 72px;
+            margin-bottom: 24px;
+            opacity: 0.5;
+          }
+          .empty-state h2 {
+            color: #4a5568;
+            font-size: 20px;
+            margin-bottom: 8px;
+          }
+          .empty-state p {
+            font-size: 14px;
           }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>💬 Messages</h1>
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('customers')">
+              Customers <span class="tab-count">${customersConversations.length}</span>
+            </button>
+            <button class="tab" onclick="switchTab('techs')">
+              Techs <span class="tab-count">${techsConversations.length}</span>
+            </button>
+            <button class="tab" onclick="switchTab('suppliers')">
+              Suppliers <span class="tab-count">${suppliersConversations.length}</span>
+            </button>
+          </div>
         </div>
 
-        <div class="conversations">
-          ${conversationsList.length === 0 ? `
-            <div class="empty-state">
-              <div class="empty-state-icon">💬</div>
-              <h2>No conversations yet</h2>
-              <p>Messages will appear here once you start communicating with clients.</p>
-            </div>
-          ` : conversationsList.map(conv => {
-            const initials = conv.customerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            const lastMsg = conv.lastMessage;
-            const preview = lastMsg.direction === 'Outbound'
-              ? `You: ${lastMsg.content}`
-              : lastMsg.content;
-            const timeAgo = getTimeAgo(lastMsg.timestamp);
-
-            return `
-              <div class="conversation" onclick="window.location.href='/messages/${encodeURIComponent(conv.phone)}'">
-                <div class="conversation-avatar">${initials}</div>
-                <div class="conversation-content">
-                  <div class="conversation-header">
-                    <div class="conversation-name">${conv.customerName}</div>
-                    <div class="conversation-time">${timeAgo}</div>
-                  </div>
-                  <div class="conversation-preview ${lastMsg.direction === 'Outbound' ? 'outbound' : ''}">
-                    ${preview.substring(0, 60)}${preview.length > 60 ? '...' : ''}
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('')}
+        <div class="conversations-container">
+          <div class="tab-content active" id="customers">
+            ${renderConversations(customersConversations)}
+          </div>
+          <div class="tab-content" id="techs">
+            ${renderConversations(techsConversations)}
+          </div>
+          <div class="tab-content" id="suppliers">
+            ${renderConversations(suppliersConversations)}
+          </div>
         </div>
+
+        <script>
+          function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+              tab.classList.remove('active');
+            });
+            event.target.closest('.tab').classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+              content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+          }
+        </script>
       </body>
       </html>
     `);
@@ -335,12 +455,12 @@ exports.showConversation = async (req, res) => {
             flex-direction: column;
           }
           .header {
-            background: #075e54;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
             color: white;
             padding: 15px 20px;
             display: flex;
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
           }
           .back-btn {
             background: none;
@@ -377,12 +497,14 @@ exports.showConversation = async (req, res) => {
             word-wrap: break-word;
           }
           .message.outbound {
-            background: #dcf8c6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             align-self: flex-end;
             margin-left: auto;
           }
           .message.inbound {
-            background: white;
+            background: #f0f4f8;
+            color: #2d3748;
             align-self: flex-start;
           }
           .message-time {
@@ -391,8 +513,12 @@ exports.showConversation = async (req, res) => {
             margin-top: 4px;
             text-align: right;
           }
+          .message.outbound .message-time {
+            color: rgba(255,255,255,0.8);
+          }
           .message.inbound .message-time {
             text-align: left;
+            color: #a0aec0;
           }
           .input-container {
             background: #f0f0f0;
@@ -413,10 +539,10 @@ exports.showConversation = async (req, res) => {
           }
           .input-container textarea:focus {
             outline: none;
-            border-color: #25d366;
+            border-color: #667eea;
           }
           .send-btn {
-            background: #25d366;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 50%;
@@ -427,10 +553,12 @@ exports.showConversation = async (req, res) => {
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
           }
           .send-btn:hover {
-            background: #20ba5a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
           }
           .send-btn:disabled {
             background: #ccc;

@@ -163,6 +163,22 @@ class AirtableService {
     }
   }
 
+  /**
+   * Get all customers
+   */
+  async getAllCustomers() {
+    try {
+      const records = await tables.customers
+        .select()
+        .all();
+
+      return records;
+    } catch (error) {
+      console.error('Error getting all customers:', error);
+      throw error;
+    }
+  }
+
   // ============ ENGAGEMENTS ============
 
   /**
