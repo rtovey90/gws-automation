@@ -502,9 +502,11 @@ exports.showConversation = async (req, res) => {
           .message {
             max-width: 65%;
             margin-bottom: 10px;
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 12px 16px;
+            border-radius: 18px;
             word-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.4;
           }
           .message.outbound {
             background: #00d4ff;
