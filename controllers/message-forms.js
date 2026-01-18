@@ -588,7 +588,6 @@ exports.showTechAvailabilityForm = async (req, res) => {
     const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
 
 Location: ${lead.fields['Address (from Customer)'] || 'TBD'}
-Service: ${lead.fields['Lead Type'] || 'Service Call'}
 
 Scope:
 ${jobDescription.length > 200 ? jobDescription.substring(0, 200) + '...' : jobDescription}
@@ -598,6 +597,8 @@ Please make your selection:
 👍 YES: {{YES_LINK}}
 
 👎 NO: {{NO_LINK}}
+
+I'll be in touch with more info once it's confirmed.
 
 Thanks,
 
@@ -865,7 +866,6 @@ Ricky (Great White Security)`;
             <div class="lead-info">
               <p><strong>Lead:</strong> ${lead.fields['First Name (from Customer)'] || 'Unknown'}</p>
               <p><strong>Location:</strong> ${lead.fields['Address (from Customer)'] || 'N/A'}</p>
-              <p><strong>Service:</strong> ${lead.fields['Lead Type'] || 'Service Call'}</p>
             </div>
 
             <form id="techForm">
