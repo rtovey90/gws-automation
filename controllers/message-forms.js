@@ -948,8 +948,8 @@ Ricky (Great White Security)`;
             const message = messageTextarea.value;
 
             // Replace placeholders with example values
-            const yesLink = \`https://gws-automation-production.up.railway.app/tech-availability/${engagementId}/\${firstChecked.value}/yes\`;
-            const noLink = \`https://gws-automation-production.up.railway.app/tech-availability/${engagementId}/\${firstChecked.value}/no\`;
+            const yesLink = \`${process.env.BASE_URL}/tech-availability/${engagementId}/\${firstChecked.value}/yes\`;
+            const noLink = \`${process.env.BASE_URL}/tech-availability/${engagementId}/\${firstChecked.value}/no\`;
 
             const preview = message
               .replace(/{{TECH_NAME}}/g, techName)
