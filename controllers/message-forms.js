@@ -581,14 +581,14 @@ exports.showTechAvailabilityForm = async (req, res) => {
     }
 
     // Get job description from lead
-    const jobDescription = lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+    const jobDescription = lead.fields['Job Scope'] || lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
 
     // Build default message (will be editable)
     const techName = '{{TECH_NAME}}';
     const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
 
-Location: ${lead.fields['Address/Location'] || 'TBD'}
-Service: ${lead.fields['Lead Type'] || 'Security work'}
+Location: ${lead.fields['Address (from Customer)'] || 'TBD'}
+Service: ${lead.fields['Lead Type'] || 'Service Call'}
 
 Scope:
 ${jobDescription.length > 200 ? jobDescription.substring(0, 200) + '...' : jobDescription}
@@ -622,7 +622,7 @@ Ricky (Great White Security)`;
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Check Tech Availability - ${lead.fields['First Name']}</title>
+        <title>Check Tech Availability - ${lead.fields['First Name (from Customer)'] || 'Lead'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           * {
@@ -863,9 +863,9 @@ Ricky (Great White Security)`;
 
           <div class="content">
             <div class="lead-info">
-              <p><strong>Lead:</strong> ${lead.fields['First Name'] || 'Unknown'}</p>
-              <p><strong>Location:</strong> ${lead.fields['Address/Location'] || 'N/A'}</p>
-              <p><strong>Service:</strong> ${lead.fields['Lead Type'] || 'N/A'}</p>
+              <p><strong>Lead:</strong> ${lead.fields['First Name (from Customer)'] || 'Unknown'}</p>
+              <p><strong>Location:</strong> ${lead.fields['Address (from Customer)'] || 'N/A'}</p>
+              <p><strong>Service:</strong> ${lead.fields['Lead Type'] || 'Service Call'}</p>
             </div>
 
             <form id="techForm">
