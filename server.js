@@ -180,6 +180,7 @@ app.post('/api/send-client-pricing', communicationsController.sendClientPricing)
 app.post('/api/send-review-request', communicationsController.sendReviewRequest);
 app.post('/api/review-follow-up', communicationsController.reviewFollowUp);
 app.get('/api/send-message', communicationsController.sendMessage); // Button-triggered messages from Airtable
+app.get('/api/send-review-request/:leadId', communicationsController.sendEngagementReviewRequest); // Send review request for engagement
 
 // Photo upload routes
 app.get('/upload-photos/:leadId', uploadsController.showUploadForm);

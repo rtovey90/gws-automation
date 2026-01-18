@@ -543,4 +543,202 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+/**
+ * Send review request to client for completed engagement
+ * GET /api/send-review-request/:leadId
+ */
+exports.sendEngagementReviewRequest = async (req, res) => {
+  try {
+    const engagementId = req.params.leadId;
+
+    if (!engagementId) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>❌ Error</h1>
+          <p>Missing engagement ID</p>
+        </body>
+        </html>
+      `);
+    }
+
+    console.log(`⭐ Sending review request for engagement: ${engagementId}`);
+
+    // Get engagement details
+    const engagement = await airtableService.getEngagement(engagementId);
+
+    if (!engagement) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>❌ Error</h1>
+          <p>Engagement not found</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Get customer phone from lookup fields
+    let customerPhone = engagement.fields['Mobile Phone (from Customer)'] || engagement.fields['Phone (from Customer)'];
+    if (Array.isArray(customerPhone)) customerPhone = customerPhone[0];
+    customerPhone = String(customerPhone || '').trim();
+
+    if (!customerPhone) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>❌ Error</h1>
+          <p>Customer has no phone number</p>
+        </body>
+        </html>
+      `);
+    }
+
+    // Get customer first name
+    let firstName = engagement.fields['First Name (from Customer)'];
+    if (Array.isArray(firstName)) firstName = firstName[0];
+    firstName = firstName || 'there';
+
+    // Get system type for personalized follow-up
+    const systemTypes = engagement.fields['System Type'] || [];
+    let systemSuggestion = '';
+    if (systemTypes.length > 0) {
+      // Suggest complementary systems
+      const hasAlarm = systemTypes.some(s => s.toLowerCase().includes('alarm'));
+      const hasCCTV = systemTypes.some(s => s.toLowerCase().includes('cctv'));
+      const hasIntercom = systemTypes.some(s => s.toLowerCase().includes('intercom'));
+
+      if (!hasCCTV) systemSuggestion = 'CCTV';
+      else if (!hasAlarm) systemSuggestion = 'an alarm system';
+      else if (!hasIntercom) systemSuggestion = 'an intercom';
+      else systemSuggestion = 'additional security';
+    } else {
+      systemSuggestion = 'additional security';
+    }
+
+    const reviewLink = process.env.GOOGLE_REVIEW_LINK || 'https://g.page/r/CWLImL52RIBEEBM/review';
+
+    const message = `Hey ${firstName}, thanks again for trusting Great White Security.
+
+If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
+
+Here's the link: ${reviewLink}
+
+If you're interested in looking at potentially having ${systemSuggestion} installed, or need anything else, feel free to reach out anytime!
+
+Thanks,
+Ricky`;
+
+    // Send SMS
+    await twilioService.sendSMS(
+      customerPhone,
+      message,
+      { leadId: engagementId, type: 'review_request' }
+    );
+
+    // Log message
+    await airtableService.logMessage({
+      engagementId: engagementId,
+      direction: 'Outbound',
+      type: 'SMS',
+      to: customerPhone,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      content: message,
+      status: 'Sent',
+    });
+
+    // Update engagement
+    await airtableService.updateEngagement(engagementId, {
+      'Review Requested': true,
+    });
+
+    console.log(`✓ Review request sent to ${firstName} at ${customerPhone}`);
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Review Request Sent</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+          }
+          .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          }
+          .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+          }
+          h1 {
+            color: #667eea;
+            margin-bottom: 15px;
+          }
+          p {
+            color: #666;
+            font-size: 18px;
+            line-height: 1.6;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">⭐</div>
+          <h1>Review Request Sent!</h1>
+          <p>SMS sent to ${firstName} at ${customerPhone}</p>
+          <p style="margin-top: 20px; color: #999; font-size: 14px;">You can close this window.</p>
+        </div>
+        <script>
+          setTimeout(() => window.close(), 3000);
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error sending review request:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Error</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body style="font-family: Arial; text-align: center; padding: 50px;">
+        <h1 class="error">❌ Error</h1>
+        <p>Failed to send review request</p>
+        <p style="color: #999; font-size: 12px;">${error.message}</p>
+      </body>
+      </html>
+    `);
+  }
+};
+
 module.exports = exports;
