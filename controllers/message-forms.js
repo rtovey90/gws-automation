@@ -1210,9 +1210,9 @@ exports.showPricingForm = async (req, res) => {
     const selectedProductId = lead.fields['Selected Product'] ? lead.fields['Selected Product'][0] : null;
     const selectedProduct = selectedProductId ? products.find(p => p.id === selectedProductId) : products[0];
 
-    // Build client name
-    const clientName = lead.fields['First Name'] || 'there';
-    const leadFullName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
+    // Build client name from Customer lookup fields
+    const clientName = lead.fields['First Name (from Customer)'] || 'there';
+    const leadFullName = [lead.fields['First Name (from Customer)'], lead.fields['Last Name (from Customer)']].filter(Boolean).join(' ') || 'Client';
 
     const productName = selectedProduct.fields['Product Name'];
     const paymentLink = selectedProduct.fields['Stripe Payment Link'];
@@ -1421,7 +1421,7 @@ Ricky (Great White Security)`;
 
           <div class="info-box">
             <strong>Client:</strong> ${leadFullName}<br>
-            <strong>Phone:</strong> ${lead.fields.Phone}
+            <strong>Phone:</strong> ${lead.fields['Mobile Phone (from Customer)'] || lead.fields['Phone (from Customer)']}
           </div>
 
           <form id="pricingForm">
