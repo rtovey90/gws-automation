@@ -1644,8 +1644,9 @@ exports.sendPricingForm = async (req, res) => {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    // Verify phone number exists
-    if (!lead.fields.Phone) {
+    // Verify phone number exists (from Customer lookup fields)
+    const customerPhone = lead.fields['Mobile Phone (from Customer)'] || lead.fields['Phone (from Customer)'];
+    if (!customerPhone) {
       return res.status(400).json({ error: 'Lead has no phone number' });
     }
 
@@ -1659,14 +1660,14 @@ exports.sendPricingForm = async (req, res) => {
     const stripeService = require('../services/stripe.service');
     const price = await stripeService.getPriceForProduct(product.fields['Stripe Product ID']);
 
-    const leadName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ') || 'Client';
+    const leadName = [lead.fields['First Name (from Customer)'], lead.fields['Last Name (from Customer)']].filter(Boolean).join(' ') || 'Client';
 
     const session = await stripeService.createCheckoutSession({
       leadId: engagementId,
       productId: productId,
       priceId: price.id,
       leadName: leadName,
-      leadPhone: lead.fields.Phone || '',
+      leadPhone: customerPhone,
       successUrl: `${process.env.BASE_URL}/payment-success.html`,
       cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
     });
@@ -1682,7 +1683,7 @@ exports.sendPricingForm = async (req, res) => {
 
     // Send SMS via Twilio with short URL
     await twilioService.sendSMS(
-      lead.fields.Phone,
+      customerPhone,
       finalMessage,
       { leadId: engagementId, type: 'pricing', checkoutSessionId: session.id, shortCode }
     );
@@ -1692,7 +1693,7 @@ exports.sendPricingForm = async (req, res) => {
       engagementId: engagementId,
       direction: 'Outbound',
       type: 'SMS',
-      to: lead.fields.Phone,
+      to: customerPhone,
       from: process.env.TWILIO_PHONE_NUMBER,
       content: finalMessage,
       status: 'Sent',
@@ -1701,11 +1702,11 @@ exports.sendPricingForm = async (req, res) => {
     // Update engagement with selected product, status, and pricing sent checkbox
     await airtableService.updateEngagement(engagementId, {
       'Selected Product': [productId],
-      Status: 'Payment Link Sent',
+      'Status': 'Payment Link Sent',
       'Pricing Sent': true,
     });
 
-    console.log(`✓ Pricing SMS sent to ${lead.fields.Name}`);
+    console.log(`✓ Pricing SMS sent to ${leadName}`);
 
     res.status(200).json({
       success: true,
