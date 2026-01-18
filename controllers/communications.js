@@ -902,6 +902,7 @@ exports.submitReviewRequest = async (req, res) => {
     // Update engagement
     await airtableService.updateEngagement(engagementId, {
       'Review Requested': true,
+      'Status': 'Review Requested',
     });
 
     console.log(`✓ Review request sent to ${customerPhone}`);
