@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const { generateShortCode } = require('./tech-availability-short.controller');
 const shortLinkService = require('../services/shortlink.service');
 
 /**
@@ -936,6 +937,12 @@ Ricky (Great White Security)`;
           const previewContent = document.getElementById('previewContent');
           const previewTitle = document.getElementById('previewTitle');
 
+          // Generate short code (matches server-side logic)
+          function generateShortCode(engagementId, techId) {
+            const combined = engagementId + ':' + techId;
+            return btoa(combined).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+          }
+
           // Update preview
           function updatePreview() {
             const firstChecked = document.querySelector('input[name="techs"]:checked');
@@ -951,9 +958,10 @@ Ricky (Great White Security)`;
 
             const message = messageTextarea.value;
 
-            // Replace placeholders with example values
-            const yesLink = \`\${BASE_URL}/tech-availability/\${engagementId}/\${firstChecked.value}/yes\`;
-            const noLink = \`\${BASE_URL}/tech-availability/\${engagementId}/\${firstChecked.value}/no\`;
+            // Replace placeholders with example values using short codes
+            const shortCode = generateShortCode(engagementId, firstChecked.value);
+            const yesLink = \`\${BASE_URL}/ty/\${shortCode}\`;
+            const noLink = \`\${BASE_URL}/tn/\${shortCode}\`;
 
             const preview = message
               .replace(/{{TECH_NAME}}/g, techName)
@@ -1094,8 +1102,10 @@ exports.sendTechAvailability = async (req, res) => {
     // Send to each selected tech
     for (const tech of selectedTechs) {
       try {
-        const yesLink = `${process.env.BASE_URL}/tech-availability/${engagementId}/${tech.id}/yes`;
-        const noLink = `${process.env.BASE_URL}/tech-availability/${engagementId}/${tech.id}/no`;
+        // Generate short codes for YES/NO links
+        const shortCode = generateShortCode(engagementId, tech.id);
+        const yesLink = `${process.env.BASE_URL}/ty/${shortCode}`;
+        const noLink = `${process.env.BASE_URL}/tn/${shortCode}`;
 
         // Replace variables in template
         const message = messageTemplate

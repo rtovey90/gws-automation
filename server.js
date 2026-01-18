@@ -18,6 +18,7 @@ const scheduleController = require('./controllers/schedule.controller');
 const completionController = require('./controllers/completion.controller');
 const messagesController = require('./controllers/messages.controller');
 const engagementsController = require('./controllers/engagements.controller');
+const techAvailabilityShortController = require('./controllers/tech-availability-short.controller');
 const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
 
 const app = express();
@@ -229,6 +230,10 @@ app.post('/api/send-sms-conversation', messagesController.sendSMS);
 
 // Engagement routes
 app.get('/api/create-engagement', engagementsController.createEngagement);
+
+// Tech availability short link routes (must come before /:code catch-all)
+app.get('/ty/:code', techAvailabilityShortController.techYes);
+app.get('/tn/:code', techAvailabilityShortController.techNo);
 
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
