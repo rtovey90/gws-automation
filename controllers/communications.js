@@ -847,7 +847,7 @@ Ricky`;
     `);
   } catch (error) {
     console.error('Error showing review request form:', error);
-    res.status(500).send(\`<h1>Error: \${error.message}</h1>\`);
+    res.status(500).send(`<h1>Error: ${error.message}</h1>`);
   }
 };
 
@@ -863,7 +863,7 @@ exports.submitReviewRequest = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(\`⭐ Sending review request for engagement: \${engagementId}\`);
+    console.log(`⭐ Sending review request for engagement: ${engagementId}`);
 
     // Get engagement details
     const engagement = await airtableService.getEngagement(engagementId);
@@ -904,7 +904,7 @@ exports.submitReviewRequest = async (req, res) => {
       'Review Requested': true,
     });
 
-    console.log(\`✓ Review request sent to \${customerPhone}\`);
+    console.log(`✓ Review request sent to ${customerPhone}`);
 
     res.status(200).json({ success: true });
   } catch (error) {
