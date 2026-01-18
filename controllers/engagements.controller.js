@@ -69,8 +69,8 @@ exports.createEngagement = async (req, res) => {
 
     // Create new engagement
     const engagement = await airtableService.createEngagement({
-      'Customer': [customerId], // Link to customer record
-      'Status': 'New Lead',
+      customerId: customerId, // Link to customer record
+      status: 'New Lead',
     });
 
     console.log(`✓ Created engagement ${engagement.id} for ${customerName}`);
