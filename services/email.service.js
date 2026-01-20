@@ -3,10 +3,17 @@ const { simpleParser } = require('mailparser');
 const OpenAI = require('openai');
 const airtableService = require('./airtable.service');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 // Track processed emails to avoid duplicates
 const processedEmails = new Set();
+
+// Initialize OpenAI client lazily (only when needed)
+let openai = null;
+function getOpenAI() {
+  if (!openai && process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openai;
+}
 
 // Helper to normalize email addresses
 function normalizeEmail(email) {
@@ -76,7 +83,7 @@ async function processEmail(mail, direction = 'Inbound') {
       // New inbound email - check if it's a lead
       console.log(`🔍 New email from ${contactEmail} - analyzing for lead...`);
 
-      const leadAnalysis = await openai.chat.completions.create({
+      const leadAnalysis = await getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {
