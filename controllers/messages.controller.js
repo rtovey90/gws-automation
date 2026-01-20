@@ -112,6 +112,7 @@ exports.showInbox = async (req, res) => {
       conversations[normalizedPhone].messages.push({
         id: msg.id,
         direction: fields.Direction,
+        type: fields.Type || 'SMS',
         content: fields.Content,
         timestamp: getTimestamp(msg),
         status: fields.Status,
@@ -182,9 +183,14 @@ exports.showInbox = async (req, res) => {
       return conversations.map(conv => {
         const initials = conv.contactName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
         const lastMsg = conv.lastMessage;
+        const messageType = (lastMsg.type || 'SMS').toLowerCase();
+
+        // Add icon based on message type
+        const typeIcon = messageType === 'call' ? '📞 ' : messageType === 'email' ? '📧 ' : '';
+
         const preview = lastMsg.direction === 'Outbound'
-          ? `You: ${lastMsg.content}`
-          : lastMsg.content;
+          ? `You: ${typeIcon}${lastMsg.content || ''}`
+          : `${typeIcon}${lastMsg.content || ''}`;
         const timeAgo = getTimeAgo(lastMsg.timestamp);
 
         return `
@@ -559,6 +565,22 @@ exports.showConversation = async (req, res) => {
             color: #2d3748;
             align-self: flex-start;
           }
+          .message.call {
+            background: #ff69b4;
+            color: white;
+          }
+          .message.email {
+            background: #9333ea;
+            color: white;
+          }
+          .message-type-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.8;
+            margin-bottom: 4px;
+          }
           .message-time {
             font-size: 11px;
             color: #999;
@@ -674,6 +696,7 @@ exports.showConversation = async (req, res) => {
           ` : messages.map(msg => {
             const fields = msg.fields;
             const isOutbound = fields.Direction === 'Outbound';
+            const messageType = (fields.Type || 'SMS').toLowerCase();
             const timestamp = getTimestamp(msg);
             const timeStr = timestamp.toLocaleTimeString('en-AU', {
               hour: 'numeric',
@@ -681,9 +704,29 @@ exports.showConversation = async (req, res) => {
               hour12: true
             });
 
+            // Determine CSS class based on type and direction
+            let messageClass = isOutbound ? 'outbound' : 'inbound';
+            if (messageType === 'call') {
+              messageClass += ' call';
+            } else if (messageType === 'email') {
+              messageClass += ' email';
+            }
+
+            // Type label for non-SMS messages
+            const typeLabel = messageType !== 'sms'
+              ? `<div class="message-type-label">📞 ${messageType.toUpperCase()}</div>`
+              : '';
+
+            // Adjust type label icon
+            const typeIcon = messageType === 'call' ? '📞' : messageType === 'email' ? '📧' : '';
+            const typeLabelFinal = messageType !== 'sms'
+              ? `<div class="message-type-label">${typeIcon} ${messageType.toUpperCase()}</div>`
+              : '';
+
             return `
-              <div class="message ${isOutbound ? 'outbound' : 'inbound'}">
-                <div class="message-content">${fields.Content}</div>
+              <div class="message ${messageClass}">
+                ${typeLabelFinal}
+                <div class="message-content">${fields.Content || ''}</div>
                 <div class="message-time">${timeStr}</div>
               </div>
             `;
