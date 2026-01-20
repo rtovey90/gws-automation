@@ -24,6 +24,8 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "imap": "^0.8.19",
+    "mailparser": "^3.9.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "stripe": "^20.1.2",

@@ -20,6 +20,7 @@ const messagesController = require('./controllers/messages.controller');
 const engagementsController = require('./controllers/engagements.controller');
 const techAvailabilityShortController = require('./controllers/tech-availability-short.controller');
 const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
+const { startEmailMonitoring } = require('./services/email.service');
 
 const app = express();
 
@@ -288,6 +289,14 @@ Press Ctrl+C to stop
 
   // Start scheduled jobs
   startScheduledJobChecker();
+
+  // Start email monitoring
+  if (process.env.EMAIL_IMAP_HOST && process.env.EMAIL_IMAP_USER && process.env.EMAIL_IMAP_PASS) {
+    startEmailMonitoring();
+    console.log('📧 Email monitoring enabled');
+  } else {
+    console.log('⚠️  Email monitoring disabled (missing IMAP credentials)');
+  }
 });
 
 module.exports = app;
