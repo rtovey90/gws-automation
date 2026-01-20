@@ -28,6 +28,7 @@
     "mailparser": "^3.9.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "openai": "^4.77.0",
     "stripe": "^20.1.2",
     "twilio": "^5.11.2"
   }
