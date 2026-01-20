@@ -1,6 +1,30 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
 
+// Helper function to normalize Australian phone numbers
+// Converts all formats to +61XXXXXXXXX for consistent matching
+function normalizePhone(phone) {
+  if (!phone) return phone;
+
+  // Remove all spaces, dashes, parentheses
+  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+  // If starts with 0, replace with +61
+  if (cleaned.startsWith('0')) {
+    cleaned = '+61' + cleaned.substring(1);
+  }
+  // If starts with 61 but no +, add the +
+  else if (cleaned.startsWith('61') && !cleaned.startsWith('+')) {
+    cleaned = '+' + cleaned;
+  }
+  // If doesn't start with +61 or 0, assume it needs +61
+  else if (!cleaned.startsWith('+61')) {
+    cleaned = '+61' + cleaned;
+  }
+
+  return cleaned;
+}
+
 // Helper function to get timestamp from Airtable record
 function getTimestamp(msg) {
   try {
@@ -26,7 +50,7 @@ exports.showInbox = async (req, res) => {
     const allCustomers = await airtableService.getAllCustomers();
     const allTechs = await airtableService.getAllTechs();
 
-    // Build phone lookup maps
+    // Build phone lookup maps (normalized)
     const customerPhoneMap = {};
     const techPhoneMap = {};
 
@@ -35,18 +59,27 @@ exports.showInbox = async (req, res) => {
       const phone = customer.fields.Phone;
       const name = [customer.fields['First Name'], customer.fields['Last Name']].filter(Boolean).join(' ') || 'Customer';
 
-      if (mobilePhone) customerPhoneMap[mobilePhone] = { id: customer.id, name, type: 'customer' };
-      if (phone) customerPhoneMap[phone] = { id: customer.id, name, type: 'customer' };
+      if (mobilePhone) {
+        const normalized = normalizePhone(mobilePhone);
+        customerPhoneMap[normalized] = { id: customer.id, name, type: 'customer', displayPhone: mobilePhone };
+      }
+      if (phone) {
+        const normalized = normalizePhone(phone);
+        customerPhoneMap[normalized] = { id: customer.id, name, type: 'customer', displayPhone: phone };
+      }
     }
 
     for (const tech of allTechs) {
       const phone = tech.fields.Phone;
       const name = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name || 'Tech';
 
-      if (phone) techPhoneMap[phone] = { id: tech.id, name, type: 'tech' };
+      if (phone) {
+        const normalized = normalizePhone(phone);
+        techPhoneMap[normalized] = { id: tech.id, name, type: 'tech', displayPhone: phone };
+      }
     }
 
-    // Group messages by phone number
+    // Group messages by normalized phone number
     const conversations = {};
 
     for (const msg of messages) {
@@ -58,21 +91,25 @@ exports.showInbox = async (req, res) => {
 
       if (!contactPhone || contactPhone === 'Web Form') continue;
 
-      if (!conversations[contactPhone]) {
-        // Determine contact type and name
-        let contactInfo = customerPhoneMap[contactPhone] || techPhoneMap[contactPhone];
+      // Normalize the phone number for consistent grouping
+      const normalizedPhone = normalizePhone(contactPhone);
 
-        conversations[contactPhone] = {
-          phone: contactPhone,
+      if (!conversations[normalizedPhone]) {
+        // Determine contact type and name using normalized phone
+        let contactInfo = customerPhoneMap[normalizedPhone] || techPhoneMap[normalizedPhone];
+
+        conversations[normalizedPhone] = {
+          phone: normalizedPhone,
+          displayPhone: contactInfo?.displayPhone || contactPhone,
           messages: [],
           lastMessage: null,
-          contactName: contactInfo ? contactInfo.name : contactPhone,
+          contactName: contactInfo ? contactInfo.name : normalizedPhone,
           contactType: contactInfo ? contactInfo.type : 'unknown',
           leadId: fields['Related Lead'] ? fields['Related Lead'][0] : null,
         };
       }
 
-      conversations[contactPhone].messages.push({
+      conversations[normalizedPhone].messages.push({
         id: msg.id,
         direction: fields.Direction,
         content: fields.Content,
@@ -414,12 +451,15 @@ exports.showConversation = async (req, res) => {
   try {
     const { phone } = req.params;
     const decodedPhone = decodeURIComponent(phone);
+    const normalizedPhone = normalizePhone(decodedPhone);
 
-    // Get all messages for this phone number
+    // Get all messages for this phone number (normalized matching)
     const allMessages = await airtableService.getAllMessages();
     const messages = allMessages.filter(msg => {
       const fields = msg.fields;
-      return fields.To === decodedPhone || fields.From === decodedPhone;
+      const toNormalized = normalizePhone(fields.To);
+      const fromNormalized = normalizePhone(fields.From);
+      return toNormalized === normalizedPhone || fromNormalized === normalizedPhone;
     });
 
     // Sort by timestamp
