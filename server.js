@@ -290,12 +290,12 @@ Press Ctrl+C to stop
   startScheduledJobChecker();
 
   // Start email monitoring (lazy-load to avoid build-time env var access)
-  if (process.env.EMAIL_IMAP_HOST && process.env.EMAIL_IMAP_USER && process.env.EMAIL_IMAP_PASS) {
+  if (process.env.EMAIL_IMAP_PASS) {
     const { startEmailMonitoring } = require('./services/email.service');
     startEmailMonitoring();
     console.log('📧 Email monitoring enabled');
   } else {
-    console.log('⚠️  Email monitoring disabled (missing IMAP credentials)');
+    console.log('⚠️  Email monitoring disabled (missing IMAP password)');
   }
 });
 

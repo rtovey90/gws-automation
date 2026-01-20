@@ -31,10 +31,10 @@ function extractPhoneFromText(text) {
 // Connect to IMAP inbox
 function createImapConnection(folder = 'INBOX') {
   return new Imap({
-    user: process.env.EMAIL_IMAP_USER,
-    password: process.env.EMAIL_IMAP_PASS,
-    host: process.env.EMAIL_IMAP_HOST,
-    port: parseInt(process.env.EMAIL_IMAP_PORT) || 993,
+    user: 'hello@greatwhitesecurity.com',
+    password: process.env.EMAIL_IMAP_PASS || 'your-password-here',
+    host: 'mail.privateemail.com',
+    port: 993,
     tls: true,
     tlsOptions: { rejectUnauthorized: false }
   });
@@ -58,7 +58,7 @@ async function processEmail(mail, direction = 'Inbound') {
     console.log(`📧 Processing ${direction} email: ${subject} from ${fromEmail}`);
 
     // Determine contact email (opposite of our email)
-    const ourEmail = normalizeEmail(process.env.EMAIL_ADDRESS);
+    const ourEmail = normalizeEmail('hello@greatwhitesecurity.com');
     const contactEmail = direction === 'Inbound' ? fromEmail : toEmail;
     const contactName = direction === 'Inbound'
       ? mail.from?.value?.[0]?.name || fromEmail
