@@ -291,6 +291,22 @@ exports.handleEmailTranscript = async (req, res) => {
 
       console.log(`✓ Customer & Engagement created from call: ${engagement.id} - ${leadData.name}`);
 
+      // Log call to Messages table
+      try {
+        await airtableService.logMessage({
+          direction: 'Inbound',
+          type: 'Call',
+          from: phone || 'Unknown',
+          to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
+          content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
+          status: 'Completed',
+          engagementId: engagement.id
+        });
+        console.log('✓ Call logged to Messages table');
+      } catch (logError) {
+        console.error('Error logging call to Messages:', logError);
+      }
+
       // Send notification to admin
       try {
         // Show more of the notes (250 chars instead of 150)
@@ -308,6 +324,24 @@ exports.handleEmailTranscript = async (req, res) => {
       res.status(200).json({ success: true, leadId: engagement.id, customerId: customer.id });
     } else {
       console.log('ℹ️ Call transcript received but not flagged as lead');
+
+      // Still log the call even if not a lead
+      if (phone && transcript) {
+        try {
+          await airtableService.logMessage({
+            direction: 'Inbound',
+            type: 'Call',
+            from: phone,
+            to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
+            content: `Call transcript:\n\n${transcript}`,
+            status: 'Completed'
+          });
+          console.log('✓ Non-lead call logged to Messages table');
+        } catch (logError) {
+          console.error('Error logging call to Messages:', logError);
+        }
+      }
+
       res.status(200).json({ success: true, message: 'Not a lead' });
     }
   } catch (error) {
