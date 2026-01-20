@@ -198,7 +198,8 @@ Examples of NOT LEADS:
       to: toEmail,
       content: emailContent,
       status: 'Received',
-      engagementId: engagementId
+      engagementId: engagementId,
+      customerId: customerId
     });
 
     console.log(`✓ Email logged to Messages table`);

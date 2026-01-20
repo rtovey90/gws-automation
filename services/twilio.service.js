@@ -6,6 +6,26 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+// Helper function to normalize Australian phone numbers
+function normalizePhone(phone) {
+  if (!phone) return phone;
+
+  // Remove all spaces, hyphens, and parentheses
+  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+  // Convert Australian mobile numbers starting with 0 to +61
+  if (cleaned.startsWith('0')) {
+    cleaned = '+61' + cleaned.substring(1);
+  }
+
+  // Ensure +61 format
+  if (cleaned.startsWith('61') && !cleaned.startsWith('+')) {
+    cleaned = '+' + cleaned;
+  }
+
+  return cleaned;
+}
+
 /**
  * Twilio Service - Handles all SMS communication
  */
@@ -21,7 +41,12 @@ class TwilioService {
         to: to,
       });
 
-      // Log message to Airtable
+      // Lookup customer and tech by phone number
+      const normalizedPhone = normalizePhone(to);
+      const customer = await airtableService.getCustomerByPhone(normalizedPhone);
+      const tech = await airtableService.getTechByPhone(normalizedPhone);
+
+      // Log message to Airtable with customer/tech links
       await airtableService.logMessage({
         direction: 'Outbound',
         type: 'SMS',
@@ -31,12 +56,20 @@ class TwilioService {
         status: result.status === 'queued' || result.status === 'sent' ? 'Sent' : 'Failed',
         jobId: metadata.jobId,
         leadId: metadata.leadId,
+        engagementId: metadata.leadId,
+        customerId: customer ? customer.id : null,
+        techId: tech ? tech.id : null,
       });
 
       console.log(`✓ SMS sent to ${to}: ${result.sid}`);
       return result;
     } catch (error) {
       console.error(`✗ Error sending SMS to ${to}:`, error.message);
+
+      // Lookup customer and tech by phone number
+      const normalizedPhone = normalizePhone(to);
+      const customer = await airtableService.getCustomerByPhone(normalizedPhone);
+      const tech = await airtableService.getTechByPhone(normalizedPhone);
 
       // Log failed message
       await airtableService.logMessage({
@@ -48,6 +81,9 @@ class TwilioService {
         status: 'Failed',
         jobId: metadata.jobId,
         leadId: metadata.leadId,
+        engagementId: metadata.leadId,
+        customerId: customer ? customer.id : null,
+        techId: tech ? tech.id : null,
       });
 
       throw error;

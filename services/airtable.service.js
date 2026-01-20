@@ -490,6 +490,16 @@ class AirtableService {
         fields['Related Lead'] = [messageData.engagementId]; // Field still named 'Related Lead' in Airtable
       }
 
+      // Link to customer if provided
+      if (messageData.customerId) {
+        fields['Related Customer'] = [messageData.customerId];
+      }
+
+      // Link to tech if provided
+      if (messageData.techId) {
+        fields['Related Tech'] = [messageData.techId];
+      }
+
       const records = await tables.messages.create([{ fields }]);
       return records[0];
     } catch (error) {

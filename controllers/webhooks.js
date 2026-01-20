@@ -300,7 +300,8 @@ exports.handleEmailTranscript = async (req, res) => {
           to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
           content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
           status: 'Completed',
-          engagementId: engagement.id
+          engagementId: engagement.id,
+          customerId: customer.id
         });
         console.log('✓ Call logged to Messages table');
       } catch (logError) {
@@ -328,13 +329,18 @@ exports.handleEmailTranscript = async (req, res) => {
       // Still log the call even if not a lead
       if (phone && transcript) {
         try {
+          // Check if phone belongs to existing customer
+          const normalizedPhone = normalizePhone(phone);
+          const customer = await airtableService.getCustomerByPhone(normalizedPhone);
+
           await airtableService.logMessage({
             direction: 'Inbound',
             type: 'Call',
             from: phone,
             to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
             content: `Call transcript:\n\n${transcript}`,
-            status: 'Completed'
+            status: 'Completed',
+            customerId: customer ? customer.id : null
           });
           console.log('✓ Non-lead call logged to Messages table');
         } catch (logError) {
@@ -464,6 +470,14 @@ exports.handleTwilioSMS = async (req, res) => {
     if (!customer) {
       console.log(`⚠️ No customer found for phone number: ${clientPhone}`);
 
+      // Check if sender is a tech (even if not a customer)
+      let tech = null;
+      try {
+        tech = await airtableService.getTechByPhone(clientPhone);
+      } catch (error) {
+        console.log('No tech match for phone:', clientPhone);
+      }
+
       // Still log the message to Messages table
       try {
         await airtableService.logMessage({
@@ -474,6 +488,8 @@ exports.handleTwilioSMS = async (req, res) => {
           to: twilioNumber,
           content: Body || '(media only)',
           status: 'Received',
+          customerId: null,
+          techId: tech ? tech.id : null,
         });
         console.log('✓ Message logged (no customer match)');
       } catch (messageError) {
@@ -544,6 +560,14 @@ exports.handleTwilioSMS = async (req, res) => {
 
     // Log the message in Messages table
     try {
+      // Check if sender is also a tech (some customers might be techs too)
+      let tech = null;
+      try {
+        tech = await airtableService.getTechByPhone(clientPhone);
+      } catch (error) {
+        console.log('No tech match for phone:', clientPhone);
+      }
+
       await airtableService.logMessage({
         engagementId: engagement ? engagement.id : null,
         direction: 'Inbound',
@@ -552,6 +576,8 @@ exports.handleTwilioSMS = async (req, res) => {
         to: twilioNumber,
         content: Body || '(media only)',
         status: 'Received',
+        customerId: customer ? customer.id : null,
+        techId: tech ? tech.id : null,
       });
 
       console.log('✓ Message logged in Messages table');
