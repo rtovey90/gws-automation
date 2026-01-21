@@ -8,7 +8,13 @@ const client = twilio(
 
 // Helper function to normalize Australian phone numbers
 function normalizePhone(phone) {
-  if (!phone) return phone;
+  // Handle arrays from Airtable lookups
+  if (Array.isArray(phone)) {
+    phone = phone[0];
+  }
+
+  // Return null for empty/undefined values
+  if (!phone || typeof phone !== 'string') return null;
 
   // Remove all spaces, hyphens, and parentheses
   let cleaned = phone.replace(/[\s\-\(\)]/g, '');

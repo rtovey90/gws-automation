@@ -299,7 +299,7 @@ exports.handleEmailTranscript = async (req, res) => {
           from: phone || 'Unknown',
           to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
           content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
-          status: 'Completed',
+          status: 'Received',
           engagementId: engagement.id,
           customerId: customer.id
         });
@@ -339,7 +339,7 @@ exports.handleEmailTranscript = async (req, res) => {
             from: phone,
             to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
             content: `Call transcript:\n\n${transcript}`,
-            status: 'Completed',
+            status: 'Received',
             customerId: customer ? customer.id : null
           });
           console.log('✓ Non-lead call logged to Messages table');

@@ -472,13 +472,27 @@ exports.sendMessage = async (req, res) => {
     const { engagement, customer } = result;
     const lead = engagement; // For backward compatibility
 
-    // Get phone from customer
-    const customerPhone = (customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) ||
-                          lead.fields['Mobile Phone (from Customer)'] ||
-                          lead.fields['Phone (from Customer)'];
+    // Get phone from customer (handle arrays from lookups)
+    let customerPhone = null;
 
+    if (customer) {
+      customerPhone = customer.fields['Mobile Phone'] || customer.fields.Phone;
+    }
+
+    // Try lookup fields if no direct customer phone
     if (!customerPhone) {
-      return res.status(400).json({ error: 'Customer has no phone number' });
+      const lookupMobile = lead.fields['Mobile Phone (from Customer)'];
+      const lookupPhone = lead.fields['Phone (from Customer)'];
+
+      customerPhone = Array.isArray(lookupMobile) ? lookupMobile[0] : lookupMobile;
+      if (!customerPhone) {
+        customerPhone = Array.isArray(lookupPhone) ? lookupPhone[0] : lookupPhone;
+      }
+    }
+
+    // Ensure we have a valid phone number
+    if (!customerPhone || (typeof customerPhone !== 'string') || customerPhone.trim() === '') {
+      return res.status(400).json({ error: 'Customer has no phone number. Please add a phone number to the customer record in Airtable.' });
     }
 
     // Send SMS
