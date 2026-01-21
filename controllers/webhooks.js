@@ -33,18 +33,29 @@ async function createCustomerAndEngagement(data) {
     if (!customer) {
       console.log('🆕 Creating new customer');
 
-      // Determine if phone should go to Phone or Mobile Phone based on source
-      const isFormOrCall = data.source === 'Form' || data.source === 'Call';
+      // Detect if phone is mobile or landline (Australian numbers)
+      let isMobile = false;
+      let isLandline = false;
+
+      if (data.phone) {
+        const normalized = data.phone.replace(/[\s\-\(\)]/g, '');
+        // Mobile: starts with 04 or +614
+        isMobile = normalized.startsWith('04') || normalized.startsWith('+614');
+        // Landline: starts with 02, 03, 07, 08 or +612, +613, +617, +618
+        isLandline = /^(0[2378]|\+61[2378])/.test(normalized);
+      }
 
       customer = await airtableService.createCustomer({
         firstName: firstName,
         lastName: lastName,
-        phone: isFormOrCall ? '' : (data.phone || ''), // Business phone for other sources
-        mobilePhone: isFormOrCall ? (data.phone || '') : '', // Mobile for forms/calls
+        phone: isLandline ? data.phone : '', // Landline goes to Phone
+        mobilePhone: isMobile ? data.phone : '', // Mobile goes to Mobile Phone
         email: data.email || '',
         address: data.address || data.location || '',
         notes: '',
       });
+
+      console.log(`✓ Customer created with ${isMobile ? 'mobile' : isLandline ? 'landline' : 'phone'} number`);
     } else {
       console.log('✓ Found existing customer:', customer.id);
     }
@@ -267,7 +278,7 @@ exports.handleEmailTranscript = async (req, res) => {
     console.log('📨 Email transcript webhook received');
     console.log('Webhook body:', JSON.stringify(req.body, null, 2));
 
-    const { isLead, name, location, email, phone, notes, transcript } = req.body;
+    const { isLead, name, location, email, phone, notes, transcript, callDirection } = req.body;
 
     // Only create lead if flagged as new lead
     if (isLead) {
@@ -293,17 +304,20 @@ exports.handleEmailTranscript = async (req, res) => {
 
       // Log call to Messages table
       try {
+        const direction = callDirection || 'Inbound'; // Default to Inbound if not specified
+        const ourNumber = process.env.TWILIO_PHONE_NUMBER || '+61485001498';
+
         await airtableService.logMessage({
-          direction: 'Inbound',
+          direction: direction,
           type: 'Call',
-          from: phone || 'Unknown',
-          to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
+          from: direction === 'Inbound' ? phone : ourNumber,
+          to: direction === 'Inbound' ? ourNumber : phone,
           content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
           status: 'Received',
           engagementId: engagement.id,
           customerId: customer.id
         });
-        console.log('✓ Call logged to Messages table');
+        console.log(`✓ ${direction} call logged to Messages table`);
       } catch (logError) {
         console.error('Error logging call to Messages:', logError);
       }
@@ -333,16 +347,19 @@ exports.handleEmailTranscript = async (req, res) => {
           const normalizedPhone = normalizePhone(phone);
           const customer = await airtableService.getCustomerByPhone(normalizedPhone);
 
+          const direction = callDirection || 'Inbound';
+          const ourNumber = process.env.TWILIO_PHONE_NUMBER || '+61485001498';
+
           await airtableService.logMessage({
-            direction: 'Inbound',
+            direction: direction,
             type: 'Call',
-            from: phone,
-            to: process.env.TWILIO_PHONE_NUMBER || '+61485001498',
+            from: direction === 'Inbound' ? phone : ourNumber,
+            to: direction === 'Inbound' ? ourNumber : phone,
             content: `Call transcript:\n\n${transcript}`,
             status: 'Received',
             customerId: customer ? customer.id : null
           });
-          console.log('✓ Non-lead call logged to Messages table');
+          console.log(`✓ Non-lead ${direction} call logged to Messages table`);
         } catch (logError) {
           console.error('Error logging call to Messages:', logError);
         }
