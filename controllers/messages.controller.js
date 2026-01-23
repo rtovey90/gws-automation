@@ -802,14 +802,14 @@ exports.showConversation = async (req, res) => {
               content = textPart;
             }
 
-            return \`
-              <div class="message \${messageClass}">
-                \${typeLabelFinal}
-                <div class="message-content">\${content}</div>
-                \${mediaHtml}
-                <div class="message-time">\${timeStr}</div>
+            return `
+              <div class="message ${messageClass}">
+                ${typeLabelFinal}
+                <div class="message-content">${content}</div>
+                ${mediaHtml}
+                <div class="message-time">${timeStr}</div>
               </div>
-            \`;
+            `;
           }).join('')}
         </div>
 
