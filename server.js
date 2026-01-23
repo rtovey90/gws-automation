@@ -229,6 +229,7 @@ app.post('/api/complete-job', completionController.uploadMiddleware, completionC
 app.get('/messages', messagesController.showInbox);
 app.get('/messages/:phone', messagesController.showConversation);
 app.post('/api/send-sms-conversation', messagesController.sendSMS);
+app.post('/api/create-test-contact', messagesController.createTestContact);
 
 // Engagement routes
 app.get('/api/create-engagement', engagementsController.createEngagement);

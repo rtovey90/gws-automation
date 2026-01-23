@@ -364,6 +364,118 @@ exports.showInbox = async (req, res) => {
           .empty-state p {
             font-size: 14px;
           }
+          .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: #00d4ff;
+            border-radius: 50%;
+            border: none;
+            color: #0f1419;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 212, 255, 0.5);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 32px rgba(0, 212, 255, 0.6);
+          }
+          .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+          }
+          .modal.show {
+            display: flex;
+          }
+          .modal-content {
+            background: #1a2332;
+            padding: 30px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+          }
+          .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 24px;
+          }
+          .form-group {
+            margin-bottom: 20px;
+          }
+          .form-label {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+          }
+          .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 16px;
+          }
+          .form-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+          }
+          .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 16px;
+          }
+          .form-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+          }
+          .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .btn-primary {
+            background: #00d4ff;
+            color: #0f1419;
+          }
+          .btn-primary:hover {
+            background: #00b8d4;
+          }
+          .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+          }
+          .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+          }
         </style>
       </head>
       <body>
@@ -400,6 +512,42 @@ exports.showInbox = async (req, res) => {
           </div>
         </div>
 
+        <!-- FAB Button -->
+        <button class="fab" onclick="openAddContactModal()" title="Add Test Contact">
+          <span style="font-size: 28px;">+</span>
+        </button>
+
+        <!-- Add Contact Modal -->
+        <div id="addContactModal" class="modal">
+          <div class="modal-content">
+            <h2 class="modal-title">Add Test Contact</h2>
+            <form id="addContactForm">
+              <div class="form-group">
+                <label class="form-label">Name</label>
+                <input type="text" id="contactName" class="form-input" placeholder="Enter name" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone Number</label>
+                <input type="tel" id="contactPhone" class="form-input" placeholder="0412 345 678" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Type</label>
+                <select id="contactType" class="form-select" required>
+                  <option value="">Select type...</option>
+                  <option value="Customer">Customer</option>
+                  <option value="Tech">Tech</option>
+                  <option value="Supplier">Supplier</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-buttons">
+                <button type="button" class="btn btn-secondary" onclick="closeAddContactModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Contact</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
         <script>
           function switchTab(tabName) {
             // Update tab buttons
@@ -414,6 +562,50 @@ exports.showInbox = async (req, res) => {
             });
             document.getElementById(tabName).classList.add('active');
           }
+
+          function openAddContactModal() {
+            document.getElementById('addContactModal').classList.add('show');
+          }
+
+          function closeAddContactModal() {
+            document.getElementById('addContactModal').classList.remove('show');
+            document.getElementById('addContactForm').reset();
+          }
+
+          // Handle form submission
+          document.getElementById('addContactForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('contactName').value;
+            const phone = document.getElementById('contactPhone').value;
+            const type = document.getElementById('contactType').value;
+
+            try {
+              const response = await fetch('/api/create-test-contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone, type })
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+                // Redirect to the new conversation
+                window.location.href = '/messages/' + encodeURIComponent(data.phone);
+              } else {
+                alert('Error creating contact: ' + (data.error || 'Unknown error'));
+              }
+            } catch (error) {
+              alert('Error creating contact: ' + error.message);
+            }
+          });
+
+          // Close modal when clicking outside
+          document.getElementById('addContactModal').addEventListener('click', (e) => {
+            if (e.target.id === 'addContactModal') {
+              closeAddContactModal();
+            }
+          });
         </script>
       </body>
       </html>
@@ -469,6 +661,74 @@ exports.sendSMS = async (req, res) => {
   } catch (error) {
     console.error('Error sending SMS:', error);
     res.status(500).json({ error: 'Failed to send message' });
+  }
+};
+
+/**
+ * Create test contact (Customer, Tech, Supplier, or Other)
+ * POST /api/create-test-contact
+ */
+exports.createTestContact = async (req, res) => {
+  try {
+    const { name, phone, type } = req.body;
+
+    if (!name || !phone || !type) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Normalize phone number
+    const normalizedPhone = normalizePhone(phone);
+
+    // Split name into first/last
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    console.log(`Creating test contact: ${name} (${normalizedPhone}) as ${type}`);
+
+    // Create appropriate record based on type
+    if (type === 'Customer' || type === 'Other') {
+      // Create customer record
+      await airtableService.createCustomer({
+        firstName: firstName,
+        lastName: lastName,
+        email: '',
+        phone: normalizedPhone,
+        mobilePhone: normalizedPhone,
+        notes: `Test contact created via Messages interface (${type})`
+      });
+    } else if (type === 'Tech') {
+      // Create tech record
+      await airtableService.createTech({
+        firstName: firstName,
+        lastName: lastName,
+        phone: normalizedPhone,
+        email: '',
+        skills: [],
+        notes: 'Test contact created via Messages interface'
+      });
+    } else if (type === 'Supplier') {
+      // For suppliers, create as customer for now (can add Suppliers table later)
+      await airtableService.createCustomer({
+        firstName: firstName,
+        lastName: lastName,
+        email: '',
+        phone: normalizedPhone,
+        mobilePhone: normalizedPhone,
+        notes: `Test contact created via Messages interface (Supplier)`
+      });
+    }
+
+    console.log(`✓ Test contact created: ${name} (${normalizedPhone})`);
+
+    res.status(200).json({
+      success: true,
+      phone: normalizedPhone,
+      message: 'Contact created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating test contact:', error);
+    res.status(500).json({ error: 'Failed to create contact' });
   }
 };
 

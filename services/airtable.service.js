@@ -140,6 +140,31 @@ class AirtableService {
   }
 
   /**
+   * Create a new tech
+   */
+  async createTech(techData) {
+    try {
+      const fields = {
+        'First Name': techData.firstName || '',
+        'Last Name': techData.lastName || '',
+        Name: techData.firstName && techData.lastName ? `${techData.firstName} ${techData.lastName}` : (techData.firstName || ''),
+        Phone: techData.phone || '',
+        Email: techData.email || '',
+        Skills: techData.skills || [],
+        'Availability Status': 'Available',
+        Notes: techData.notes || '',
+      };
+
+      const records = await tables.techs.create([{ fields }]);
+      console.log('✓ Tech created:', records[0].id);
+      return records[0];
+    } catch (error) {
+      console.error('Error creating tech:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get customer by ID
    */
   async getCustomer(customerId) {
