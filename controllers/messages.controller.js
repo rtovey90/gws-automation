@@ -437,11 +437,29 @@ exports.sendSMS = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Check message length (Twilio limit is 1600 chars for concatenated SMS)
+    // If message is longer than 1600 chars, split into chunks
     if (message.length > 1600) {
-      return res.status(400).json({
-        error: `Message too long (${message.length} characters). Maximum is 1600 characters.`
-      });
+      const chunkSize = 1550; // Leave some buffer
+      const chunks = [];
+
+      for (let i = 0; i < message.length; i += chunkSize) {
+        chunks.push(message.substring(i, i + chunkSize));
+      }
+
+      console.log(`📤 Splitting long message into ${chunks.length} parts`);
+
+      // Send each chunk as separate SMS
+      for (let i = 0; i < chunks.length; i++) {
+        const prefix = chunks.length > 1 ? `(${i + 1}/${chunks.length}) ` : '';
+        await twilioService.sendSMS(to, prefix + chunks[i], { leadId: engagementId, type: 'manual' });
+
+        // Small delay between messages to maintain order
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      return res.status(200).json({ success: true, messagesSent: chunks.length });
     }
 
     // Send SMS via Twilio (this also logs to Airtable)
@@ -862,13 +880,18 @@ Ricky\`
 
             // Update character counter
             const length = this.value.length;
-            charCounter.textContent = \`\${length} / 1600\`;
 
-            // Add warning color if over 1400 characters
-            if (length > 1400) {
+            if (length > 1600) {
+              const parts = Math.ceil(length / 1550);
+              charCounter.textContent = \`\${length} chars (will send as \${parts} messages)\`;
               charCounter.classList.add('warning');
             } else {
-              charCounter.classList.remove('warning');
+              charCounter.textContent = \`\${length} / 1600\`;
+              if (length > 1400) {
+                charCounter.classList.add('warning');
+              } else {
+                charCounter.classList.remove('warning');
+              }
             }
           });
 
@@ -885,11 +908,17 @@ Ricky\`
 
             // Update character counter
             const length = messageInput.value.length;
-            charCounter.textContent = \`\${length} / 1600\`;
-            if (length > 1400) {
+            if (length > 1600) {
+              const parts = Math.ceil(length / 1550);
+              charCounter.textContent = \`\${length} chars (will send as \${parts} messages)\`;
               charCounter.classList.add('warning');
             } else {
-              charCounter.classList.remove('warning');
+              charCounter.textContent = \`\${length} / 1600\`;
+              if (length > 1400) {
+                charCounter.classList.add('warning');
+              } else {
+                charCounter.classList.remove('warning');
+              }
             }
 
             // Focus so user can edit
