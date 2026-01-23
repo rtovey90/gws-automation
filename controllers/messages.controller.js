@@ -513,14 +513,14 @@ exports.showInbox = async (req, res) => {
         </div>
 
         <!-- FAB Button -->
-        <button class="fab" onclick="openAddContactModal()" title="Add Test Contact">
+        <button class="fab" onclick="openAddContactModal()" title="New Message Thread">
           <span style="font-size: 28px;">+</span>
         </button>
 
         <!-- Add Contact Modal -->
         <div id="addContactModal" class="modal">
           <div class="modal-content">
-            <h2 class="modal-title">Add Test Contact</h2>
+            <h2 class="modal-title">New Message Thread</h2>
             <form id="addContactForm">
               <div class="form-group">
                 <label class="form-label">Name</label>
@@ -542,7 +542,7 @@ exports.showInbox = async (req, res) => {
               </div>
               <div class="form-buttons">
                 <button type="button" class="btn btn-secondary" onclick="closeAddContactModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create Contact</button>
+                <button type="submit" class="btn btn-primary">Send Message</button>
               </div>
             </form>
           </div>
@@ -593,10 +593,10 @@ exports.showInbox = async (req, res) => {
                 // Redirect to the new conversation
                 window.location.href = '/messages/' + encodeURIComponent(data.phone);
               } else {
-                alert('Error creating contact: ' + (data.error || 'Unknown error'));
+                alert('Error creating message thread: ' + (data.error || 'Unknown error'));
               }
             } catch (error) {
-              alert('Error creating contact: ' + error.message);
+              alert('Error creating message thread: ' + error.message);
             }
           });
 
@@ -684,7 +684,7 @@ exports.createTestContact = async (req, res) => {
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    console.log(`Creating test contact: ${name} (${normalizedPhone}) as ${type}`);
+    console.log(`Creating new message thread: ${name} (${normalizedPhone}) as ${type}`);
 
     // Create appropriate record based on type
     if (type === 'Customer' || type === 'Other') {
@@ -695,7 +695,7 @@ exports.createTestContact = async (req, res) => {
         email: '',
         phone: normalizedPhone,
         mobilePhone: normalizedPhone,
-        notes: `Test contact created via Messages interface (${type})`
+        notes: `Contact created via Messages interface (${type})`
       });
     } else if (type === 'Tech') {
       // Create tech record
@@ -705,7 +705,7 @@ exports.createTestContact = async (req, res) => {
         phone: normalizedPhone,
         email: '',
         skills: [],
-        notes: 'Test contact created via Messages interface'
+        notes: 'Contact created via Messages interface'
       });
     } else if (type === 'Supplier') {
       // For suppliers, create as customer for now (can add Suppliers table later)
@@ -715,16 +715,16 @@ exports.createTestContact = async (req, res) => {
         email: '',
         phone: normalizedPhone,
         mobilePhone: normalizedPhone,
-        notes: `Test contact created via Messages interface (Supplier)`
+        notes: `Contact created via Messages interface (Supplier)`
       });
     }
 
-    console.log(`✓ Test contact created: ${name} (${normalizedPhone})`);
+    console.log(`✓ Message thread ready: ${name} (${normalizedPhone})`);
 
     res.status(200).json({
       success: true,
       phone: normalizedPhone,
-      message: 'Contact created successfully'
+      message: 'Message thread created'
     });
   } catch (error) {
     console.error('Error creating test contact:', error);
