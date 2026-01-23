@@ -83,7 +83,13 @@ async function processEmail(mail, direction = 'Inbound') {
       // New inbound email - check if it's a lead
       console.log(`🔍 New email from ${contactEmail} - analyzing for lead...`);
 
-      const leadAnalysis = await getOpenAI().chat.completions.create({
+      const openaiClient = getOpenAI();
+      if (!openaiClient) {
+        console.error('❌ OpenAI client not initialized - OPENAI_API_KEY missing');
+        return; // Skip lead analysis if no API key
+      }
+
+      const leadAnalysis = await openaiClient.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {

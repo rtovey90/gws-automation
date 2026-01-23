@@ -437,6 +437,13 @@ exports.sendSMS = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Check message length (Twilio limit is 1600 chars for concatenated SMS)
+    if (message.length > 1600) {
+      return res.status(400).json({
+        error: `Message too long (${message.length} characters). Maximum is 1600 characters.`
+      });
+    }
+
     // Send SMS via Twilio (this also logs to Airtable)
     await twilioService.sendSMS(to, message, { leadId: engagementId, type: 'manual' });
 
@@ -594,6 +601,19 @@ exports.showConversation = async (req, res) => {
             text-align: left;
             color: #a0aec0;
           }
+          .message-media {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 12px;
+            margin-top: 8px;
+            display: block;
+            object-fit: contain;
+            cursor: pointer;
+            transition: transform 0.2s;
+          }
+          .message-media:hover {
+            transform: scale(1.02);
+          }
           .input-container {
             background: #f0f0f0;
             padding: 10px 20px;
@@ -637,6 +657,16 @@ exports.showConversation = async (req, res) => {
           .send-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
+          }
+          .char-counter {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+            text-align: right;
+          }
+          .char-counter.warning {
+            color: #ff6b35;
+            font-weight: bold;
           }
           .empty-state {
             text-align: center;
@@ -723,13 +753,38 @@ exports.showConversation = async (req, res) => {
               ? `<div class="message-type-label">${typeIcon} ${messageType.toUpperCase()}</div>`
               : '';
 
-            return `
-              <div class="message ${messageClass}">
-                ${typeLabelFinal}
-                <div class="message-content">${fields.Content || ''}</div>
-                <div class="message-time">${timeStr}</div>
+            // Parse content for media URLs
+            let content = fields.Content || '';
+            let mediaHtml = '';
+
+            if (content.includes('[Media]')) {
+              const parts = content.split('[Media]');
+              const textPart = parts[0].trim();
+              const mediaPart = parts[1] || '';
+
+              // Extract URLs from media part
+              const urlRegex = /(https?:\/\/[^\s]+)/g;
+              const urls = mediaPart.match(urlRegex) || [];
+
+              // Build media HTML with Twilio auth
+              mediaHtml = urls.map(url => {
+                // Add Twilio auth to URL if not already present
+                const authUrl = url.includes('?auth=') ? url :
+                  \`\${url}?auth=\${process.env.TWILIO_ACCOUNT_SID}:\${process.env.TWILIO_AUTH_TOKEN}\`;
+                return \`<img src="\${authUrl}" class="message-media" loading="lazy" />\`;
+              }).join('');
+
+              content = textPart;
+            }
+
+            return \`
+              <div class="message \${messageClass}">
+                \${typeLabelFinal}
+                <div class="message-content">\${content}</div>
+                \${mediaHtml}
+                <div class="message-time">\${timeStr}</div>
               </div>
-            `;
+            \`;
           }).join('')}
         </div>
 
@@ -743,12 +798,15 @@ exports.showConversation = async (req, res) => {
         </div>
 
         <div class="input-container">
-          <textarea
-            id="messageInput"
-            placeholder="Type a message..."
-            rows="1"
-            onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"
-          ></textarea>
+          <div style="flex: 1;">
+            <textarea
+              id="messageInput"
+              placeholder="Type a message..."
+              rows="1"
+              onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"
+            ></textarea>
+            <div id="charCounter" class="char-counter">0 / 1600</div>
+          </div>
           <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
         </div>
 
@@ -796,10 +854,22 @@ Ricky\`
           // Scroll to bottom on load
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-          // Auto-resize textarea
+          // Auto-resize textarea and update character counter
+          const charCounter = document.getElementById('charCounter');
           messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = this.scrollHeight + 'px';
+
+            // Update character counter
+            const length = this.value.length;
+            charCounter.textContent = \`\${length} / 1600\`;
+
+            // Add warning color if over 1400 characters
+            if (length > 1400) {
+              charCounter.classList.add('warning');
+            } else {
+              charCounter.classList.remove('warning');
+            }
           });
 
           // Load template into textarea
@@ -812,6 +882,15 @@ Ricky\`
             // Auto-resize
             messageInput.style.height = 'auto';
             messageInput.style.height = messageInput.scrollHeight + 'px';
+
+            // Update character counter
+            const length = messageInput.value.length;
+            charCounter.textContent = \`\${length} / 1600\`;
+            if (length > 1400) {
+              charCounter.classList.add('warning');
+            } else {
+              charCounter.classList.remove('warning');
+            }
 
             // Focus so user can edit
             messageInput.focus();
@@ -859,8 +938,11 @@ Ricky\`
 
                 messageInput.value = '';
                 messageInput.style.height = 'auto';
+                charCounter.textContent = '0 / 1600';
+                charCounter.classList.remove('warning');
               } else {
-                alert('Failed to send message. Please try again.');
+                const errorData = await response.json();
+                alert(errorData.error || 'Failed to send message. Please try again.');
               }
             } catch (error) {
               alert('Error sending message: ' + error.message);

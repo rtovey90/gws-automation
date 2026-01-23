@@ -585,13 +585,20 @@ exports.handleTwilioSMS = async (req, res) => {
         console.log('No tech match for phone:', clientPhone);
       }
 
+      // Build content with media URLs for display
+      let messageContent = Body || '';
+      if (mediaUrls.length > 0) {
+        const mediaLinks = mediaUrls.map(m => m.url).join('\n');
+        messageContent = messageContent ? `${messageContent}\n\n[Media]\n${mediaLinks}` : `[Media]\n${mediaLinks}`;
+      }
+
       await airtableService.logMessage({
         engagementId: engagement ? engagement.id : null,
         direction: 'Inbound',
         type: 'SMS',
         from: clientPhone,
         to: twilioNumber,
-        content: Body || '(media only)',
+        content: messageContent || '(media only)',
         status: 'Received',
         customerId: customer ? customer.id : null,
         techId: tech ? tech.id : null,
