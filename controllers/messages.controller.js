@@ -642,6 +642,40 @@ exports.showConversation = async (req, res) => {
             font-size: 13px;
             color: rgba(255, 255, 255, 0.7);
           }
+          .message-preview {
+            background: rgba(255, 107, 53, 0.1);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 20px;
+            max-height: 300px;
+            overflow-y: auto;
+          }
+          .message-preview-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .message-preview-part {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+          }
+          .message-preview-part:last-child {
+            margin-bottom: 0;
+          }
+          .message-preview-label {
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 4px;
+          }
           .input-container {
             background: #f0f0f0;
             padding: 10px 20px;
@@ -813,6 +847,11 @@ exports.showConversation = async (req, res) => {
           }).join('')}
         </div>
 
+        <div id="messagePreview" class="message-preview" style="display: none;">
+          <div class="message-preview-title">Message will be sent in multiple parts:</div>
+          <div id="messagePreviewContent"></div>
+        </div>
+
         <div class="templates-container">
           <div class="templates-label">Quick Messages</div>
           <div class="template-buttons">
@@ -881,18 +920,45 @@ Ricky\`
 
           // Auto-resize textarea and update character counter
           const charCounter = document.getElementById('charCounter');
-          messageInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = this.scrollHeight + 'px';
+          const messagePreview = document.getElementById('messagePreview');
+          const messagePreviewContent = document.getElementById('messagePreviewContent');
 
-            // Update character counter
-            const length = this.value.length;
+          function updatePreview() {
+            const length = messageInput.value.length;
 
             if (length > 1600) {
-              const parts = Math.ceil(length / 1550);
+              // Show preview
+              messagePreview.style.display = 'block';
+
+              // Split message into chunks
+              const chunkSize = 1550;
+              const chunks = [];
+              for (let i = 0; i < messageInput.value.length; i += chunkSize) {
+                chunks.push(messageInput.value.substring(i, i + chunkSize));
+              }
+
+              // Generate preview HTML
+              let previewHtml = '';
+              chunks.forEach((chunk, index) => {
+                const prefix = \`(\${index + 1}/\${chunks.length}) \`;
+                previewHtml += \`
+                  <div class="message-preview-part">
+                    <div class="message-preview-label">Part \${index + 1} of \${chunks.length}</div>
+                    \${prefix}\${chunk}
+                  </div>
+                \`;
+              });
+              messagePreviewContent.innerHTML = previewHtml;
+
+              // Update counter
+              const parts = chunks.length;
               charCounter.textContent = \`\${length} chars (will send as \${parts} messages)\`;
               charCounter.classList.add('warning');
             } else {
+              // Hide preview
+              messagePreview.style.display = 'none';
+
+              // Update counter
               charCounter.textContent = \`\${length} / 1600\`;
               if (length > 1400) {
                 charCounter.classList.add('warning');
@@ -900,6 +966,12 @@ Ricky\`
                 charCounter.classList.remove('warning');
               }
             }
+          }
+
+          messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+            updatePreview();
           });
 
           // Load template into textarea
@@ -913,20 +985,8 @@ Ricky\`
             messageInput.style.height = 'auto';
             messageInput.style.height = messageInput.scrollHeight + 'px';
 
-            // Update character counter
-            const length = messageInput.value.length;
-            if (length > 1600) {
-              const parts = Math.ceil(length / 1550);
-              charCounter.textContent = \`\${length} chars (will send as \${parts} messages)\`;
-              charCounter.classList.add('warning');
-            } else {
-              charCounter.textContent = \`\${length} / 1600\`;
-              if (length > 1400) {
-                charCounter.classList.add('warning');
-              } else {
-                charCounter.classList.remove('warning');
-              }
-            }
+            // Update preview and counter
+            updatePreview();
 
             // Focus so user can edit
             messageInput.focus();
@@ -976,6 +1036,7 @@ Ricky\`
                 messageInput.style.height = 'auto';
                 charCounter.textContent = '0 / 1600';
                 charCounter.classList.remove('warning');
+                messagePreview.style.display = 'none';
               } else {
                 const errorData = await response.json();
                 alert(errorData.error || 'Failed to send message. Please try again.');
