@@ -785,11 +785,13 @@ exports.showConversation = async (req, res) => {
               const urls = mediaPart.match(urlRegex) || [];
 
               // Build media HTML with Twilio auth
+              const twilioSid = '${process.env.TWILIO_ACCOUNT_SID}';
+              const twilioToken = '${process.env.TWILIO_AUTH_TOKEN}';
+
               mediaHtml = urls.map(url => {
                 // Add Twilio auth to URL if not already present
-                const authUrl = url.includes('?auth=') ? url :
-                  \`\${url}?auth=\${process.env.TWILIO_ACCOUNT_SID}:\${process.env.TWILIO_AUTH_TOKEN}\`;
-                return \`<img src="\${authUrl}" class="message-media" loading="lazy" />\`;
+                const authUrl = url.includes('?auth=') ? url : url + '?auth=' + twilioSid + ':' + twilioToken;
+                return '<img src="' + authUrl + '" class="message-media" loading="lazy" />';
               }).join('');
 
               content = textPart;
