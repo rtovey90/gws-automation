@@ -632,6 +632,16 @@ exports.showConversation = async (req, res) => {
           .message-media:hover {
             transform: scale(1.02);
           }
+          .message-media-placeholder {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            text-align: center;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+          }
           .input-container {
             background: #f0f0f0;
             padding: 10px 20px;
@@ -784,14 +794,9 @@ exports.showConversation = async (req, res) => {
               const urlRegex = /(https?:\/\/[^\s]+)/g;
               const urls = mediaPart.match(urlRegex) || [];
 
-              // Build media HTML with Twilio auth
-              const twilioSid = '${process.env.TWILIO_ACCOUNT_SID}';
-              const twilioToken = '${process.env.TWILIO_AUTH_TOKEN}';
-
+              // Build media HTML - images already saved to Airtable, just show placeholder
               mediaHtml = urls.map(url => {
-                // Add Twilio auth to URL if not already present
-                const authUrl = url.includes('?auth=') ? url : url + '?auth=' + twilioSid + ':' + twilioToken;
-                return '<img src="' + authUrl + '" class="message-media" loading="lazy" />';
+                return '<div class="message-media-placeholder">📷 Photo attached (view in Airtable)</div>';
               }).join('');
 
               content = textPart;
