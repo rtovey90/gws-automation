@@ -100,18 +100,71 @@ class AirtableService {
    */
   async getCustomerByPhone(phone) {
     try {
-      const records = await tables.customers
+      // First try exact match (for already-normalized numbers)
+      let records = await tables.customers
         .select({
           filterByFormula: `OR({Phone} = '${phone}', {Mobile Phone} = '${phone}')`,
           maxRecords: 1,
         })
         .firstPage();
 
-      return records[0] || null;
+      if (records.length > 0) {
+        return records[0];
+      }
+
+      // If no exact match, fetch all customers and normalize to compare
+      // This handles cases like "(040) 440-1616" vs "+61404401616"
+      const allCustomers = await this.getAllCustomers();
+
+      for (const customer of allCustomers) {
+        const mobilePhone = customer.fields['Mobile Phone'];
+        const landlinePhone = customer.fields.Phone;
+
+        // Normalize and compare mobile phone
+        if (mobilePhone) {
+          const normalized = this.normalizePhone(mobilePhone);
+          if (normalized === phone) {
+            return customer;
+          }
+        }
+
+        // Normalize and compare landline phone
+        if (landlinePhone) {
+          const normalized = this.normalizePhone(landlinePhone);
+          if (normalized === phone) {
+            return customer;
+          }
+        }
+      }
+
+      return null;
     } catch (error) {
       console.error('Error getting customer by phone:', error);
       throw error;
     }
+  }
+
+  // Helper function to normalize Australian phone numbers
+  normalizePhone(phone) {
+    if (!phone) return phone;
+
+    // Remove all spaces, dashes, parentheses
+    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+    // If starts with 0, replace with +61
+    if (cleaned.startsWith('0')) {
+      cleaned = '+61' + cleaned.substring(1);
+    }
+    // If starts with 61 but no +, add the +
+    else if (cleaned.startsWith('61') && !cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    // If doesn't start with +61 or 0, assume it needs +61
+    else if (!cleaned.startsWith('+61')) {
+      cleaned = '+61' + cleaned;
+    }
+
+    return cleaned;
   }
 
   /**
@@ -441,14 +494,33 @@ class AirtableService {
    */
   async getTechByPhone(phone) {
     try {
-      const records = await tables.techs
+      // First try exact match (for already-normalized numbers)
+      let records = await tables.techs
         .select({
           filterByFormula: `{Phone} = '${phone}'`,
           maxRecords: 1,
         })
         .firstPage();
 
-      return records[0] || null;
+      if (records.length > 0) {
+        return records[0];
+      }
+
+      // If no exact match, fetch all techs and normalize to compare
+      const allTechs = await this.getAllTechs();
+
+      for (const tech of allTechs) {
+        const techPhone = tech.fields.Phone;
+
+        if (techPhone) {
+          const normalized = this.normalizePhone(techPhone);
+          if (normalized === phone) {
+            return tech;
+          }
+        }
+      }
+
+      return null;
     } catch (error) {
       console.error('Error getting tech by phone:', error);
       throw error;
