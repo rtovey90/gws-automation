@@ -36,29 +36,65 @@ async function createCustomerAndEngagement(data) {
     if (!customer) {
       console.log('🆕 Creating new customer');
 
-      // Detect if phone is mobile or landline (Australian numbers)
-      let isMobile = false;
-      let isLandline = false;
-
-      if (data.phone) {
-        const normalized = data.phone.replace(/[\s\-\(\)]/g, '');
-        console.log(`📱 Normalized phone: ${normalized}`);
-
+      // Helper to detect phone type
+      const detectPhoneType = (phoneNum) => {
+        if (!phoneNum) return { isMobile: false, isLandline: false };
+        const normalized = phoneNum.replace(/[\s\-\(\)]/g, '');
         // Mobile: starts with 04 or +614
-        isMobile = normalized.startsWith('04') || normalized.startsWith('+614');
+        const isMobile = normalized.startsWith('04') || normalized.startsWith('+614');
         // Landline: starts with 02, 03, 07, 08 or +612, +613, +617, +618
-        isLandline = /^(0[2378]|\+61[2378])/.test(normalized);
+        const isLandline = /^(0[2378]|\+61[2378])/.test(normalized);
+        return { isMobile, isLandline, normalized };
+      };
 
-        console.log(`📞 Phone type detected: ${isMobile ? 'MOBILE' : isLandline ? 'LANDLINE' : 'UNKNOWN'}`);
-      } else {
+      // Detect type of primary phone (caller's number)
+      const primaryType = detectPhoneType(data.phone);
+      console.log(`📱 Primary phone: ${data.phone} - ${primaryType.isMobile ? 'MOBILE' : primaryType.isLandline ? 'LANDLINE' : 'UNKNOWN'}`);
+
+      // Detect type of mentioned phone (number said during call)
+      const mentionedType = detectPhoneType(data.mentionedPhone);
+      if (data.mentionedPhone) {
+        console.log(`📱 Mentioned phone: ${data.mentionedPhone} - ${mentionedType.isMobile ? 'MOBILE' : mentionedType.isLandline ? 'LANDLINE' : 'UNKNOWN'}`);
+      }
+
+      // Determine which phone goes where
+      // Priority: Put caller's number in appropriate field, then fill in mentioned number if different type
+      let phoneField = ''; // Landline field
+      let mobileField = ''; // Mobile field
+
+      // First, assign primary phone to its appropriate field
+      if (primaryType.isMobile) {
+        mobileField = data.phone;
+      } else if (primaryType.isLandline) {
+        phoneField = data.phone;
+      } else if (data.phone) {
+        // Unknown type - assume mobile (most common for leads)
+        mobileField = data.phone;
+      }
+
+      // Then, if mentioned phone exists and is different type, add it
+      if (data.mentionedPhone && data.mentionedPhone !== data.phone) {
+        if (mentionedType.isMobile && !mobileField) {
+          mobileField = data.mentionedPhone;
+        } else if (mentionedType.isLandline && !phoneField) {
+          phoneField = data.mentionedPhone;
+        } else if (!mobileField && !phoneField) {
+          // Both empty, put mentioned in mobile
+          mobileField = data.mentionedPhone;
+        }
+      }
+
+      if (!data.phone && !data.mentionedPhone) {
         console.error('❌ ERROR: Cannot create customer - no phone number provided!');
       }
+
+      console.log(`📞 Final assignment: Phone (landline)=${phoneField || 'empty'}, Mobile=${mobileField || 'empty'}`);
 
       const customerData = {
         firstName: firstName,
         lastName: lastName,
-        phone: isLandline ? data.phone : '', // Landline goes to Phone
-        mobilePhone: isMobile ? data.phone : '', // Mobile goes to Mobile Phone
+        phone: phoneField,
+        mobilePhone: mobileField,
         email: data.email || '',
         address: data.address || data.location || '',
         notes: '',
@@ -72,7 +108,7 @@ async function createCustomerAndEngagement(data) {
 
       customer = await airtableService.createCustomer(customerData);
 
-      console.log(`✓ Customer created: ${customer.id} with ${isMobile ? 'mobile' : isLandline ? 'landline' : 'NO'} number`);
+      console.log(`✓ Customer created: ${customer.id} with ${mobileField ? 'mobile' : ''} ${phoneField ? 'landline' : ''} ${!mobileField && !phoneField ? 'NO' : ''} number(s)`);
 
       // Verify phone was actually saved
       const verifyPhone = customer.fields['Mobile Phone'] || customer.fields.Phone;
@@ -303,13 +339,16 @@ exports.handleEmailTranscript = async (req, res) => {
     console.log('📨 Email transcript webhook received');
     console.log('Webhook body:', JSON.stringify(req.body, null, 2));
 
-    const { isLead, name, location, email, phone, notes, transcript, callDirection } = req.body;
+    const { isLead, name, location, email, phone, mentionedPhone, notes, transcript, callDirection } = req.body;
 
-    // Log phone number explicitly
+    // Log phone numbers explicitly
     if (phone) {
-      console.log(`📞 PHONE NUMBER RECEIVED: ${phone}`);
+      console.log(`📞 CALLER PHONE NUMBER: ${phone}`);
     } else {
       console.error(`❌ ERROR: NO PHONE NUMBER in webhook payload!`);
+    }
+    if (mentionedPhone) {
+      console.log(`📱 MENTIONED PHONE NUMBER: ${mentionedPhone}`);
     }
 
     // Only create lead if flagged as new lead
@@ -317,6 +356,7 @@ exports.handleEmailTranscript = async (req, res) => {
       const leadData = {
         name: name || 'Unknown',
         phone: phone || '',
+        mentionedPhone: mentionedPhone || '', // Additional phone mentioned during call
         email: email || '',
         address: location || '',
         location: location || '',
