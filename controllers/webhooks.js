@@ -513,16 +513,9 @@ exports.handleTwilioSMS = async (req, res) => {
         console.error('Error logging message:', messageError);
       }
 
-      // Send notification to admin about unknown number
-      try {
-        await twilioService.sendSMS(
-          process.env.ADMIN_PHONE,
-          `📨 NEW MESSAGE from unknown number:\n\nFrom: ${clientPhone}\nMessage: ${Body || '(media only)'}\n\nNo matching customer found - may be a new inquiry.`,
-          { from: clientPhone }
-        );
-      } catch (smsError) {
-        console.error('Error sending admin notification:', smsError);
-      }
+      // Unknown number - message is already logged to Messages table
+      // User will see it in Messages inbox even without a customer match
+      console.log('✓ Message from unknown number logged - visible in Messages inbox');
 
       // Respond to Twilio (required to prevent retries)
       return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
