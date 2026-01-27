@@ -26,7 +26,10 @@ async function createCustomerAndEngagement(data) {
     // Check if customer already exists by phone
     let customer = null;
     if (data.phone) {
+      console.log(`🔍 Checking for existing customer with phone: ${data.phone}`);
       customer = await airtableService.getCustomerByPhone(data.phone);
+    } else {
+      console.warn('⚠️ WARNING: No phone number provided in lead data!');
     }
 
     // If customer doesn't exist, create them
@@ -39,13 +42,19 @@ async function createCustomerAndEngagement(data) {
 
       if (data.phone) {
         const normalized = data.phone.replace(/[\s\-\(\)]/g, '');
+        console.log(`📱 Normalized phone: ${normalized}`);
+
         // Mobile: starts with 04 or +614
         isMobile = normalized.startsWith('04') || normalized.startsWith('+614');
         // Landline: starts with 02, 03, 07, 08 or +612, +613, +617, +618
         isLandline = /^(0[2378]|\+61[2378])/.test(normalized);
+
+        console.log(`📞 Phone type detected: ${isMobile ? 'MOBILE' : isLandline ? 'LANDLINE' : 'UNKNOWN'}`);
+      } else {
+        console.error('❌ ERROR: Cannot create customer - no phone number provided!');
       }
 
-      customer = await airtableService.createCustomer({
+      const customerData = {
         firstName: firstName,
         lastName: lastName,
         phone: isLandline ? data.phone : '', // Landline goes to Phone
@@ -53,9 +62,25 @@ async function createCustomerAndEngagement(data) {
         email: data.email || '',
         address: data.address || data.location || '',
         notes: '',
-      });
+      };
 
-      console.log(`✓ Customer created with ${isMobile ? 'mobile' : isLandline ? 'landline' : 'phone'} number`);
+      console.log(`💾 Creating customer with data:`, JSON.stringify({
+        ...customerData,
+        phone: customerData.phone ? 'SET' : 'EMPTY',
+        mobilePhone: customerData.mobilePhone ? 'SET' : 'EMPTY'
+      }));
+
+      customer = await airtableService.createCustomer(customerData);
+
+      console.log(`✓ Customer created: ${customer.id} with ${isMobile ? 'mobile' : isLandline ? 'landline' : 'NO'} number`);
+
+      // Verify phone was actually saved
+      const verifyPhone = customer.fields['Mobile Phone'] || customer.fields.Phone;
+      if (!verifyPhone) {
+        console.error(`❌ CRITICAL: Customer ${customer.id} created but phone number NOT saved!`);
+      } else {
+        console.log(`✓ Verified: Phone ${verifyPhone} saved to Airtable`);
+      }
     } else {
       console.log('✓ Found existing customer:', customer.id);
     }
@@ -279,6 +304,13 @@ exports.handleEmailTranscript = async (req, res) => {
     console.log('Webhook body:', JSON.stringify(req.body, null, 2));
 
     const { isLead, name, location, email, phone, notes, transcript, callDirection } = req.body;
+
+    // Log phone number explicitly
+    if (phone) {
+      console.log(`📞 PHONE NUMBER RECEIVED: ${phone}`);
+    } else {
+      console.error(`❌ ERROR: NO PHONE NUMBER in webhook payload!`);
+    }
 
     // Only create lead if flagged as new lead
     if (isLead) {
