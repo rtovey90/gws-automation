@@ -1708,7 +1708,7 @@ exports.sendPricingForm = async (req, res) => {
 
     // Create short link for the checkout URL
     const shortCode = shortLinkService.createShortLink(session.url, engagementId);
-    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     // Replace payment link placeholder with short URL
     const finalMessage = message.replace(/https:\/\/buy\.stripe\.com\/[^\s]+/g, shortUrl);
@@ -1803,7 +1803,7 @@ exports.createCheckoutSession = async (req, res) => {
 
     // Create short link for the checkout URL
     const shortCode = shortLinkService.createShortLink(session.url, engagementId);
-    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     res.status(200).json({
       success: true,
@@ -1837,7 +1837,7 @@ exports.generateMessageFormLink = async (req, res) => {
 
     // Create short link
     const shortCode = shortLinkService.createShortLink(fullUrl, engagementId);
-    const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     console.log(`✓ Short link created: ${shortUrl}`);
 
