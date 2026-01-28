@@ -1244,26 +1244,27 @@ exports.showPricingForm = async (req, res) => {
       }
     }
 
-    const defaultMessage = `Hi ${clientName}, thank you for sending these over!
+    const defaultMessage = `Hi ${clientName}, thanks for sending those through.
 
-Good news! I can have one of our technicians out this week to troubleshoot your ${systemTypeText}.
+Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your ${systemTypeText}.
 
-The call-out is just $${price} inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is $${price} inc. GST, which includes travel and up to 30 minutes on site.
 
-If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
+If more time is needed, additional labour is billed at $147 per hour inc. GST, with a maximum of 2 hours total on site. If the issue can't be resolved within this time, work will stop and I'll contact you to discuss next steps or alternative options. The technician will not remain on site beyond 2 hours without a new booking being arranged.
 
 To secure the booking, please make payment here:
 ${paymentLink}
 
-Once payment's through, I'll have the technician reach out to schedule the visit.
+Once payment is through, the technician will reach out to confirm a suitable time.
 
-Alternatively, if you're thinking about replacing your current system with a more reliable, modern system that includes smartphone app arm/disarm and monitoring, we have packages starting at $97/month for 24 months (interest-free).
+Just to set expectations upfront — based on the age of your system, it's considered end-of-life and parts are no longer supported. We're happy to attempt troubleshooting, however there are no guarantees the system can be restored to full functionality.
 
+If you're considering replacing it with a newer, more reliable setup (including smartphone app control and optional monitoring), we have interest-free packages starting from $97/month over 24 months:
 https://www.greatwhitesecurity.com/alarm-packages/
 
 Thanks,
-
-Ricky (Great White Security)`;
+Ricky
+Great White Security`;
 
     // Show form
     res.send(`
@@ -1546,26 +1547,27 @@ Ricky (Great White Security)`;
             const paymentLink = selectedOption.dataset.link;
             const price = selectedOption.dataset.price;
 
-            const newMessage = \`Hi \${clientName}, thank you for sending these over!
+            const newMessage = \`Hi \${clientName}, thanks for sending those through.
 
-Good news! I can have one of our technicians out this week to troubleshoot your \${systemTypeText}.
+Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your \${systemTypeText}.
 
-The call-out is just $\${price} inc. GST, covering the first hour on-site. We'll also have tech support on standby if needed to keep things running smoothly.
+The call-out is $\${price} inc. GST, which includes travel and up to 30 minutes on site.
 
-If any parts, additional time, or upgrades are required, the technician will let me know first so I can go through the options with you directly.
+If more time is needed, additional labour is billed at $147 per hour inc. GST, with a maximum of 2 hours total on site. If the issue can't be resolved within this time, work will stop and I'll contact you to discuss next steps or alternative options. The technician will not remain on site beyond 2 hours without a new booking being arranged.
 
 To secure the booking, please make payment here:
 \${paymentLink}
 
-Once payment's through, I'll have the technician reach out to schedule the visit.
+Once payment is through, the technician will reach out to confirm a suitable time.
 
-Alternatively, if you're thinking about replacing your current system with a more reliable, modern system that includes smartphone app arm/disarm and monitoring, we have packages starting at $97/month for 24 months (interest-free).
+Just to set expectations upfront — based on the age of your system, it's considered end-of-life and parts are no longer supported. We're happy to attempt troubleshooting, however there are no guarantees the system can be restored to full functionality.
 
+If you're considering replacing it with a newer, more reliable setup (including smartphone app control and optional monitoring), we have interest-free packages starting from $97/month over 24 months:
 https://www.greatwhitesecurity.com/alarm-packages/
 
 Thanks,
-
-Ricky (Great White Security)\`;
+Ricky
+Great White Security\`;
 
             messageTextarea.value = newMessage;
             updatePreview();
