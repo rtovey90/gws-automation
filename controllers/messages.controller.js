@@ -85,6 +85,9 @@ exports.showInbox = async (req, res) => {
     for (const msg of messages) {
       const fields = msg.fields;
 
+      // Skip email-type messages - they shouldn't appear in SMS conversations
+      if (fields.Type === 'Email') continue;
+
       // Determine the contact phone (opposite of your Twilio number)
       const isOutbound = fields.Direction === 'Outbound';
       const contactPhone = isOutbound ? fields.To : fields.From;
