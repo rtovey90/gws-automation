@@ -19,11 +19,13 @@
   "license": "ISC",
   "dependencies": {
     "airtable": "^0.12.2",
+    "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "imap": "^0.8.19",
     "mailparser": "^3.9.1",
     "multer": "^2.0.2",

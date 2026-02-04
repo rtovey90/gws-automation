@@ -179,6 +179,120 @@ class StripeService {
       throw error;
     }
   }
+
+  /**
+   * Get current Stripe balance (available + pending) in AUD
+   */
+  async getBalance() {
+    try {
+      const balance = await stripe.balance.retrieve();
+
+      const findAud = (arr) => {
+        const entry = arr.find(b => b.currency === 'aud');
+        return entry ? entry.amount / 100 : 0;
+      };
+
+      return {
+        available: findAud(balance.available),
+        pending: findAud(balance.pending),
+      };
+    } catch (error) {
+      console.error('Error fetching Stripe balance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get recent successful charges with customer details
+   */
+  async getRecentCharges(limit = 10) {
+    try {
+      const results = [];
+      for await (const c of stripe.charges.list({
+        limit: 100,
+        expand: ['data.customer'],
+      })) {
+        if (c.status === 'succeeded' && c.currency === 'aud') {
+          results.push({
+            id: c.id,
+            amount: c.amount / 100,
+            currency: c.currency.toUpperCase(),
+            customerName: c.customer?.name || c.billing_details?.name || 'Unknown',
+            customerEmail: c.customer?.email || c.billing_details?.email || '',
+            created: new Date(c.created * 1000),
+            status: c.status,
+          });
+          if (results.length >= limit) break;
+        }
+      }
+      return results;
+    } catch (error) {
+      console.error('Error fetching Stripe charges:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get recent payouts
+   */
+  async getPayouts(limit = 5) {
+    try {
+      const payouts = await stripe.payouts.list({ limit });
+
+      return payouts.data
+        .filter(p => p.currency === 'aud')
+        .map(p => ({
+          id: p.id,
+          amount: p.amount / 100,
+          currency: p.currency.toUpperCase(),
+          status: p.status,
+          arrivalDate: new Date(p.arrival_date * 1000),
+          created: new Date(p.created * 1000),
+        }));
+    } catch (error) {
+      console.error('Error fetching Stripe payouts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get monthly revenue totals for the last N months
+   */
+  async getMonthlyRevenue(months = 6) {
+    try {
+      const now = new Date();
+      const results = [];
+
+      for (let i = months - 1; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+
+        let total = 0;
+        for await (const charge of stripe.charges.list({
+          created: {
+            gte: Math.floor(start.getTime() / 1000),
+            lt: Math.floor(end.getTime() / 1000),
+          },
+          limit: 100,
+        })) {
+          if (charge.status === 'succeeded' && charge.currency === 'aud') {
+            total += charge.amount;
+          }
+        }
+
+        results.push({
+          month: start.toLocaleString('en-AU', { month: 'short' }),
+          year: start.getFullYear(),
+          total: total / 100,
+        });
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Error fetching monthly revenue:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new StripeService();

@@ -4,6 +4,10 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 
+// Import auth middleware
+const { sessionMiddleware, requireAuth } = require('./middleware/auth');
+const authController = require('./controllers/auth.controller');
+
 // Import controllers
 const webhooksController = require('./controllers/webhooks');
 const jobsController = require('./controllers/jobs');
@@ -18,10 +22,17 @@ const scheduleController = require('./controllers/schedule.controller');
 const completionController = require('./controllers/completion.controller');
 const messagesController = require('./controllers/messages.controller');
 const engagementsController = require('./controllers/engagements.controller');
+const engagementsBoardController = require('./controllers/engagements-board.controller');
 const techAvailabilityShortController = require('./controllers/tech-availability-short.controller');
+const dashboardController = require('./controllers/dashboard.controller');
+const estimatorController = require('./controllers/estimator.controller');
+const estimatorApiController = require('./controllers/estimator-api.controller');
 const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
 
 const app = express();
+
+// Trust proxy for Railway (required for secure session cookies behind proxy)
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors());
@@ -30,88 +41,25 @@ app.use(cors());
 // This MUST come before bodyParser.json()
 app.post('/webhooks/stripe', bodyParser.raw({ type: 'application/json' }), webhooksController.handleStripe);
 
+// Estimator PDF parse needs larger body limit (base64 PDFs can be 20MB+)
+app.post('/api/estimator/parse-invoice', bodyParser.json({ limit: '50mb' }), sessionMiddleware, requireAuth, estimatorApiController.parseInvoice);
+
 // Parse JSON for all other routes
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '5mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>GWS Automation API</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          max-width: 800px;
-          margin: 50px auto;
-          padding: 20px;
-        }
-        h1 { color: #28a745; }
-        .status { color: #28a745; font-size: 24px; }
-        ul { line-height: 2; }
-        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
-      </style>
-    </head>
-    <body>
-      <h1>✅ GWS Automation API Running</h1>
-      <p class="status">Status: Operational</p>
+// Session middleware (after body parsers, before routes)
+app.use(sessionMiddleware);
 
-      <h2>Available Endpoints:</h2>
-      <ul>
-        <li><strong>Webhooks:</strong>
-          <ul>
-            <li><code>POST /webhooks/formspree</code> - Form submissions</li>
-            <li><code>POST /webhooks/stripe</code> - Payment notifications</li>
-            <li><code>POST /webhooks/email-transcript</code> - Call transcripts</li>
-            <li><code>POST /webhooks/twilio-sms</code> - Inbound SMS</li>
-          </ul>
-        </li>
-        <li><strong>Lead Management:</strong>
-          <ul>
-            <li><code>GET /api/check-tech-availability/:leadId</code> - Check tech availability</li>
-            <li><code>GET /tech-availability/:leadId/:techId/:response</code> - Tech responds</li>
-            <li><code>GET /api/send-pricing/:leadId</code> - Send pricing SMS</li>
-          </ul>
-        </li>
-        <li><strong>Products:</strong>
-          <ul>
-            <li><code>GET /api/sync-stripe-products</code> - Sync Stripe products</li>
-          </ul>
-        </li>
-        <li><strong>Job Management:</strong>
-          <ul>
-            <li><code>POST /api/send-job-offer</code> - Send job to techs</li>
-            <li><code>GET /accept-job/:jobId/:techId</code> - Tech accepts job</li>
-            <li><code>GET /job-update/:jobId/:techId</code> - Job update form</li>
-            <li><code>POST /api/update-job</code> - Submit job updates</li>
-          </ul>
-        </li>
-        <li><strong>Communications:</strong>
-          <ul>
-            <li><code>POST /api/send-client-pricing</code> - Send pricing SMS</li>
-            <li><code>POST /api/send-review-request</code> - Request review</li>
-            <li><code>POST /api/review-follow-up</code> - Review reminder</li>
-            <li><code>GET /api/send-message</code> - Send custom message</li>
-          </ul>
-        </li>
-        <li><strong>Photo Uploads:</strong>
-          <ul>
-            <li><code>GET /upload-photos/:leadId</code> - Photo upload form</li>
-            <li><code>POST /api/upload-photos/:leadId</code> - Upload photos</li>
-          </ul>
-        </li>
-      </ul>
+// Auth routes (public)
+app.get('/login', authController.showLogin);
+app.post('/login', authController.handleLogin);
+app.get('/logout', authController.handleLogout);
 
-      <p><em>Great White Security - Lead Management System</em></p>
-    </body>
-    </html>
-  `);
-});
+// Root redirect
+app.get('/', (req, res) => res.redirect('/dashboard'));
 
 // Webhook routes
 app.post('/webhooks/formspree', webhooksController.handleFormspree);
@@ -225,14 +173,26 @@ app.post('/api/schedule-job', scheduleController.scheduleJob);
 app.get('/c/:leadId', completionController.showCompletionForm);
 app.post('/api/complete-job', completionController.uploadMiddleware, completionController.completeJob);
 
-// Messages routes
-app.get('/messages', messagesController.showInbox);
-app.get('/messages/:phone', messagesController.showConversation);
-app.post('/api/send-sms-conversation', messagesController.sendSMS);
-app.post('/api/create-test-contact', messagesController.createTestContact);
+// ── Admin routes (require login) ──
+app.get('/messages', requireAuth, messagesController.showInbox);
+app.get('/messages/:phone', requireAuth, messagesController.showConversation);
+app.post('/api/send-sms-conversation', requireAuth, messagesController.sendSMS);
+app.post('/api/create-test-contact', requireAuth, messagesController.createTestContact);
 
 // Engagement routes
 app.get('/api/create-engagement', engagementsController.createEngagement);
+app.get('/engagements', requireAuth, engagementsBoardController.showBoard);
+
+// Dashboard route
+app.get('/dashboard', requireAuth, dashboardController.showDashboard);
+
+// Estimator routes
+app.get('/estimator', requireAuth, estimatorController.showEstimator);
+app.post('/api/estimator/ai-pricing', requireAuth, estimatorApiController.aiPricing);
+app.get('/api/estimator/engagements', requireAuth, estimatorApiController.listEngagements);
+app.post('/api/estimator/save-quote', requireAuth, estimatorApiController.saveQuote);
+app.get('/api/estimator/load-quote/:engagementId', requireAuth, estimatorApiController.loadQuote);
+// Note: /api/estimator/parse-invoice is defined earlier (before bodyParser) for larger body limit
 
 // Tech availability short link routes (must come before /:code catch-all)
 app.get('/ty/:code', techAvailabilityShortController.techYes);

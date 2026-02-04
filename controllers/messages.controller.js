@@ -1,3 +1,4 @@
+const { wrapInLayout } = require('../utils/layout');
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
 
@@ -214,22 +215,9 @@ exports.showInbox = async (req, res) => {
     };
 
     // Render inbox
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Messages - GWS</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #1a2332;
-            height: 100vh;
+    const inboxStyles = `
+          .inbox-wrapper {
+            height: calc(100vh - 52px);
             display: flex;
             flex-direction: column;
           }
@@ -479,11 +467,12 @@ exports.showInbox = async (req, res) => {
           .btn-secondary:hover {
             background: rgba(255, 255, 255, 0.15);
           }
-        </style>
-      </head>
-      <body>
+    `;
+
+    const inboxBody = `
+        <div class="inbox-wrapper">
         <div class="header">
-          <h1>💬 Messages</h1>
+          <h1>Messages</h1>
           <div class="tabs">
             <button class="tab active" onclick="switchTab('customers')">
               Customers <span class="tab-count">${customersConversations.length}</span>
@@ -550,7 +539,10 @@ exports.showInbox = async (req, res) => {
             </form>
           </div>
         </div>
+        </div>
+    `;
 
+    const inboxScripts = `
         <script>
           function switchTab(tabName) {
             // Update tab buttons
@@ -610,9 +602,9 @@ exports.showInbox = async (req, res) => {
             }
           });
         </script>
-      </body>
-      </html>
-    `);
+    `;
+
+    res.send(wrapInLayout('Messages', inboxBody, 'messages', { customStyles: inboxStyles, customScripts: inboxScripts }));
   } catch (error) {
     console.error('Error showing inbox:', error);
     res.status(500).send('Error loading messages');
@@ -779,22 +771,9 @@ exports.showConversation = async (req, res) => {
       }
     }
 
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${customerName} - Messages</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #1a2332;
-            height: 100vh;
+    const conversationStyles = `
+          .conversation-wrapper {
+            height: calc(100vh - 52px);
             display: flex;
             flex-direction: column;
           }
@@ -1032,11 +1011,12 @@ exports.showConversation = async (req, res) => {
             border-color: #00d4ff;
             transform: translateY(-1px);
           }
-        </style>
-      </head>
-      <body>
+    `;
+
+    const conversationBody = `
+        <div class="conversation-wrapper">
         <div class="header">
-          <button class="back-btn" onclick="window.location.href='/messages'">←</button>
+          <button class="back-btn" onclick="window.location.href='/messages'">&#8592;</button>
           <div class="header-info">
             <div class="header-name">${customerName}</div>
             <div class="header-phone">${decodedPhone}</div>
@@ -1134,9 +1114,12 @@ exports.showConversation = async (req, res) => {
             ></textarea>
             <div id="charCounter" class="char-counter">0 / 1600</div>
           </div>
-          <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#10148;</button>
         </div>
+        </div>
+    `;
 
+    const conversationScripts = `
         <script>
           const messagesContainer = document.getElementById('messagesContainer');
           const messageInput = document.getElementById('messageInput');
@@ -1318,9 +1301,9 @@ Ricky\`
             window.location.reload();
           }, 30000);
         </script>
-      </body>
-      </html>
-    `);
+    `;
+
+    res.send(wrapInLayout('Messages', conversationBody, 'messages', { customStyles: conversationStyles, customScripts: conversationScripts }));
   } catch (error) {
     console.error('Error showing conversation:', error);
     res.status(500).send('Error loading conversation');

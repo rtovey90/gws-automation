@@ -1,5 +1,29 @@
 const { tables } = require('../config/airtable');
 
+// Simple in-memory cache for getAll* calls (60-second TTL)
+const cache = {};
+const CACHE_TTL = 60 * 1000; // 60 seconds
+
+function getCached(key) {
+  const entry = cache[key];
+  if (entry && Date.now() - entry.time < CACHE_TTL) {
+    return entry.data;
+  }
+  return null;
+}
+
+function setCache(key, data) {
+  cache[key] = { data, time: Date.now() };
+}
+
+function clearCache(key) {
+  if (key) {
+    delete cache[key];
+  } else {
+    Object.keys(cache).forEach(k => delete cache[k]);
+  }
+}
+
 /**
  * Airtable Service - Handles all CRUD operations with Airtable
  */
@@ -66,6 +90,7 @@ class AirtableService {
    */
   async updateLead(leadId, updates) {
     try {
+      clearCache('engagements');
       return await tables.leads.update(leadId, updates);
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -245,11 +270,14 @@ class AirtableService {
    * Get all customers
    */
   async getAllCustomers() {
+    const cached = getCached('customers');
+    if (cached) return cached;
     try {
       const records = await tables.customers
         .select()
         .all();
 
+      setCache('customers', records);
       return records;
     } catch (error) {
       console.error('Error getting all customers:', error);
@@ -325,6 +353,7 @@ class AirtableService {
    */
   async updateEngagement(engagementId, updates) {
     try {
+      clearCache('engagements');
       return await tables.engagements.update(engagementId, updates);
     } catch (error) {
       console.error('Error updating engagement:', error);
@@ -549,14 +578,55 @@ class AirtableService {
    * Get all techs (regardless of availability)
    */
   async getAllTechs() {
+    const cached = getCached('techs');
+    if (cached) return cached;
     try {
       const records = await tables.techs
         .select()
         .all();
 
+      setCache('techs', records);
       return records;
     } catch (error) {
       console.error('Error getting all techs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all engagements
+   */
+  async getAllEngagements() {
+    const cached = getCached('engagements');
+    if (cached) return cached;
+    try {
+      const records = await tables.engagements
+        .select()
+        .all();
+
+      setCache('engagements', records);
+      return records;
+    } catch (error) {
+      console.error('Error getting all engagements:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all jobs
+   */
+  async getAllJobs() {
+    const cached = getCached('jobs');
+    if (cached) return cached;
+    try {
+      const records = await tables.jobs
+        .select()
+        .all();
+
+      setCache('jobs', records);
+      return records;
+    } catch (error) {
+      console.error('Error getting all jobs:', error);
       throw error;
     }
   }
@@ -567,6 +637,7 @@ class AirtableService {
    * Log a message in Airtable
    */
   async logMessage(messageData) {
+    clearCache('messages');
     try {
       const fields = {
         Direction: messageData.direction || 'Outbound',
@@ -609,6 +680,8 @@ class AirtableService {
    * Get all messages
    */
   async getAllMessages() {
+    const cached = getCached('messages');
+    if (cached) return cached;
     try {
       const records = await tables.messages
         .select({
@@ -616,6 +689,7 @@ class AirtableService {
         })
         .all();
 
+      setCache('messages', records);
       return records;
     } catch (error) {
       console.error('Error getting all messages:', error);
