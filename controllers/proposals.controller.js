@@ -228,12 +228,12 @@ exports.showProposal = async (req, res) => {
   }
   .cover-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; flex-direction: column; padding: 50px;
+    display: flex; flex-direction: column; padding: 0 30px 40px;
   }
-  .cover-spacer { flex: 1; }
+  .cover-spacer { height: 56%; flex-shrink: 0; }
   .cover-client-name {
     font-family: 'DM Sans', sans-serif; font-size: 68px; font-weight: 800;
-    color: var(--white); line-height: 1.05; margin-bottom: 12px;
+    color: var(--white); line-height: 1.05; margin-bottom: 12px; margin-top: 20px;
   }
   .cover-client-address {
     font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 600;
@@ -241,7 +241,7 @@ exports.showProposal = async (req, res) => {
   }
   .cover-footer {
     display: flex; justify-content: space-between; align-items: flex-end;
-    margin-top: auto; padding-top: 60px;
+    margin-top: auto;
   }
   .cover-footer span {
     font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700;
