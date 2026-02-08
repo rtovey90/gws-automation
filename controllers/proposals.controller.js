@@ -431,6 +431,10 @@ exports.showProposal = async (req, res) => {
   .og-radio-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
 
   /* ===== CTA ===== */
+  .cta-top {
+    text-align: center; padding: 20px 50px 12px;
+    background: linear-gradient(180deg, #e6f0f9 0%, #f0f6fc 100%);
+  }
   .cta-section {
     text-align: center; padding: 18px 50px 16px;
     background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
@@ -601,6 +605,15 @@ ${sitePhotoPages}
 <!-- ==================== INTERACTIVE PRICING ==================== -->
 <div class="page bg-warm">
   ${pgHeader}
+  <div class="cta-top">
+    <div class="sec-title" style="font-size:22px;">Ready to Get Started?</div>
+    <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
+    <div class="cta-steps">
+      <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
+      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
+      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
+    </div>
+  </div>
   <div class="pg-body">
     <div class="sec-title">Your Investment</div>
     <div class="sec-title-accent"></div>
@@ -640,19 +653,11 @@ ${sitePhotoPages}
     </div>
   </div>
   <div class="cta-section">
-    <div class="sec-title" style="font-size:22px;">Ready to Get Started?</div>
-    <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
     <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Secure My Booking \u2192</button>
     <div class="cta-sub">
       By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-and-conditions" target="_blank">Terms &amp; Conditions</a>
       and the Clarifications &amp; Exclusions outlined in this proposal.<br>
       Pricing includes GST. Quotation valid for 30 days.
-    </div>
-    <div class="cta-divider"></div>
-    <div class="cta-steps">
-      <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
-      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
-      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
     </div>
   </div>
   ${pgFooter}
