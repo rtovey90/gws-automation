@@ -82,6 +82,7 @@ function proposalPageHeader(logoPath, projectNumber) {
   </div>`;
 }
 
+
 // ─── PUBLIC: Show Proposal ────────────────────────────────────
 
 exports.showProposal = async (req, res) => {
@@ -92,7 +93,7 @@ exports.showProposal = async (req, res) => {
     if (!proposal) {
       return res.status(404).send(`<!DOCTYPE html><html><head><title>Not Found</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0e1231;color:white;text-align:center;}</style>
+        <style>body{font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e27;color:white;text-align:center;}</style>
         </head><body><div><h1>Proposal Not Found</h1><p>This link may have expired. Please contact us at (08) 6444 6308.</p></div></body></html>`);
     }
 
@@ -105,13 +106,14 @@ exports.showProposal = async (req, res) => {
     const cameraOptions = safeJsonParse(f['Camera Options']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
-    const coverImage = f['Cover Image URL'] || '';
+    const coverImage = f['Cover Image URL'] || '/proposal-assets/cover-page.png';
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = clientName.split(' ')[0] || 'there';
     const logoPath = '/proposal-assets/gws-logo.png';
+    const formattedDate = new Date(proposalDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     // Track view (fire-and-forget)
     if (!f['Viewed At']) {
@@ -123,538 +125,513 @@ exports.showProposal = async (req, res) => {
 
     // Build scope rows
     const scopeRows = scopeItems.map((item, i) =>
-      `<tr><td class="qty">${i + 1}</td><td>${escapeHtml(typeof item === 'string' ? item : item.description || '')}</td></tr>`
+      `<tr><td>${i + 1}</td><td>${escapeHtml(typeof item === 'string' ? item : item.description || '')}</td></tr>`
     ).join('');
 
     // Build deliverables rows
     const deliverableRows = deliverables.map(d => {
       const qty = typeof d === 'string' ? '' : (d.qty || '');
       const desc = typeof d === 'string' ? d : (d.description || '');
-      return `<tr><td class="qty">${escapeHtml(String(qty))}</td><td>${escapeHtml(desc)}</td></tr>`;
+      return `<tr><td>${escapeHtml(String(qty) || '\u2014')}</td><td>${escapeHtml(desc)}</td></tr>`;
     }).join('');
 
-    // Build camera option toggles for pricing page
-    const cameraOptionsHtml = cameraOptions.map((opt, i) => `
-      <label class="camera-option" data-price="${opt.price || 0}">
-        <input type="checkbox" class="camera-toggle" data-index="${i}" data-price="${opt.price || 0}">
-        <div class="option-content">
-          <div class="option-info">
-            <strong>${escapeHtml(opt.name || '')}</strong>
-            <span class="option-desc">${escapeHtml(opt.description || '')}</span>
-          </div>
-          <div class="option-price">+${formatCurrency(opt.price || 0)}</div>
-        </div>
-      </label>
+    // Build upgrade cards for pricing page
+    const upgradeCardsHtml = cameraOptions.map(opt => `
+      <div class="upgrade-card" onclick="toggleUpgrade(this, ${opt.price || 0})">
+        <div class="upgrade-check">&#10003;</div>
+        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p></div>
+        <div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>
+      </div>
     `).join('');
 
     // Build clarification rows
     const defaultClarifications = [
-      'Only items expressly listed are included.',
-      'Works conducted 08:00-17:00 Monday-Friday excluding WA public holidays.',
-      'Full access to site required.',
-      'Customer smartphones required during installation if needed.',
-      'Working internet required for app connectivity.',
-      'Existing cables and devices assumed in working order.',
+      'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
+      'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays.',
+      'Great White Security requires full and free access to all areas of the site containing security equipment for the duration of the works.',
+      'If required, customer smartphones must be present during installation.',
+      'Quotation valid for 30 days.',
+      'Customer must provide spare internet router port and have working internet for app connectivity.',
     ];
     const allClarifications = clarifications.length > 0 ? clarifications : defaultClarifications;
     const clarificationRows = allClarifications.map((c, i) =>
-      `<tr><td class="qty">${i + 1}</td><td>${escapeHtml(typeof c === 'string' ? c : c.description || '')}</td></tr>`
+      `<tr><td>${i + 1}</td><td>${escapeHtml(typeof c === 'string' ? c : c.description || '')}</td></tr>`
     ).join('');
 
-    // Cover page photos
-    const coverPhotos = sitePhotos.length > 0
-      ? sitePhotos.slice(0, 4).map(url => `<img src="${escapeHtml(url)}" class="cover-img" alt="Site photo">`).join('')
-      : `<img src="${coverImage || '/proposal-assets/gws-logo.png'}" class="cover-img" alt="Security">
-         <div style="background: rgba(0, 188, 212, 0.1);"></div>
-         <div style="background: rgba(0, 188, 212, 0.05);"></div>
-         <div style="background: rgba(0, 188, 212, 0.1);"></div>`;
+    // Site photo pages
+    const sitePhotoPages = sitePhotos.map(url => `
+<div class="page">
+  <div class="pg-header"><img src="${logoPath}" alt="GWS"><div class="pg-header-right">Site Photos</div></div>
+  <div class="photo-section"><img src="${escapeHtml(url)}" alt="Site Photo"></div>
+  <div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>www.greatwhitesecurity.com</span><span>Project #${escapeHtml(projectNumber)}</span></div>
+</div>`).join('');
 
-    // Letter note (custom or default)
-    const letterContent = letterNote || `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
+    // Letter note
+    const letterContent = letterNote
+      ? `<p>${escapeHtml(letterNote)}</p>`
+      : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
     <p>With our proposed system/s, you can enjoy peace of mind knowing you're protected 24/7 while home or away.</p>
     <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
     <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
-    <p>Alternatively, click Accept &amp; Pay below and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`;
+    <p>Alternatively, please accept the proposal below, and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`;
+
+    // Page chrome helpers
+    const pgHeader = `<div class="pg-header"><img src="${logoPath}" alt="Great White Security"><div class="pg-header-right">Project #${escapeHtml(projectNumber)}</div></div>`;
+    const pgFooter = `<div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>www.greatwhitesecurity.com</span><span>Project #${escapeHtml(projectNumber)}</span></div>`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Security Proposal - ${escapeHtml(clientName)}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      line-height: 1.6;
-      color: #2c3e50;
-      background: #f0f2f5;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Great White Security \u2014 Proposal #${escapeHtml(projectNumber)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0e27; --navy-mid: #0f1430; --navy-light: #161c3a;
+    --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
+    --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
+    --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
+    --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
+    --gray-800: #1e2235; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif; color: var(--gray-800);
+    background: #c0c4cf; line-height: 1.7; font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
 
-    .page {
-      width: 210mm;
-      min-height: 297mm;
-      margin: 20px auto;
-      background: white;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-      page-break-after: always;
-    }
+  /* ===== A4 PAGE ===== */
+  .page {
+    width: 794px; min-height: 1123px; margin: 40px auto;
+    background: var(--white); box-shadow: 0 8px 60px rgba(0,0,0,0.2);
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+  .page.bg-gradient { background: linear-gradient(175deg, #f0f7fc 0%, #ffffff 30%, #ffffff 70%, #f4f8fc 100%); }
+  .page.bg-warm { background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 50%, #eef3f9 100%); }
+  .page.bg-subtle { background: linear-gradient(170deg, #f8fbfe 0%, #ffffff 40%, #f9fbfd 100%); }
 
-    @media (max-width: 800px) {
-      .page { width: 100%; min-height: auto; margin: 0; box-shadow: none; }
-      body { background: white; }
-      .cover { padding: 30px !important; min-height: 100vh !important; }
-      .content { padding: 30px !important; }
-      .property-name { font-size: 42px !important; letter-spacing: -1px !important; }
-      .cover-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-      .benefits { grid-template-columns: 1fr !important; }
-      .cover-footer { font-size: 12px !important; }
-    }
+  /* ===== COVER ===== */
+  .cover-page {
+    width: 794px; height: 1123px; overflow: hidden;
+    margin: 40px auto; box-shadow: 0 8px 60px rgba(0,0,0,0.2);
+  }
+  .cover-page img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* COVER */
-    .cover {
-      background: #0e1231;
-      color: white;
-      padding: 60px;
-      min-height: 297mm;
-      display: flex;
-      flex-direction: column;
-    }
-    .cover-logo { max-width: 500px; margin-bottom: 40px; }
-    .cover-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin-bottom: 40px;
-    }
-    .cover-img {
-      width: 100%;
-      height: 200px;
-      object-fit: cover;
-      border-radius: 4px;
-    }
-    .property-name {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 90px;
-      font-weight: 900;
-      line-height: 0.95;
-      margin-bottom: 20px;
-      letter-spacing: -3px;
-    }
-    .property-address {
-      font-size: 26px;
-      color: #00bcd4;
-      font-weight: 400;
-      margin-bottom: auto;
-    }
-    .cover-footer {
-      display: flex;
-      justify-content: space-between;
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-top: 60px;
-    }
+  /* ===== PAGE CHROME ===== */
+  .pg-header {
+    background: var(--navy); padding: 16px 50px;
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .pg-header img { height: 32px; object-fit: contain; }
+  .pg-header-right { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
+  .pg-body { padding: 40px 50px; flex: 1; }
+  .pg-footer {
+    padding: 14px 50px; border-top: 1px solid rgba(0,0,0,0.06);
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--gray-400); flex-shrink: 0;
+    background: rgba(255,255,255,0.5);
+  }
 
-    /* CONTENT PAGES */
-    .content { padding: 50px 60px; }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 20px;
-      border-bottom: 3px solid #00bcd4;
-      margin-bottom: 40px;
-    }
-    .header-logo { height: 50px; }
-    .project-num { color: #6c757d; font-size: 13px; font-weight: 600; }
+  /* Section titles */
+  .sec-title {
+    font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
+    color: var(--navy); margin-bottom: 6px; line-height: 1.15;
+  }
+  .sec-title-accent { width: 50px; height: 3px; background: var(--cyan); margin-bottom: 25px; }
 
-    h1 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 32px;
-      font-weight: 800;
-      color: #0e1231;
-      margin-bottom: 25px;
-    }
-    p { margin-bottom: 15px; font-size: 14px; line-height: 1.7; }
+  /* ===== LETTER ===== */
+  .letter p { margin-bottom: 12px; color: var(--gray-600); line-height: 1.75; font-size: 13.5px; }
+  .letter-greeting {
+    font-family: 'Playfair Display', serif; font-size: 17px; color: var(--navy) !important;
+    font-weight: 700; margin-bottom: 16px !important;
+  }
+  .letter-note {
+    background: linear-gradient(135deg, var(--cyan-pale), var(--cyan-bg));
+    border-left: 3px solid var(--cyan); padding: 14px 18px; margin: 16px 0;
+    font-size: 12.5px; color: var(--gray-600); border-radius: 0 6px 6px 0;
+  }
+  .letter-sign { margin-top: 25px; }
+  .letter-sign img { height: 50px; margin-bottom: 6px; display: block; }
+  .letter-sign-name { font-weight: 700; color: var(--navy); font-size: 13px; }
+  .letter-sign-title { color: var(--gray-400); font-size: 11px; margin-top: 2px; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 25px 0;
-      border: 1px solid #e0e6ed;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    thead { background: #0e1231; color: white; }
-    th { padding: 15px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-    td { padding: 12px 15px; border-bottom: 1px solid #e0e6ed; font-size: 13px; }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover { background: #f8f9fa; }
-    .qty { width: 70px; text-align: center; font-weight: 700; color: #0e1231; }
+  /* ===== WHY CHOOSE US ===== */
+  .why-intro { font-size: 13.5px; color: var(--gray-600); line-height: 1.8; margin-bottom: 14px; }
+  .why-highlight {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    color: var(--white); padding: 24px 28px; border-radius: 10px;
+    margin: 24px 0; position: relative; overflow: hidden;
+  }
+  .why-highlight::before {
+    content: ''; position: absolute; top: 0; right: 0; width: 250px; height: 100%;
+    background: linear-gradient(135deg, transparent, rgba(120,228,255,0.06));
+  }
+  .why-highlight p { font-size: 13.5px; line-height: 1.7; color: rgba(255,255,255,0.85); position: relative; z-index: 1; }
+  .why-highlight strong { color: var(--cyan); }
+  .cap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 22px 0; }
+  .cap-card {
+    border: 1px solid var(--gray-200); border-radius: 10px; padding: 18px 16px;
+    position: relative; overflow: hidden; background: rgba(255,255,255,0.7); backdrop-filter: blur(4px);
+  }
+  .cap-card::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+    background: var(--cyan); border-radius: 3px 0 0 3px;
+  }
+  .cap-card h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .cap-card p { font-size: 12px; color: var(--gray-400); line-height: 1.5; }
+  .cred-row {
+    display: flex; justify-content: center; align-items: flex-start; gap: 50px;
+    margin-top: 25px; padding: 30px 20px; border-top: 1px solid var(--gray-100);
+  }
+  .cred-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .cred-item img { height: 120px; object-fit: contain; }
+  .cred-item .cred-label { font-size: 10.5px; font-weight: 600; color: var(--navy); text-align: center; letter-spacing: 0.3px; }
 
-    .benefits {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin: 30px 0;
-    }
-    .benefit {
-      background: #f8f9fa;
-      padding: 20px;
-      border-radius: 8px;
-      border-left: 4px solid #00bcd4;
-    }
-    .benefit h3 { font-size: 16px; color: #0e1231; margin-bottom: 8px; font-weight: 700; }
-    .benefit p { font-size: 13px; color: #6c757d; margin: 0; }
+  /* ===== TABLES ===== */
+  .styled-table { width: 100%; border-collapse: collapse; }
+  .styled-table thead th {
+    background: var(--navy); color: var(--white); padding: 11px 14px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; text-align: left;
+  }
+  .styled-table thead th:first-child { width: 48px; text-align: center; border-radius: 6px 0 0 0; }
+  .styled-table thead th:last-child { border-radius: 0 6px 0 0; }
+  .styled-table tbody td {
+    padding: 11px 14px; border-bottom: 1px solid var(--gray-100);
+    font-size: 13px; color: var(--gray-600); vertical-align: top; background: rgba(255,255,255,0.5);
+  }
+  .styled-table tbody td:first-child { text-align: center; font-weight: 600; color: var(--navy); font-size: 12px; }
+  .styled-table tbody tr:last-child td { border-bottom: none; }
+  .styled-table tbody tr:hover td { background: rgba(120,228,255,0.06); }
 
-    /* PRICING */
-    .price-summary {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 30px;
-      margin: 25px 0;
-    }
-    .price-line {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 0;
-      border-bottom: 1px solid #e0e6ed;
-    }
-    .price-line:last-child { border-bottom: none; }
-    .price-line.total {
-      border-top: 3px solid #0e1231;
-      border-bottom: none;
-      margin-top: 10px;
-      padding-top: 20px;
-    }
-    .price-line.total .price-amount {
-      font-size: 32px;
-      color: #0e1231;
-    }
-    .price-amount {
-      font-size: 20px;
-      font-weight: 800;
-      color: #0e1231;
-    }
+  /* ===== PHOTOS ===== */
+  .photo-section { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .photo-section img { width: 100%; display: block; }
 
-    /* Camera option toggles */
-    .camera-options { margin: 25px 0; }
-    .camera-option {
-      display: block;
-      cursor: pointer;
-      border: 2px solid #e0e6ed;
-      border-radius: 10px;
-      margin-bottom: 12px;
-      transition: all 0.2s;
-      overflow: hidden;
-    }
-    .camera-option:hover { border-color: #00bcd4; }
-    .camera-option.selected {
-      border-color: #00bcd4;
-      background: linear-gradient(135deg, #f0fdff 0%, #e6f9fc 100%);
-    }
-    .camera-option input { display: none; }
-    .option-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 18px 22px;
-    }
-    .option-info { flex: 1; }
-    .option-info strong { font-size: 15px; color: #0e1231; display: block; margin-bottom: 4px; }
-    .option-desc { font-size: 13px; color: #6c757d; }
-    .option-price { font-size: 18px; font-weight: 800; color: #00bcd4; white-space: nowrap; margin-left: 20px; }
+  /* ===== INTERACTIVE PRICING ===== */
+  .hero-price {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    border-radius: 12px; padding: 24px 28px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 24px; position: relative; overflow: hidden;
+  }
+  .hero-price::before {
+    content: ''; position: absolute; top: 0; right: 0; width: 300px; height: 100%;
+    background: linear-gradient(135deg, transparent 50%, rgba(120,228,255,0.05));
+  }
+  .hero-price-left h3 { color: var(--white); font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .hero-price-items { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.9; padding-left: 5px; }
+  .hero-price-right { text-align: right; position: relative; z-index: 1; }
+  .hero-price-amount {
+    font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 800;
+    color: var(--cyan); line-height: 1;
+  }
+  .hero-price-gst { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 0.5px; }
+  .included-badge {
+    display: inline-block; background: rgba(34,197,94,0.15); color: var(--green-dark);
+    font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 20px;
+    letter-spacing: 0.5px; text-transform: uppercase; margin-top: 8px;
+  }
 
-    /* CTA Button */
-    .cta-section {
-      background: linear-gradient(135deg, #0e1231 0%, #1a237e 100%);
-      padding: 40px;
-      border-radius: 12px;
-      text-align: center;
-      margin: 35px 0;
-    }
-    .cta-section h2 {
-      color: white;
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 28px;
-      margin-bottom: 10px;
-    }
-    .cta-section p { color: rgba(255,255,255,0.7); margin-bottom: 25px; }
-    .cta-btn {
-      display: inline-block;
-      background: #00bcd4;
-      color: white;
-      padding: 18px 50px;
-      border-radius: 8px;
-      font-size: 18px;
-      font-weight: 700;
-      text-decoration: none;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.5px;
-    }
-    .cta-btn:hover { background: #00a5bb; transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,188,212,0.3); }
-    .cta-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .upgrade-card {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border: 2px solid var(--gray-100); border-radius: 8px;
+    margin: 8px 0; cursor: pointer; transition: all 0.2s; user-select: none;
+    background: rgba(255,255,255,0.6);
+  }
+  .upgrade-card:hover { border-color: var(--cyan-mid); background: var(--cyan-pale); }
+  .upgrade-card.selected { border-color: var(--cyan-mid); background: var(--cyan-pale); }
+  .upgrade-check {
+    width: 22px; height: 22px; border-radius: 5px; border: 2px solid var(--gray-200);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; margin-top: 1px; font-size: 13px; color: transparent;
+  }
+  .upgrade-card.selected .upgrade-check { background: var(--cyan-mid); border-color: var(--cyan-mid); color: var(--white); }
+  .upgrade-info { flex: 1; }
+  .upgrade-info h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
+  .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
+  .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
 
-    /* Trust badges */
-    .trust-row {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 30px;
-      margin: 25px 0;
-      flex-wrap: wrap;
-    }
-    .trust-badge img { height: 50px; opacity: 0.7; }
-    .trust-badge { text-align: center; font-size: 11px; color: #6c757d; }
+  .total-bar {
+    background: linear-gradient(135deg, var(--cyan-bg) 0%, #f0f7fc 100%);
+    border: 2px solid rgba(120,228,255,0.3); border-radius: 10px;
+    padding: 16px 20px; margin-top: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .total-bar-left { font-size: 13px; color: var(--gray-600); }
+  .total-bar-left strong { color: var(--navy); }
+  .total-bar-amount { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800; color: var(--navy); }
 
-    /* Agreement */
-    .agreement-box {
-      background: #f8f9fa;
-      padding: 35px;
-      border-radius: 8px;
-      margin: 25px 0;
-    }
-    .field { margin-bottom: 20px; }
-    .field-label { font-size: 11px; text-transform: uppercase; color: #6c757d; margin-bottom: 6px; font-weight: 600; }
-    .field-line { border-bottom: 2px solid #0e1231; height: 35px; }
+  /* ===== CTA ===== */
+  .cta-section {
+    text-align: center; padding: 40px 50px 45px; flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f6fc 40%, #e6f0f9 100%);
+  }
+  .cta-steps { display: flex; gap: 18px; justify-content: center; margin: 25px 0; }
+  .cta-step { flex: 1; max-width: 180px; text-align: center; }
+  .cta-step-num {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: var(--cyan);
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px;
+  }
+  .cta-step h4 { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+  .cta-step p { font-size: 11px; color: var(--gray-400); line-height: 1.5; }
+  .cta-button {
+    display: inline-block; margin-top: 25px;
+    background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 100%);
+    color: var(--navy); font-weight: 800; font-size: 15px;
+    padding: 16px 45px; border-radius: 10px; text-decoration: none; letter-spacing: 0.3px;
+    transition: all 0.2s; border: none; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(120,228,255,0.35);
+  }
+  .cta-button:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(120,228,255,0.5); }
+  .cta-button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .cta-sub { font-size: 11px; color: var(--gray-400); margin-top: 12px; line-height: 1.6; }
+  .cta-sub a { color: var(--cyan-dark); text-decoration: underline; }
+  .cta-or { font-size: 12px; color: var(--gray-400); margin: 16px 0; }
+  .cta-alt { font-size: 12.5px; color: var(--gray-600); }
+  .cta-alt a { color: var(--cyan-dark); font-weight: 600; text-decoration: none; }
+  .cta-thanks {
+    font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700;
+    font-style: italic; color: var(--navy); margin-top: 28px;
+  }
 
-    /* Terms */
-    .terms { font-size: 9px; line-height: 1.4; }
-    .terms h3 { font-size: 12px; color: #0e1231; margin: 15px 0 8px 0; font-weight: 700; }
+  /* ===== CLARIFICATIONS ===== */
+  .clar-table { width: 100%; border-collapse: collapse; }
+  .clar-table td {
+    padding: 11px 14px; font-size: 12px; color: var(--gray-600);
+    vertical-align: top; border-bottom: 1px solid var(--gray-100); line-height: 1.6;
+    background: rgba(255,255,255,0.5);
+  }
+  .clar-table td:first-child {
+    width: 38px; text-align: center; font-weight: 700; color: var(--navy);
+    font-size: 11px; background: rgba(244,251,255,0.8); border-right: 2px solid var(--cyan);
+  }
 
-    @media print {
-      body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { box-shadow: none; margin: 0; page-break-after: always; }
-      .cta-section { display: none; }
-    }
-  </style>
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 820px) {
+    .page, .cover-page { width: 100%; min-height: auto; margin: 0; box-shadow: none; }
+    .cover-page { height: auto; }
+    body { background: var(--white); }
+    .cap-grid { grid-template-columns: 1fr; }
+    .cred-row { gap: 20px; flex-wrap: wrap; }
+    .cred-item img { height: 80px; }
+    .hero-price { flex-direction: column; gap: 16px; }
+    .hero-price-right { text-align: left; }
+    .cta-steps { flex-direction: column; align-items: center; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page, .cover-page { box-shadow: none; margin: 0; page-break-after: always; }
+    .upgrade-card { cursor: default; }
+  }
+</style>
 </head>
 <body>
 
-<!-- COVER PAGE -->
-<div class="page cover">
-  <img src="${logoPath}" class="cover-logo" alt="Great White Security">
-  <div class="cover-grid">
-    ${coverPhotos}
-  </div>
-  <h1 class="property-name">${escapeHtml(firstName)}</h1>
-  <p class="property-address">${escapeHtml(clientAddress)}</p>
-  <div class="cover-footer">
-    <div>CONFIDENTIAL</div>
-    <div>${escapeHtml(proposalDate)}</div>
-  </div>
+<!-- ==================== COVER ==================== -->
+<div class="cover-page">
+  <img src="${escapeHtml(coverImage)}" alt="Great White Security \u2014 Security &amp; Safety Proposal">
 </div>
 
-<!-- LETTER PAGE -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <p style="color: #6c757d; margin-bottom: 25px;">${escapeHtml(proposalDate)}</p>
-  <p style="font-size: 16px; font-weight: 600; margin-bottom: 25px;">Dear ${escapeHtml(firstName)},</p>
-  ${letterNote ? `<p>${escapeHtml(letterNote)}</p>` : letterContent}
-  <div style="margin-top: 50px;">
-    <p>Kind regards,</p>
-    <img src="/proposal-assets/signature.jpeg" style="max-width: 300px; margin-top: 30px;" alt="Signature">
-    <p style="font-weight: 700; margin-top: 10px; margin-bottom: 4px;">Richard Campbell-Tovey</p>
-    <p style="font-size: 12px; color: #6c757d;">WA Police Licensed Security Consultant 79960</p>
-  </div>
-</div>
-
-<!-- WHY CHOOSE US -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <h1>Why Choose Us?</h1>
-  <p>Great White Security is built on over 18 years of proven experience securing homes and businesses across Western Australia. Our team is WA Police licensed and committed to seamless, professional installations.</p>
-  <p>As a product-agnostic security installation business, we're not tied to any single brand. Instead, we partner with trusted local suppliers to provide solutions tailored to each client's needs.</p>
-  <div class="benefits">
-    <div class="benefit"><h3>24/7 Reliable Protection</h3><p>Advanced systems designed to safeguard your premises day and night.</p></div>
-    <div class="benefit"><h3>Complete Coverage</h3><p>Strategic placement of cameras, alarms, and sensors for maximum protection.</p></div>
-    <div class="benefit"><h3>AI Driven Technology</h3><p>Intuitive systems with simple remote access from your phone.</p></div>
-    <div class="benefit"><h3>Future-Proof Security</h3><p>Scalable solutions that can expand as your needs evolve.</p></div>
-  </div>
-  <div class="trust-row">
-    <div class="trust-badge"><img src="/proposal-assets/wa-police-badge.png" alt="WA Police Licensed"><br>Licensed</div>
-    <div class="trust-badge"><img src="/proposal-assets/google-reviews.png" alt="Google Reviews"><br>5-Star Reviews</div>
-    <div class="trust-badge"><img src="/proposal-assets/acma-logo.jpeg" alt="ACMA"><br>ACMA Registered</div>
-  </div>
-</div>
-
-<!-- SCOPE & DELIVERABLES -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <h1>Project Scope</h1>
-  <table>
-    <thead><tr><th style="width:70px;">Item</th><th>Description</th></tr></thead>
-    <tbody>${scopeRows || '<tr><td class="qty">1</td><td>As discussed</td></tr>'}</tbody>
-  </table>
-
-  <h1 style="margin-top: 40px;">Project Deliverables</h1>
-  <table>
-    <thead><tr><th style="width:70px;">Qty</th><th>Description</th></tr></thead>
-    <tbody>
-      ${deliverableRows || '<tr><td class="qty">1</td><td>As discussed</td></tr>'}
-      <tr><td class="qty"></td><td>Installation Materials and Sundries</td></tr>
-      <tr><td class="qty"></td><td>Installation &amp; Programming by Licensed Technicians</td></tr>
-      <tr><td class="qty">1</td><td>12 Month Warranty on Installation &amp; Equipment</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- PRICING PAGE -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <h1>Total Investment</h1>
-
-  <div class="price-summary">
-    <div class="price-line">
-      <div><strong>${escapeHtml(packageName)}</strong>${packageDesc ? `<br><span style="font-size:13px;color:#6c757d;">${escapeHtml(packageDesc)}</span>` : ''}</div>
-      <div class="price-amount" id="base-price">${formatCurrency(basePrice)}</div>
+<!-- ==================== LETTER ==================== -->
+<div class="page bg-gradient">
+  ${pgHeader}
+  <div class="pg-body letter">
+    <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
+      <div>
+        <div style="font-weight:600; color:var(--navy);">${escapeHtml(clientName)}</div>
+        <div style="color:var(--gray-400); font-size:12px;">${escapeHtml(clientAddress)}</div>
+      </div>
+      <div style="text-align:right; color:var(--gray-400); font-size:12px;">${formattedDate}</div>
     </div>
-    <div id="selected-options-summary"></div>
-    <div class="price-line total">
-      <div><strong style="font-size:18px;">Total (inc. GST)</strong></div>
-      <div class="price-amount" id="total-price">${formatCurrency(basePrice)}</div>
+    <p class="letter-greeting">Dear ${escapeHtml(firstName)},</p>
+    ${letterContent}
+    <p style="margin-bottom:0;">Kind regards,</p>
+    <div class="letter-sign">
+      <img src="/proposal-assets/signature.jpeg" alt="Signature">
+      <div class="letter-sign-name">Richard Campbell-Tovey</div>
+      <div class="letter-sign-title">WA Police Licensed Security Consultant 79960</div>
     </div>
   </div>
+  ${pgFooter}
+</div>
 
-  ${cameraOptions.length > 0 ? `
-  <h2 style="font-size: 20px; margin: 30px 0 15px;">Customise Your System</h2>
-  <p style="color: #6c757d; font-size: 13px;">Toggle options to add or remove from your package:</p>
-  <div class="camera-options">
-    ${cameraOptionsHtml}
+<!-- ==================== WHY CHOOSE US ==================== -->
+<div class="page bg-subtle">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Why Choose Us?</div>
+    <div class="sec-title-accent"></div>
+    <p class="why-intro">Great White Security is built on over 21 years of proven experience securing homes and businesses across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial and residential properties giving business owners &amp; home owners peace of mind that their staff, customers, family and assets are safe.</p>
+    <p class="why-intro">Our team is WA Police licensed and committed to seamless, professional installations. We pride ourselves on leaving every site secure, tidy, and set up for long-term protection.</p>
+    <div class="why-highlight">
+      <p>As a <strong>product-agnostic security installation business</strong>, we're not tied to any single brand. Instead, we partner with trusted local suppliers to provide solutions tailored to each client's needs.</p>
+    </div>
+    <div class="cap-grid">
+      <div class="cap-card"><h4>24/7 Reliable Protection</h4><p>Advanced systems designed to safeguard your premises day and night.</p></div>
+      <div class="cap-card"><h4>Complete Coverage</h4><p>Strategic placement of cameras, alarms, and sensors for maximum protection.</p></div>
+      <div class="cap-card"><h4>AI Driven Technology</h4><p>Intuitive systems with simple remote access from your phone.</p></div>
+      <div class="cap-card"><h4>Future-Proof Security</h4><p>Scalable solutions that can expand as your needs evolve.</p></div>
+    </div>
+    <p class="why-intro">By choosing Great White Security, you gain a trusted partner with nearly two decades of expertise, a commitment to quality, and the confidence of working with a WA-based business that's here to support you long after installation.</p>
+    <div class="cred-row">
+      <div class="cred-item"><img src="/proposal-assets/wa-police-badge.png" alt="WA Police Licensed"><div class="cred-label">WA Police Licensed #79960</div></div>
+      <div class="cred-item"><img src="/proposal-assets/google-reviews.png" alt="Google Reviews 4.6 Stars"></div>
+      <div class="cred-item"><img src="/proposal-assets/acma-logo.jpeg" alt="ACMA Registered"></div>
+    </div>
   </div>
-  ` : ''}
+  ${pgFooter}
+</div>
 
+<!-- ==================== PROJECT SCOPE ==================== -->
+<div class="page bg-gradient">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Project Scope</div>
+    <div class="sec-title-accent"></div>
+    <table class="styled-table">
+      <thead><tr><th>Item</th><th>Description</th></tr></thead>
+      <tbody>${scopeRows}</tbody>
+    </table>
+  </div>
+  ${pgFooter}
+</div>
+
+<!-- ==================== SITE PHOTOS ==================== -->
+${sitePhotoPages}
+
+<!-- ==================== DELIVERABLES ==================== -->
+<div class="page bg-subtle">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Project Deliverables</div>
+    <div class="sec-title-accent"></div>
+    <table class="styled-table">
+      <thead><tr><th>Qty</th><th>Description</th></tr></thead>
+      <tbody>${deliverableRows}</tbody>
+    </table>
+  </div>
+  ${pgFooter}
+</div>
+
+<!-- ==================== INTERACTIVE PRICING ==================== -->
+<div class="page bg-warm">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Your Investment</div>
+    <div class="sec-title-accent"></div>
+    <div class="hero-price">
+      <div class="hero-price-left">
+        <h3>${escapeHtml(packageName)}</h3>
+        <div class="hero-price-items">${escapeHtml(packageDesc)}</div>
+        <div class="included-badge">&#10003; Included</div>
+      </div>
+      <div class="hero-price-right">
+        <div class="hero-price-amount">${formatCurrency(basePrice)}</div>
+        <div class="hero-price-gst">AUD Inc. GST</div>
+      </div>
+    </div>
+
+    ${cameraOptions.length > 0 ? `
+    <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
+      <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">Extend Your Coverage <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Add additional options to your install</span></h3>
+    </div>
+    ${upgradeCardsHtml}
+    ` : ''}
+
+    <div class="total-bar">
+      <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
+      <div>
+        <div class="total-bar-amount" id="totalAmount">${formatCurrency(basePrice)}</div>
+      </div>
+    </div>
+  </div>
+  ${pgFooter}
+</div>
+
+<!-- ==================== ACCEPT & PAY ==================== -->
+<div class="page">
+  ${pgHeader}
   <div class="cta-section">
-    <h2>Ready to Secure Your Property?</h2>
-    <p>Click below to accept this proposal and proceed to secure payment.</p>
-    <button class="cta-btn" id="accept-btn" onclick="acceptProposal()">Accept &amp; Pay ${formatCurrency(basePrice)}</button>
+    <div class="sec-title">Ready to Get Started?</div>
+    <div class="sec-title-accent" style="margin:6px auto 20px;"></div>
+    <p style="color:var(--gray-600); max-width:460px; margin:0 auto 8px; font-size:13.5px; line-height:1.7;">Accept the proposal and secure your installation slot. We'll order your equipment and schedule your install promptly.</p>
+    <div class="cta-steps">
+      <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Click below to accept and complete payment via Stripe</p></div>
+      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
+      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
+    </div>
+    <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Pay ${formatCurrency(basePrice)} \u2192</button>
+    <div class="cta-sub">
+      By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-and-conditions" target="_blank">Terms &amp; Conditions</a>
+      and the Clarifications &amp; Exclusions outlined in this proposal.<br>
+      Pricing includes GST. Quotation valid for 30 days.
+    </div>
+    <div class="cta-or">\u2014 or \u2014</div>
+    <div class="cta-alt">Questions? Email <a href="mailto:hello@greatwhitesecurity.com">hello@greatwhitesecurity.com</a> or call Richard directly.</div>
+    <p class="cta-thanks">Thank you for trusting Great White Security<br>to help protect your home and family.</p>
   </div>
-
-  <div class="trust-row" style="margin-top:15px;">
-    <div class="trust-badge" style="font-size:12px;color:#6c757d;">Secure payment via Stripe. All major cards accepted.</div>
-  </div>
+  ${pgFooter}
 </div>
 
-<!-- CLARIFICATIONS -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <h1>Clarifications &amp; Exclusions</h1>
-  <table>
-    <thead><tr><th style="width:70px;">Item</th><th>Description</th></tr></thead>
-    <tbody>${clarificationRows}</tbody>
-  </table>
-</div>
-
-<!-- TERMS PAGE 1 -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <h1>Terms and Conditions</h1>
-  <div class="terms">
-    <h3>DEFINITIONS</h3>
-    <p><strong>1.</strong> "Agreement" means the agreement deemed to exist when the Quotation is accepted by the Client. "Client" means the purchaser of Equipment and/or Services. "Company" means Great White Security Systems Pty Ltd. "Equipment" means goods and equipment detailed in the Quotation. "Services" means installation, monitoring, and maintenance services.</p>
-    <h3>QUOTATION AND ACCEPTANCE</h3>
-    <p><strong>2.</strong> The Quotation is valid for 30 days. Acceptance constitutes a binding agreement.</p>
-    <h3>RETENTION OF OWNERSHIP</h3>
-    <p><strong>3.</strong> Equipment remains Company property until payment received in full.</p>
-    <p><strong>4.</strong> Risk passes to Client upon delivery.</p>
-    <h3>INSTALLATION</h3>
-    <p><strong>5-12.</strong> Company will install Equipment subject to parts and labor availability. Client responsible for site access. Company not liable for delays. Additional charges apply for access delays or site-specific inductions. Making good excluded. Client must advise of asbestos. Client provides IT access as required.</p>
-    <h3>MONITORING</h3>
-    <p><strong>13-14.</strong> Monitored equipment enabled for monitoring fee. Company responds per agreed procedure.</p>
-    <h3>PAYMENT</h3>
-    <p><strong>15-17.</strong> Full balance due on completion. Debt recovery costs payable by Client. Monitoring fees paid in advance.</p>
+<!-- ==================== CLARIFICATIONS ==================== -->
+<div class="page bg-gradient">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Clarifications &amp; Exclusions</div>
+    <div class="sec-title-accent"></div>
+    <table class="clar-table">${clarificationRows}</table>
   </div>
-</div>
-
-<!-- TERMS PAGE 2 -->
-<div class="page content">
-  ${proposalPageHeader(logoPath, projectNumber)}
-  <h1>Terms and Conditions (cont.)</h1>
-  <div class="terms">
-    <h3>MISCELLANEOUS</h3>
-    <p><strong>18-30.</strong> Agreement cancellation requires Company consent. Equipment may detect/deter but cannot prevent all unlawful activity. Company not liable for equipment failure. Client does not rely on warranties beyond those herein. Terms subject to Competition and Consumer Act 2010. Site changes may require reassessment. Detection devices have limitations. Regular maintenance required. Company may subcontract. Discounts claimed at quotation time only.</p>
-    <h3>WARRANTY</h3>
-    <p><strong>31.</strong> Equipment warranted 12 months from installation.</p>
-    <p><strong>32.</strong> No warranty on pre-existing equipment. Company not liable for compatibility issues. Warranty void if damage related to pre-existing equipment. EWP excluded from warranty.</p>
-  </div>
+  ${pgFooter}
 </div>
 
 <script>
-  const BASE_PRICE = ${Number(basePrice) || 0};
+  const BASE_PRICE = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
-  let selectedExtras = 0;
+  let upgradeTotal = 0;
 
-  // Camera option toggles
-  document.querySelectorAll('.camera-toggle').forEach(cb => {
-    cb.addEventListener('change', function() {
-      const label = this.closest('.camera-option');
-      const price = parseFloat(this.dataset.price) || 0;
-
-      if (this.checked) {
-        label.classList.add('selected');
-        selectedExtras += price;
-      } else {
-        label.classList.remove('selected');
-        selectedExtras -= price;
-      }
-
-      updateTotal();
-    });
-  });
-
-  function updateTotal() {
-    const total = BASE_PRICE + selectedExtras;
-    document.getElementById('total-price').textContent = '$' + total.toLocaleString('en-AU');
-    document.getElementById('accept-btn').textContent = 'Accept & Pay $' + total.toLocaleString('en-AU');
-
-    // Update selected options summary
-    const summary = document.getElementById('selected-options-summary');
-    summary.innerHTML = '';
-    document.querySelectorAll('.camera-toggle:checked').forEach(cb => {
-      const label = cb.closest('.camera-option');
-      const name = label.querySelector('strong').textContent;
-      const price = parseFloat(cb.dataset.price) || 0;
-      summary.innerHTML += '<div class="price-line"><div>' + name + '</div><div class="price-amount" style="font-size:16px;">+$' + price.toLocaleString('en-AU') + '</div></div>';
-    });
+  function toggleUpgrade(card, price) {
+    card.classList.toggle('selected');
+    upgradeTotal += card.classList.contains('selected') ? price : -price;
+    const total = BASE_PRICE + upgradeTotal;
+    document.getElementById('totalAmount').textContent = '$' + total.toLocaleString('en-AU');
+    document.getElementById('acceptBtn').textContent = 'Accept Proposal & Pay $' + total.toLocaleString('en-AU') + ' \u2192';
   }
 
-  function acceptProposal() {
-    const btn = document.getElementById('accept-btn');
+  function acceptAndPay() {
+    const btn = document.getElementById('acceptBtn');
     btn.disabled = true;
     btn.textContent = 'Processing...';
 
-    // Collect selected camera options
-    const selected = [];
-    document.querySelectorAll('.camera-toggle:checked').forEach(cb => {
-      selected.push(parseInt(cb.dataset.index));
+    const selectedUpgrades = [];
+    document.querySelectorAll('.upgrade-card.selected').forEach(card => {
+      const name = card.querySelector('h4').textContent;
+      const price = parseInt(card.querySelector('.upgrade-price').textContent.replace(/[^0-9]/g, ''));
+      selectedUpgrades.push({ name, price });
     });
 
     fetch('/api/proposals/' + PROJECT_NUMBER + '/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectedOptions: selected })
+      body: JSON.stringify({ selectedUpgrades, total: BASE_PRICE + upgradeTotal })
     })
     .then(r => r.json())
     .then(data => {
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else {
-        alert(data.error || 'Something went wrong. Please try again.');
+      if (data.url) window.location.href = data.url;
+      else {
+        alert(data.error || 'Something went wrong');
         btn.disabled = false;
-        btn.textContent = 'Accept & Pay $' + (BASE_PRICE + selectedExtras).toLocaleString('en-AU');
+        btn.textContent = 'Accept Proposal & Pay $' + (BASE_PRICE + upgradeTotal).toLocaleString('en-AU') + ' \u2192';
       }
     })
-    .catch(err => {
+    .catch(() => {
       alert('Connection error. Please try again.');
       btn.disabled = false;
-      btn.textContent = 'Accept & Pay $' + (BASE_PRICE + selectedExtras).toLocaleString('en-AU');
+      btn.textContent = 'Accept Proposal & Pay $' + (BASE_PRICE + upgradeTotal).toLocaleString('en-AU') + ' \u2192';
     });
   }
 
@@ -671,6 +648,7 @@ exports.showProposal = async (req, res) => {
     res.status(500).send('Error loading proposal');
   }
 };
+
 
 // ─── PUBLIC: Track View ───────────────────────────────────────
 
@@ -1466,6 +1444,7 @@ function renderProposalForm(proposal, prefill) {
   const scopeItemsRaw = safeJsonParse(f['Scope Items']);
   const deliverablesRaw = safeJsonParse(f['Deliverables']);
   const cameraOptionsRaw = safeJsonParse(f['Camera Options']);
+  const clarificationsRaw = safeJsonParse(f['Clarifications']);
   const sitePhotoUrlsRaw = safeJsonParse(f['Site Photo URLs']);
 
   const otoBundlePrice = f['OTO Bundle Price'] || '';
@@ -1492,6 +1471,16 @@ function renderProposalForm(proposal, prefill) {
   const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : (isEdit ? [] : defaultScope);
   const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : [];
   const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
+
+  const defaultClarifications = [
+    'Only items expressly listed above are included in this quotation.',
+    'Works conducted 08:00-17:00 Monday-Friday excluding WA public holidays.',
+    'Full and free access to all areas of the site is required for duration of works.',
+    'If required, customer smartphones must be present during installation.',
+    'Quotation valid for 30 days.',
+    'Customer must provide spare internet router port and have working internet for app connectivity.',
+  ];
+  const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : (isEdit ? [] : defaultClarifications);
   const sitePhotoUrls = sitePhotoUrlsRaw.length > 0 ? sitePhotoUrlsRaw : [];
 
   // Build scope item rows
@@ -1515,6 +1504,18 @@ function renderProposalForm(proposal, prefill) {
       <input type="text" class="qty-input" value="${escapeHtml(String(qty))}" placeholder="Qty">
       <input type="text" class="list-input" value="${escapeHtml(desc)}" placeholder="Description...">
       <button type="button" class="row-insert" onclick="insertRowBelow(this,'deliverable')" title="Add item below">+</button>
+      <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+    </div>`;
+  }).join('');
+
+  // Build clarification rows
+  const clarificationRowsHtml = clarifications.map((c, i) => {
+    const val = typeof c === 'string' ? c : (c.description || '');
+    return `<div class="list-row" data-list="clarification" draggable="true">
+      <span class="drag-handle" title="Drag to reorder">&#9776;</span>
+      <span class="row-num">${i + 1}</span>
+      <input type="text" class="list-input" value="${escapeHtml(val)}" placeholder="Enter clarification...">
+      <button type="button" class="row-insert" onclick="insertRowBelow(this,'clarification')" title="Add item below">+</button>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -1591,6 +1592,12 @@ function renderProposalForm(proposal, prefill) {
             <div id="deliverable-list">${deliverableRowsHtml}</div>
             <button type="button" class="btn-add" onclick="addDeliverableRow()">+ Add Deliverable</button>
             <p class="card-hint" style="margin-top:10px;color:#5a6a7a;font-size:11px;">Note: "Installation Materials", "Installation by Licensed Technicians", and "12 Month Warranty" are always included automatically.</p>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Clarifications & Exclusions</h2>
+            <p class="card-hint">Terms and conditions shown at the end of the proposal.</p>
+            <div id="clarification-list">${clarificationRowsHtml}</div>
+            <button type="button" class="btn-add" onclick="addClarificationRow()">+ Add Clarification</button>
           </div>
           <div class="step-nav">
             <button type="button" class="btn-back" onclick="goStep(1)">&larr; Back</button>
@@ -1691,6 +1698,7 @@ function renderProposalForm(proposal, prefill) {
         <!-- Hidden fields for JSON data -->
         <input type="hidden" name="scopeItems" id="h-scope">
         <input type="hidden" name="deliverables" id="h-deliverables">
+        <input type="hidden" name="clarifications" id="h-clarifications">
         <input type="hidden" name="cameraOptions" id="h-cameras">
         <input type="hidden" name="sitePhotoUrls" id="h-photos">
       </form>
@@ -1837,6 +1845,7 @@ function renderProposalForm(proposal, prefill) {
 
     function renumberScope() {
       document.querySelectorAll('#scope-list .row-num').forEach((el, i) => el.textContent = i + 1);
+      document.querySelectorAll('#clarification-list .row-num').forEach((el, i) => el.textContent = i + 1);
     }
 
     function makeScopeRowHtml() {
@@ -1872,17 +1881,36 @@ function renderProposalForm(proposal, prefill) {
       row.querySelector('.qty-input').focus();
     }
 
+    function makeClarificationRowHtml() {
+      return '<span class="drag-handle" title="Drag to reorder">&#9776;</span><span class="row-num"></span><input type="text" class="list-input" placeholder="Enter clarification..."><button type="button" class="row-insert" onclick="insertRowBelow(this,\\'clarification\\')" title="Add item below">+</button><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+    }
+
+    function addClarificationRow() {
+      const list = document.getElementById('clarification-list');
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.dataset.list = 'clarification';
+      row.draggable = true;
+      row.innerHTML = makeClarificationRowHtml();
+      list.appendChild(row);
+      initDragRow(row);
+      renumberScope();
+      row.querySelector('.list-input').focus();
+    }
+
     function insertRowBelow(btn, type) {
       const currentRow = btn.closest('.list-row');
       const row = document.createElement('div');
       row.className = 'list-row';
       row.dataset.list = type;
       row.draggable = true;
-      row.innerHTML = type === 'scope' ? makeScopeRowHtml() : makeDeliverableRowHtml();
+      if (type === 'scope') row.innerHTML = makeScopeRowHtml();
+      else if (type === 'deliverable') row.innerHTML = makeDeliverableRowHtml();
+      else if (type === 'clarification') row.innerHTML = makeClarificationRowHtml();
       currentRow.after(row);
       initDragRow(row);
       renumberScope();
-      row.querySelector(type === 'scope' ? '.list-input' : '.qty-input').focus();
+      row.querySelector(type === 'deliverable' ? '.qty-input' : '.list-input').focus();
     }
 
     // ── Drag & Drop ──
@@ -1968,6 +1996,13 @@ function renderProposalForm(proposal, prefill) {
         if (desc) deliverables.push({ qty, description: desc });
       });
       data.deliverables = JSON.stringify(deliverables);
+
+      // Collect clarifications
+      const clarifications = [];
+      document.querySelectorAll('#clarification-list .list-input').forEach(inp => {
+        if (inp.value.trim()) clarifications.push(inp.value.trim());
+      });
+      data.clarifications = JSON.stringify(clarifications);
 
       // Collect camera options
       const cameras = [];
