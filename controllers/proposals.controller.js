@@ -448,16 +448,28 @@ exports.showProposal = async (req, res) => {
   }
   .cta-step h4 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
   .cta-step p { font-size: 12.5px; color: var(--gray-400); line-height: 1.5; }
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
   .cta-button {
     display: block; width: 100%; margin-top: 0;
-    background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 100%);
-    color: var(--navy); font-weight: 800; font-size: 15px;
-    padding: 16px 45px; border-radius: 10px; text-decoration: none; letter-spacing: 0.3px;
-    transition: all 0.2s; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
+    background-size: 200% 100%;
+    color: var(--navy); font-weight: 800; font-size: 16px;
+    padding: 18px 45px; border-radius: 12px; text-decoration: none; letter-spacing: 0.5px;
+    transition: all 0.3s ease; border: none; cursor: pointer;
     box-shadow: 0 4px 20px rgba(120,228,255,0.35);
+    position: relative; overflow: hidden;
   }
-  .cta-button:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(120,228,255,0.5); }
-  .cta-button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .cta-button:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 8px 35px rgba(120,228,255,0.55), 0 0 20px rgba(120,228,255,0.2);
+    animation: shimmer 1.5s ease infinite;
+    letter-spacing: 0.8px;
+  }
+  .cta-button:active { transform: translateY(0) scale(0.99); }
+  .cta-button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
   .cta-sub { font-size: 11px; color: var(--gray-400); margin-top: 12px; line-height: 1.6; }
   .cta-sub a { color: var(--cyan-dark); text-decoration: underline; }
   .cta-divider { width: 60px; height: 1px; background: var(--gray-200); margin: 20px auto; }
@@ -602,18 +614,20 @@ ${sitePhotoPages}
 </div>
 
 <!-- ==================== INTERACTIVE PRICING ==================== -->
-<div class="page bg-warm">
+<div class="page bg-warm" style="display:flex; flex-direction:column;">
   ${pgHeader}
+  <div class="pg-body" style="padding-bottom:0; flex:none;">
+    <div class="sec-title">Ready to Get Started?</div>
+    <div class="sec-title-accent"></div>
+  </div>
   <div class="cta-top">
-    <div class="sec-title" style="font-size:28px;">Ready to Get Started?</div>
-    <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
     <div class="cta-steps">
       <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
       <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
       <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
     </div>
   </div>
-  <div class="pg-body" style="padding-bottom:8px;">
+  <div class="pg-body" style="padding-top:20px; padding-bottom:0; flex:1;">
     ${hasMultiplePackages ? `
     <div style="margin-bottom:6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
       <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">
