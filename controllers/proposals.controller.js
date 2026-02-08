@@ -1497,9 +1497,11 @@ function renderProposalForm(proposal, prefill) {
   // Build scope item rows
   const scopeRowsHtml = scopeItems.map((item, i) => {
     const val = typeof item === 'string' ? item : (item.description || '');
-    return `<div class="list-row" data-list="scope">
+    return `<div class="list-row" data-list="scope" draggable="true">
+      <span class="drag-handle" title="Drag to reorder">&#9776;</span>
       <span class="row-num">${i + 1}</span>
       <input type="text" class="list-input" value="${escapeHtml(val)}" placeholder="Enter scope item...">
+      <button type="button" class="row-insert" onclick="insertRowBelow(this,'scope')" title="Add item below">+</button>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -1508,9 +1510,11 @@ function renderProposalForm(proposal, prefill) {
   const deliverableRowsHtml = deliverables.map(d => {
     const qty = typeof d === 'string' ? '' : (d.qty || '');
     const desc = typeof d === 'string' ? d : (d.description || '');
-    return `<div class="list-row" data-list="deliverable">
+    return `<div class="list-row" data-list="deliverable" draggable="true">
+      <span class="drag-handle" title="Drag to reorder">&#9776;</span>
       <input type="text" class="qty-input" value="${escapeHtml(String(qty))}" placeholder="Qty">
       <input type="text" class="list-input" value="${escapeHtml(desc)}" placeholder="Description...">
+      <button type="button" class="row-insert" onclick="insertRowBelow(this,'deliverable')" title="Add item below">+</button>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -1718,9 +1722,18 @@ function renderProposalForm(proposal, prefill) {
     .fg input:focus, .fg textarea:focus { border-color:#00d4ff; outline:none; }
 
     .list-row {
-      display:flex; align-items:center; gap:8px; margin-bottom:8px;
+      display:flex; align-items:center; gap:8px; margin-bottom:2px; transition:transform 0.15s, opacity 0.15s;
     }
-    .row-num { color:#5a6a7a; font-size:13px; font-weight:700; min-width:24px; text-align:center; }
+    .list-row.dragging { opacity:0.4; }
+    .list-row.drag-over-below { border-bottom:2px solid #00d4ff; margin-bottom:0; }
+    .list-row.drag-over-above { border-top:2px solid #00d4ff; margin-top:-2px; }
+    .drag-handle {
+      cursor:grab; color:#3a4a5a; font-size:16px; padding:4px 2px; user-select:none; touch-action:none;
+      transition:color .2s;
+    }
+    .drag-handle:hover { color:#8899aa; }
+    .drag-handle:active { cursor:grabbing; }
+    .row-num { color:#5a6a7a; font-size:13px; font-weight:700; min-width:20px; text-align:center; }
     .list-input {
       flex:1; padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; font-family:inherit;
@@ -1731,6 +1744,11 @@ function renderProposalForm(proposal, prefill) {
       color:#e0e6ed; font-size:14px; text-align:center; font-family:inherit;
     }
     .qty-input:focus { border-color:#00d4ff; outline:none; }
+    .row-insert {
+      background:none; border:none; color:#2a3a4a; font-size:14px; cursor:pointer; padding:2px 6px;
+      transition:color .2s;
+    }
+    .row-insert:hover { color:#00d4ff; }
     .row-remove {
       background:none; border:none; color:#5a6a7a; font-size:20px; cursor:pointer; padding:4px 8px;
       transition:color .2s;
@@ -1821,15 +1839,25 @@ function renderProposalForm(proposal, prefill) {
       document.querySelectorAll('#scope-list .row-num').forEach((el, i) => el.textContent = i + 1);
     }
 
+    function makeScopeRowHtml() {
+      return '<span class="drag-handle" title="Drag to reorder">&#9776;</span><span class="row-num"></span><input type="text" class="list-input" placeholder="Enter scope item..."><button type="button" class="row-insert" onclick="insertRowBelow(this,\\'scope\\')" title="Add item below">+</button><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+    }
+
+    function makeDeliverableRowHtml() {
+      return '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="qty-input" placeholder="Qty"><input type="text" class="list-input" placeholder="Description..."><button type="button" class="row-insert" onclick="insertRowBelow(this,\\'deliverable\\')" title="Add item below">+</button><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+    }
+
     function addScopeRow() {
       const list = document.getElementById('scope-list');
-      const n = list.children.length + 1;
       const row = document.createElement('div');
       row.className = 'list-row';
       row.dataset.list = 'scope';
-      row.innerHTML = '<span class="row-num">' + n + '</span><input type="text" class="list-input" placeholder="Enter scope item..."><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.draggable = true;
+      row.innerHTML = makeScopeRowHtml();
       list.appendChild(row);
-      row.querySelector('input').focus();
+      initDragRow(row);
+      renumberScope();
+      row.querySelector('.list-input').focus();
     }
 
     function addDeliverableRow() {
@@ -1837,10 +1865,72 @@ function renderProposalForm(proposal, prefill) {
       const row = document.createElement('div');
       row.className = 'list-row';
       row.dataset.list = 'deliverable';
-      row.innerHTML = '<input type="text" class="qty-input" placeholder="Qty"><input type="text" class="list-input" placeholder="Description..."><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.draggable = true;
+      row.innerHTML = makeDeliverableRowHtml();
       list.appendChild(row);
+      initDragRow(row);
       row.querySelector('.qty-input').focus();
     }
+
+    function insertRowBelow(btn, type) {
+      const currentRow = btn.closest('.list-row');
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.dataset.list = type;
+      row.draggable = true;
+      row.innerHTML = type === 'scope' ? makeScopeRowHtml() : makeDeliverableRowHtml();
+      currentRow.after(row);
+      initDragRow(row);
+      renumberScope();
+      row.querySelector(type === 'scope' ? '.list-input' : '.qty-input').focus();
+    }
+
+    // ── Drag & Drop ──
+    let dragRow = null;
+
+    function initDragRow(row) {
+      row.addEventListener('dragstart', function(e) {
+        dragRow = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      row.addEventListener('dragend', function() {
+        this.classList.remove('dragging');
+        document.querySelectorAll('.drag-over-below,.drag-over-above').forEach(el => {
+          el.classList.remove('drag-over-below','drag-over-above');
+        });
+        dragRow = null;
+        renumberScope();
+      });
+      row.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        if (!dragRow || dragRow === this) return;
+        if (dragRow.dataset.list !== this.dataset.list) return;
+        e.dataTransfer.dropEffect = 'move';
+        const rect = this.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        this.classList.remove('drag-over-below','drag-over-above');
+        if (e.clientY < mid) this.classList.add('drag-over-above');
+        else this.classList.add('drag-over-below');
+      });
+      row.addEventListener('dragleave', function() {
+        this.classList.remove('drag-over-below','drag-over-above');
+      });
+      row.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (!dragRow || dragRow === this) return;
+        if (dragRow.dataset.list !== this.dataset.list) return;
+        const rect = this.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) this.before(dragRow);
+        else this.after(dragRow);
+        this.classList.remove('drag-over-below','drag-over-above');
+        renumberScope();
+      });
+    }
+
+    // Init drag on all existing rows
+    document.querySelectorAll('.list-row[draggable]').forEach(initDragRow);
 
     function addCameraRow() {
       const list = document.getElementById('camera-list');
