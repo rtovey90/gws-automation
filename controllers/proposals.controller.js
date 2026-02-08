@@ -394,9 +394,8 @@ exports.showProposal = async (req, res) => {
 
   /* ===== CTA ===== */
   .cta-section {
-    text-align: center; padding: 40px 50px 45px; flex: 1;
-    display: flex; flex-direction: column; justify-content: center;
-    background: linear-gradient(180deg, #ffffff 0%, #f0f6fc 40%, #e6f0f9 100%);
+    text-align: center; padding: 30px 50px 10px;
+    background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
   }
   .cta-steps { display: flex; gap: 18px; justify-content: center; margin: 25px 0; }
   .cta-step { flex: 1; max-width: 180px; text-align: center; }
@@ -408,7 +407,7 @@ exports.showProposal = async (req, res) => {
   .cta-step h4 { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
   .cta-step p { font-size: 11px; color: var(--gray-400); line-height: 1.5; }
   .cta-button {
-    display: inline-block; margin-top: 25px;
+    display: inline-block; margin-top: 0;
     background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 100%);
     color: var(--navy); font-weight: 800; font-size: 15px;
     padding: 16px 45px; border-radius: 10px; text-decoration: none; letter-spacing: 0.3px;
@@ -591,30 +590,12 @@ ${sitePhotoPages}
       </div>
     </div>
   </div>
-  ${pgFooter}
-</div>
-
-<!-- ==================== ACCEPT & PAY ==================== -->
-<div class="page">
-  ${pgHeader}
   <div class="cta-section">
-    <div class="sec-title">Ready to Get Started?</div>
-    <div class="sec-title-accent" style="margin:6px auto 20px;"></div>
-    <p style="color:var(--gray-600); max-width:460px; margin:0 auto 8px; font-size:13.5px; line-height:1.7;">Accept the proposal and secure your installation slot. We'll order your equipment and schedule your install promptly.</p>
-    <div class="cta-steps">
-      <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Click below to accept and complete payment via Stripe</p></div>
-      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
-      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
-    </div>
     <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Pay ${formatCurrency(basePrice)} \u2192</button>
     <div class="cta-sub">
       By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-and-conditions" target="_blank">Terms &amp; Conditions</a>
-      and the Clarifications &amp; Exclusions outlined in this proposal.<br>
-      Pricing includes GST. Quotation valid for 30 days.
+      and the Clarifications &amp; Exclusions outlined in this proposal. Pricing includes GST. Quotation valid for 30 days.
     </div>
-    <div class="cta-or">\u2014 or \u2014</div>
-    <div class="cta-alt">Questions? Email <a href="mailto:hello@greatwhitesecurity.com">hello@greatwhitesecurity.com</a> or call Richard directly.</div>
-    <p class="cta-thanks">Thank you for trusting Great White Security<br>to help protect your home and family.</p>
   </div>
   ${pgFooter}
 </div>
