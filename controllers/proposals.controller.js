@@ -432,23 +432,22 @@ exports.showProposal = async (req, res) => {
 
   /* ===== CTA ===== */
   .cta-top {
-    text-align: center; padding: 20px 50px 12px;
+    text-align: center; padding: 30px 40px 20px;
     background: linear-gradient(180deg, #e6f0f9 0%, #f0f6fc 100%);
   }
   .cta-section {
-    text-align: center; padding: 18px 50px 16px;
+    text-align: center; padding: 12px 50px 14px;
     background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
-    margin-top: 10px;
   }
-  .cta-steps { display: flex; gap: 18px; justify-content: center; margin: 25px 0; }
-  .cta-step { flex: 1; max-width: 180px; text-align: center; }
+  .cta-steps { display: flex; gap: 30px; justify-content: center; margin: 20px 0 5px; }
+  .cta-step { flex: 1; max-width: 220px; text-align: center; }
   .cta-step-num {
-    width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: var(--cyan);
-    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 10px;
+    width: 42px; height: 42px; border-radius: 50%; background: var(--navy); color: var(--cyan);
+    font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
   }
-  .cta-step h4 { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
-  .cta-step p { font-size: 11px; color: var(--gray-400); line-height: 1.5; }
+  .cta-step h4 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .cta-step p { font-size: 12.5px; color: var(--gray-400); line-height: 1.5; }
   .cta-button {
     display: block; width: 100%; margin-top: 0;
     background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 100%);
@@ -606,7 +605,7 @@ ${sitePhotoPages}
 <div class="page bg-warm">
   ${pgHeader}
   <div class="cta-top">
-    <div class="sec-title" style="font-size:22px;">Ready to Get Started?</div>
+    <div class="sec-title" style="font-size:28px;">Ready to Get Started?</div>
     <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
     <div class="cta-steps">
       <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
