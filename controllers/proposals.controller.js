@@ -941,279 +941,253 @@ exports.showOTO = async (req, res) => {
       --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
       --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
       --gray-800: #1e2235; --green: #22c55e; --green-dark: #16a34a;
-      --red: #e05252; --red-bright: #dc2626; --orange: #f59e0b;
+      --red: #e05252; --red-bright: #dc2626;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', sans-serif; color: var(--gray-800);
-      background: linear-gradient(180deg, #eef3f9 0%, #dfe6ef 100%);
-      min-height: 100vh; line-height: 1.7; font-size: 14px;
+      background: #c0c4cf; min-height: 100vh; line-height: 1.7; font-size: 14px;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ===== NAV ===== */
-    .oto-nav {
+    /* ===== PAGE SHELL (matches proposal design language, responsive) ===== */
+    .page {
+      max-width: 720px; margin: 40px auto; background: var(--white);
+      box-shadow: 0 8px 60px rgba(0,0,0,0.2); overflow: hidden;
+      display: flex; flex-direction: column; border-radius: 4px;
+    }
+    .pg-header {
       background: var(--navy); padding: 16px 50px;
-      display: flex; justify-content: space-between; align-items: center;
-      box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
     }
-    .oto-nav img { height: 32px; object-fit: contain; }
-    .oto-nav .step-pills { display: flex; gap: 8px; align-items: center; }
-    .oto-nav .pill {
-      font-size: 10px; padding: 4px 12px; border-radius: 20px; font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-    .pill-done { background: rgba(34,197,94,0.15); color: #4ade80; }
-    .pill-active { background: var(--cyan); color: var(--navy); font-weight: 700; }
-    .pill-todo { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.25); }
-    .pill-sep { color: rgba(255,255,255,0.15); font-size: 10px; }
+    .pg-header img { height: 32px; object-fit: contain; }
+    .pg-header-right { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
 
-    /* ===== HERO ===== */
-    .oto-hero {
-      background: linear-gradient(175deg, var(--navy) 0%, var(--navy-light) 100%);
-      text-align: center; padding: 44px 30px 38px; position: relative; overflow: hidden;
-    }
-    .oto-hero::before {
-      content: ''; position: absolute; top: -60%; right: -15%; width: 500px; height: 500px;
-      background: radial-gradient(circle, rgba(120,228,255,0.07) 0%, transparent 70%);
-    }
-    .oto-hero::after {
-      content: ''; position: absolute; bottom: -40%; left: -10%; width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(120,228,255,0.04) 0%, transparent 70%);
-    }
-    .oto-hero .check-circle {
-      width: 60px; height: 60px; border-radius: 50%; background: var(--green);
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 18px; font-size: 28px; color: white;
-      box-shadow: 0 4px 20px rgba(34,197,94,0.35);
-    }
-    .oto-hero h1 {
-      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 800;
-      color: var(--white); margin-bottom: 8px; position: relative; z-index: 1;
-    }
-    .oto-hero .hero-sub {
-      color: rgba(255,255,255,0.45); font-size: 14px; position: relative; z-index: 1;
-    }
-
-    /* ===== URGENCY ===== */
-    .urgency-bar {
-      background: linear-gradient(90deg, #fef3c7 0%, #fef9e7 100%);
-      text-align: center; padding: 11px 20px;
-      border-bottom: 2px solid #fbbf24;
-      box-shadow: 0 2px 10px rgba(251,191,36,0.15);
-    }
-    .urgency-bar span { font-size: 13px; font-weight: 700; color: #92400e; }
-    .urgency-bar .timer {
-      display: inline-block; background: #92400e; color: #fef3c7;
-      padding: 3px 10px; border-radius: 4px; font-weight: 800;
-      font-variant-numeric: tabular-nums; margin-left: 6px; font-size: 13px;
-      letter-spacing: 0.5px;
-    }
-
-    /* ===== MAIN CONTENT ===== */
-    .oto-card {
-      max-width: 660px; margin: 30px auto 0; background: var(--white);
-      border-radius: 16px; overflow: hidden;
-      box-shadow: 0 8px 60px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06);
-    }
-
-    /* ===== EYEBROW + HEADING ===== */
-    .oto-heading { text-align: center; padding: 36px 36px 8px; }
-    .oto-heading .eyebrow {
-      font-size: 15px; font-weight: 800; text-transform: uppercase;
-      letter-spacing: 3px; color: var(--red-bright); margin-bottom: 12px;
-    }
-    .oto-heading h2 {
-      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800;
-      color: var(--navy); margin-bottom: 10px; line-height: 1.25;
-    }
-    .oto-heading p {
-      font-size: 14px; color: var(--gray-400); max-width: 460px;
-      margin: 0 auto; line-height: 1.7;
-    }
-
-    /* ===== ITEM CARDS ===== */
-    .oto-items-wrap { padding: 10px 36px 0; }
-    .oto-item {
-      background: linear-gradient(135deg, var(--cyan-pale) 0%, var(--cyan-bg) 100%);
-      border: 2px solid var(--cyan-mid); border-radius: 12px;
-      padding: 20px 22px; margin: 12px 0; cursor: pointer; transition: all 0.3s;
+    /* ===== CONFIRMATION BANNER ===== */
+    .confirm-banner {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+      padding: 24px 50px; display: flex; align-items: center; gap: 16px;
       position: relative; overflow: hidden;
     }
-    .oto-item::before {
-      content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
-      background: var(--cyan); border-radius: 4px 0 0 4px;
+    .confirm-banner::before {
+      content: ''; position: absolute; top: 0; right: 0; width: 300px; height: 100%;
+      background: linear-gradient(135deg, transparent 50%, rgba(120,228,255,0.05));
     }
-    .oto-item.unchecked {
-      background: var(--gray-50); border-color: var(--gray-200); opacity: 0.5;
+    .confirm-banner .check-icon {
+      width: 40px; height: 40px; border-radius: 50%; background: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: white; flex-shrink: 0;
+      box-shadow: 0 2px 10px rgba(34,197,94,0.3);
     }
-    .oto-item.unchecked::before { background: var(--gray-200); }
-    .oto-item .item-top {
-      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+    .confirm-banner h2 {
+      font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 800;
+      color: var(--white); position: relative; z-index: 1;
     }
-    .oto-item .item-info { flex: 1; }
-    .oto-item h4 {
-      font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 3px;
+    .confirm-banner p {
+      font-size: 12.5px; color: rgba(255,255,255,0.45); position: relative; z-index: 1; margin-top: 2px;
     }
-    .oto-item .item-desc { font-size: 12.5px; color: var(--gray-600); line-height: 1.6; }
-    .oto-item .item-pricing {
-      display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
+
+    /* ===== URGENCY (subtle, inline) ===== */
+    .urgency-strip {
+      background: linear-gradient(90deg, #fef3c7, #fef9e7);
+      padding: 8px 50px; font-size: 12px; font-weight: 700; color: #92400e;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border-bottom: 1px solid #fde68a;
     }
-    .oto-item .item-price {
-      font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 800;
+    .urgency-strip .timer {
+      display: inline-block; background: #92400e; color: #fef3c7;
+      padding: 2px 8px; border-radius: 4px; font-weight: 800;
+      font-variant-numeric: tabular-nums; font-size: 12px;
+    }
+
+    /* ===== BODY ===== */
+    .pg-body { padding: 40px 50px; }
+
+    .sec-title {
+      font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
+      color: var(--navy); margin-bottom: 6px; line-height: 1.15;
+    }
+    .sec-title-accent { width: 50px; height: 3px; background: var(--cyan); margin-bottom: 20px; }
+
+    .eyebrow {
+      font-size: 13px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 2.5px; color: var(--red-bright); margin-bottom: 14px;
+    }
+
+    .oto-subtitle {
+      font-size: 13.5px; color: var(--gray-600); line-height: 1.75; margin-bottom: 24px;
+    }
+
+    /* ===== SECTION LABEL (matches proposal) ===== */
+    .section-label {
+      font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px;
+    }
+    .section-label span { font-weight: 400; color: var(--gray-400); font-size: 12px; margin-left: 6px; }
+    .section-divider { height: 1px; background: var(--gray-100); margin-bottom: 12px; }
+
+    /* ===== UPGRADE CARDS (matches proposal exactly) ===== */
+    .upgrade-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 16px; border: 2px solid var(--gray-100); border-radius: 8px;
+      margin: 8px 0; cursor: pointer; transition: all 0.2s; user-select: none;
+      background: rgba(255,255,255,0.6);
+    }
+    .upgrade-card:hover { border-color: var(--cyan-mid); background: var(--cyan-pale); }
+    .upgrade-card.selected { border-color: var(--cyan-mid); background: var(--cyan-pale); }
+    .upgrade-check {
+      width: 22px; height: 22px; border-radius: 5px; border: 2px solid var(--gray-200);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; margin-top: 1px; font-size: 13px; color: transparent;
+    }
+    .upgrade-card.selected .upgrade-check {
+      background: var(--cyan-mid); border-color: var(--cyan-mid); color: var(--white);
+    }
+    .upgrade-info { flex: 1; }
+    .upgrade-info h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
+    .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
+    .upgrade-right { text-align: right; flex-shrink: 0; margin-top: 1px; }
+    .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; }
+    .upgrade-was { font-size: 11px; color: var(--gray-400); text-decoration: line-through; }
+    .upgrade-save {
+      display: inline-block; background: rgba(224,82,82,0.1); color: var(--red);
+      font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-top: 2px;
+    }
+    .upgrade-per { font-size: 11px; color: var(--gray-400); font-weight: 400; }
+
+    /* ===== TOTAL BAR (matches proposal) ===== */
+    .total-bar {
+      background: linear-gradient(135deg, var(--cyan-bg) 0%, #f0f7fc 100%);
+      border: 2px solid var(--cyan-mid); border-radius: 10px;
+      padding: 16px 20px; margin-top: 20px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .total-bar-left {}
+    .total-bar-label { font-size: 13px; font-weight: 700; color: var(--navy); }
+    .total-bar-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+    .total-bar-amount {
+      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 800;
       color: var(--navy);
     }
-    .oto-item .item-per { font-size: 12px; color: var(--gray-400); font-weight: 500; }
-    .oto-item .item-was { font-size: 13px; color: var(--gray-400); text-decoration: line-through; }
-    .oto-item .item-save {
-      display: inline-block; background: rgba(224,82,82,0.1); color: var(--red);
-      font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
-    }
-    .oto-item .popular-badge {
-      position: absolute; top: -1px; right: 20px;
-      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-      color: var(--cyan); font-size: 9px; font-weight: 800;
-      letter-spacing: 1.5px; text-transform: uppercase; padding: 5px 14px;
-      border-radius: 0 0 8px 8px;
-      box-shadow: 0 2px 8px rgba(10,14,39,0.2);
+    .total-monthly-note {
+      font-size: 11px; color: var(--gray-400); text-align: right; margin-top: 2px;
     }
 
-    /* ===== CUSTOM TOGGLE ===== */
-    .toggle-wrap {
-      flex-shrink: 0; width: 52px; height: 30px; border-radius: 15px;
-      background: linear-gradient(135deg, var(--cyan-dark), var(--cyan-mid));
-      position: relative; transition: all 0.3s; cursor: pointer;
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .toggle-wrap.off { background: var(--gray-200); }
-    .toggle-knob {
-      position: absolute; top: 3px; left: 25px; width: 24px; height: 24px;
-      border-radius: 50%; background: white; transition: left 0.3s;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
-    }
-    .toggle-wrap.off .toggle-knob { left: 3px; }
-
-    /* ===== FOOTER / CTA ===== */
-    .oto-footer {
-      background: linear-gradient(180deg, #f8fafb 0%, var(--white) 100%);
-      border-top: 1px solid var(--gray-100);
-      padding: 24px 36px 28px;
-    }
-    .oto-total-row {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 4px;
-    }
-    .oto-total-label { font-size: 14px; font-weight: 600; color: var(--gray-600); }
-    .oto-total-amount {
-      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; color: var(--navy);
-    }
-    .oto-monthly-note {
-      font-size: 12px; color: var(--gray-400); text-align: right; margin-bottom: 14px;
-    }
+    /* ===== CTA SECTION ===== */
+    .cta-section { padding: 0 50px 10px; }
     .social-proof {
-      text-align: center; font-size: 12px; color: var(--gray-400); margin-bottom: 14px;
+      text-align: center; font-size: 11.5px; color: var(--gray-400); margin: 20px 0 12px;
     }
     .social-proof strong { color: var(--gray-600); }
 
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     @keyframes pulse { 0%,100% { box-shadow: 0 4px 20px rgba(120,228,255,0.35); } 50% { box-shadow: 0 4px 30px rgba(120,228,255,0.6); } }
 
-    .oto-btn {
-      display: block; width: 100%; padding: 20px; border: none; border-radius: 12px;
-      font-size: 17px; font-weight: 800; cursor: pointer; transition: all 0.3s;
-      text-align: center; letter-spacing: 0.5px;
+    .cta-button {
+      display: block; width: 100%; padding: 18px 24px; border: none; border-radius: 10px;
+      font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 800;
+      cursor: pointer; transition: all 0.3s; text-align: center; letter-spacing: 0.3px;
       background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
       background-size: 200% 100%; color: var(--navy);
       box-shadow: 0 4px 20px rgba(120,228,255,0.35);
       animation: pulse 2s ease-in-out infinite;
     }
-    .oto-btn:hover {
+    .cta-button:hover {
       transform: translateY(-2px) scale(1.01);
       box-shadow: 0 8px 35px rgba(120,228,255,0.55), 0 0 20px rgba(120,228,255,0.2);
       animation: shimmer 1.5s ease infinite; letter-spacing: 0.8px;
     }
-    .oto-btn:active { transform: translateY(0) scale(0.99); }
-    .oto-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
-    .oto-btn-sub {
-      display: block; text-align: center; font-size: 11px; color: var(--gray-400); margin-top: 10px;
+    .cta-button:active { transform: translateY(0) scale(0.99); }
+    .cta-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
+    .cta-sub {
+      text-align: center; font-size: 11px; color: var(--gray-400);
+      margin-top: 10px; line-height: 1.6;
     }
 
     .skip-link {
-      display: block; text-align: center; color: var(--gray-400); font-size: 12px;
-      text-decoration: none; padding: 24px 15px 40px; line-height: 1.6;
-      max-width: 660px; margin: 0 auto;
+      display: block; text-align: center; color: var(--gray-400); font-size: 11px;
+      text-decoration: none; padding: 16px 15px 8px; line-height: 1.6;
     }
     .skip-link:hover { color: var(--gray-600); }
 
+    .pg-footer {
+      padding: 14px 50px; border-top: 1px solid rgba(0,0,0,0.06);
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--gray-400); flex-shrink: 0;
+      background: rgba(255,255,255,0.5);
+    }
+
     .error-msg {
       background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
-      padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 14px;
+      padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 12px;
       text-align: center; display: none;
     }
 
-    @media (max-width: 640px) {
-      .oto-hero h1 { font-size: 26px; }
-      .oto-hero { padding: 32px 20px 28px; }
-      .oto-nav { padding: 14px 20px; }
-      .oto-nav .step-pills { display: none; }
-      .oto-card { margin: 16px 12px 0; border-radius: 12px; }
-      .oto-heading { padding: 28px 24px 6px; }
-      .oto-heading .eyebrow { font-size: 13px; letter-spacing: 2px; }
-      .oto-heading h2 { font-size: 24px; }
-      .oto-items-wrap { padding: 8px 20px 0; }
-      .oto-footer { padding: 20px 24px 24px; }
-      .oto-item .item-price { font-size: 22px; }
-      .oto-total-amount { font-size: 28px; }
+    @media (max-width: 760px) {
+      .page { margin: 0; border-radius: 0; box-shadow: none; min-height: 100vh; }
+      .pg-header, .pg-body, .cta-section, .pg-footer { padding-left: 24px; padding-right: 24px; }
+      .confirm-banner { padding: 20px 24px; }
+      .urgency-strip { padding: 8px 24px; }
+      .sec-title { font-size: 26px; }
     }
   </style>
 </head>
 <body>
-  <div class="oto-nav">
-    <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
-    <div class="step-pills">
-      <span class="pill pill-done">\u2713 Proposal</span>
-      <span class="pill-sep">\u203a</span>
-      <span class="pill pill-done">\u2713 Payment</span>
-      <span class="pill-sep">\u203a</span>
-      <span class="pill pill-active">Extras</span>
-      <span class="pill-sep">\u203a</span>
-      <span class="pill pill-todo">Complete</span>
+  <div class="page">
+    <div class="pg-header">
+      <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
+      <div class="pg-header-right">Project #${escapeHtml(projectNumber)}</div>
     </div>
-  </div>
 
-  <div class="oto-hero">
-    <div class="check-circle">\u2713</div>
-    <h1>Payment Confirmed, ${escapeHtml(firstName)}!</h1>
-    <p class="hero-sub">Your installation is locked in. One more thing before we get started\u2026</p>
-  </div>
+    <div class="confirm-banner">
+      <div class="check-icon">\u2713</div>
+      <div>
+        <h2>Payment Confirmed, ${escapeHtml(firstName)}!</h2>
+        <p>Your installation is locked in. One more thing before we get started\u2026</p>
+      </div>
+    </div>
 
-  <div class="urgency-bar">
-    <span>\u26a1 This exclusive pricing expires in <span class="timer" id="countdown">14:59</span></span>
-  </div>
+    <div class="urgency-strip">
+      <span>\u26a1 This exclusive pricing expires in</span>
+      <span class="timer" id="countdown">14:59</span>
+    </div>
 
-  <div class="oto-card">
-    <div class="oto-heading">
+    <div class="pg-body">
       <div class="eyebrow">One-Time Offer \u2014 Included With Your Install</div>
-      <h2>We\u2019ve Pre-Selected the Most Popular Upgrades</h2>
-      <p>Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later. Uncheck anything you don\u2019t want.</p>
+      <div class="sec-title">Protect Your Investment</div>
+      <div class="sec-title-accent"></div>
+      <p class="oto-subtitle">Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later. We\u2019ve pre-selected the most popular upgrades. Uncheck anything you don\u2019t want.</p>
+
+      <div class="section-label">Your Upgrades<span>\u2014 Pre-selected for you</span></div>
+      <div class="section-divider"></div>
+
+      <div id="oto-items"></div>
+
+      <div class="total-bar">
+        <div class="total-bar-left">
+          <div class="total-bar-label">Your Total</div>
+          <div class="total-bar-sub" id="total-sub">Charged to card on file</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="total-bar-amount" id="oto-total">$0</div>
+          <div class="total-monthly-note" id="monthly-note" style="display:none;"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="oto-items-wrap" id="oto-items"></div>
-
-    <div class="oto-footer">
+    <div class="cta-section">
       <div id="error-msg" class="error-msg"></div>
       <div class="social-proof">\u2b50 <strong>87% of customers</strong> keep all upgrades selected</div>
-      <div class="oto-total-row">
-        <span class="oto-total-label">Charged to your card today</span>
-        <span class="oto-total-amount" id="oto-total">$0</span>
-      </div>
-      <div class="oto-monthly-note" id="monthly-note" style="display:none;"></div>
-      <button class="oto-btn" id="cta-btn" onclick="confirmSelection()">Yes, Protect My Investment \u2192</button>
-      <span class="oto-btn-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</span>
+      <button class="cta-button" id="cta-btn" onclick="confirmSelection()">Yes, Protect My Investment \u2192</button>
+      <div class="cta-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</div>
+      <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
+    </div>
+
+    <div class="pg-footer">
+      <span>${new Date().toISOString().split('T')[0]}</span>
+      <span>www.greatwhitesecurity.com</span>
+      <span>Project #${escapeHtml(projectNumber)}</span>
     </div>
   </div>
-
-  <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
 
   <script>
     const PROJECT = '${escapeHtml(projectNumber)}';
@@ -1227,28 +1201,17 @@ exports.showOTO = async (req, res) => {
       container.innerHTML = '';
       items.forEach((it, i) => {
         const on = selected[it.key];
-        const isFirst = i === 0;
         const div = document.createElement('div');
-        div.className = 'oto-item' + (on ? '' : ' unchecked');
-        div.onclick = function(e) {
-          if (e.target.closest('.toggle-wrap')) return;
-          toggleItem(it.key);
-        };
-        let html = '';
-        if (isFirst) html += '<div class="popular-badge">MOST POPULAR</div>';
-        html += '<div class="item-top"><div class="item-info">';
-        html += '<h4>' + it.name + '</h4>';
-        html += '<p class="item-desc">' + it.desc + '</p>';
-        html += '<div class="item-pricing">';
-        html += '<span class="item-price">$' + it.price.toLocaleString() + '</span>';
-        if (it.monthly) html += '<span class="item-per">/ month</span>';
-        if (it.wasPrice > it.price) html += ' <span class="item-was">$' + it.wasPrice.toLocaleString() + '</span>';
-        if (it.saving > 0) html += ' <span class="item-save">SAVE $' + it.saving.toLocaleString() + '</span>';
-        html += '</div></div>';
-        html += '<div class="toggle-wrap' + (on ? '' : ' off') + '" onclick="toggleItem(\\''+it.key+'\\')">';
-        html += '<div class="toggle-knob"></div></div>';
-        html += '</div>';
-        div.innerHTML = html;
+        div.className = 'upgrade-card' + (on ? ' selected' : '');
+        div.onclick = function() { toggleItem(it.key); };
+        let rightHtml = '<div class="upgrade-price">$' + it.price.toLocaleString();
+        if (it.monthly) rightHtml += '<span class="upgrade-per">/mo</span>';
+        rightHtml += '</div>';
+        if (it.wasPrice > it.price) rightHtml += '<div class="upgrade-was">$' + it.wasPrice.toLocaleString() + '</div>';
+        if (it.saving > 0) rightHtml += '<div class="upgrade-save">SAVE $' + it.saving.toLocaleString() + '</div>';
+        div.innerHTML = '<div class="upgrade-check">' + (on ? '\\u2713' : '') + '</div>'
+          + '<div class="upgrade-info"><h4>' + it.name + '</h4><p>' + it.desc + '</p></div>'
+          + '<div class="upgrade-right">' + rightHtml + '</div>';
         container.appendChild(div);
       });
       updateTotal();
@@ -1270,7 +1233,7 @@ exports.showOTO = async (req, res) => {
       const note = document.getElementById('monthly-note');
       if (monthly > 0) {
         note.style.display = 'block';
-        note.textContent = '+ $' + monthly.toLocaleString() + '/month for Care Plan';
+        note.textContent = '+ $' + monthly.toLocaleString() + '/mo Care Plan';
       } else {
         note.style.display = 'none';
       }
