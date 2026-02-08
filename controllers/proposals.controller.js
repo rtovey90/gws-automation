@@ -432,9 +432,9 @@ exports.showProposal = async (req, res) => {
 
   /* ===== CTA ===== */
   .cta-section {
-    text-align: center; padding: 30px 50px 20px;
+    text-align: center; padding: 18px 50px 16px;
     background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
-    margin-top: auto;
+    margin-top: 10px;
   }
   .cta-steps { display: flex; gap: 18px; justify-content: center; margin: 25px 0; }
   .cta-step { flex: 1; max-width: 180px; text-align: center; }
@@ -446,7 +446,7 @@ exports.showProposal = async (req, res) => {
   .cta-step h4 { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
   .cta-step p { font-size: 11px; color: var(--gray-400); line-height: 1.5; }
   .cta-button {
-    display: block; width: 100%; margin-top: 25px;
+    display: block; width: 100%; margin-top: 0;
     background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 100%);
     color: var(--navy); font-weight: 800; font-size: 15px;
     padding: 16px 45px; border-radius: 10px; text-decoration: none; letter-spacing: 0.3px;
