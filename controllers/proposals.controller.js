@@ -888,225 +888,355 @@ exports.showOTO = async (req, res) => {
       return res.redirect(`/offers/${projectNumber}/thank-you`);
     }
 
+    const bundleSaving = (alarmPrice + upsPrice) > bundlePrice ? (alarmPrice + upsPrice) - bundlePrice : 0;
+    const bundleWas = alarmPrice + upsPrice;
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Exclusive Offers - Great White Security</title>
+  <title>Exclusive Offer - Great White Security</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
       --navy: #0a0e27; --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
-      --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
-      --white: #ffffff; --gray-100: #e8ecf2; --gray-200: #d4d9e3;
-      --gray-400: #8b90a0; --gray-600: #4a4f63; --gray-800: #1e2235;
-      --green: #22c55e; --red: #e05252;
+      --cyan-pale: #edf9ff; --white: #ffffff; --gray-100: #e8ecf2;
+      --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63; --gray-800: #1e2235;
+      --green: #22c55e; --red: #e05252; --orange: #f59e0b;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', sans-serif; color: var(--gray-800);
-      background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 60%, #f0f6fc 100%);
-      min-height: 100vh; line-height: 1.6; -webkit-font-smoothing: antialiased;
+      background: #f5f7fa; min-height: 100vh; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .oto-wrapper {
-      max-width: 660px; margin: 0 auto; padding: 0 20px;
-    }
-
-    /* Header bar */
     .oto-nav {
-      background: var(--navy); padding: 16px 40px;
+      background: var(--navy); padding: 14px 40px;
       display: flex; justify-content: space-between; align-items: center;
     }
-    .oto-nav img { height: 32px; }
-    .oto-nav span { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
+    .oto-nav img { height: 30px; }
+    .oto-nav .step-pills {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .oto-nav .pill {
+      font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .pill-done { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .pill-active { background: var(--cyan-dark); color: var(--navy); }
+    .pill-todo { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
 
-    /* Confirmation banner */
-    .oto-confirm {
-      background: var(--white); text-align: center; padding: 32px 40px 28px;
-      border-bottom: 3px solid var(--cyan-mid);
+    /* Hero confirmation */
+    .oto-hero {
+      background: linear-gradient(135deg, var(--navy) 0%, #0f1a3a 100%);
+      text-align: center; padding: 36px 30px 30px; position: relative; overflow: hidden;
     }
-    .oto-confirm .badge {
-      display: inline-block; background: rgba(34,197,94,0.12); color: #16a34a;
-      font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px;
-      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px;
+    .oto-hero::before {
+      content: ''; position: absolute; top: -50%; right: -20%; width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(120,228,255,0.08) 0%, transparent 70%);
     }
-    .oto-confirm h1 {
-      font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
-      color: var(--navy); margin-bottom: 6px;
+    .oto-hero .check-circle {
+      width: 52px; height: 52px; border-radius: 50%; background: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px; font-size: 24px; color: white;
     }
-    .oto-confirm p { color: var(--gray-400); font-size: 14px; max-width: 420px; margin: 0 auto; }
+    .oto-hero h1 {
+      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800;
+      color: var(--white); margin-bottom: 6px;
+    }
+    .oto-hero p { color: rgba(255,255,255,0.5); font-size: 14px; }
 
-    /* Section title */
-    .oto-section-title {
-      text-align: center; padding: 28px 20px 20px;
+    /* Urgency bar */
+    .urgency-bar {
+      background: linear-gradient(90deg, #fef3c7 0%, #fff7e0 100%);
+      text-align: center; padding: 10px 20px;
+      border-bottom: 2px solid #fbbf24;
     }
-    .oto-section-title h2 {
+    .urgency-bar span {
+      font-size: 13px; font-weight: 700; color: #92400e;
+    }
+    .urgency-bar .timer {
+      display: inline-block; background: #92400e; color: #fef3c7;
+      padding: 2px 8px; border-radius: 4px; font-weight: 800;
+      font-variant-numeric: tabular-nums; margin-left: 6px; font-size: 13px;
+    }
+
+    .oto-wrapper { max-width: 640px; margin: 0 auto; padding: 0 20px; }
+
+    /* One-time offer heading */
+    .oto-heading {
+      text-align: center; padding: 28px 20px 10px;
+    }
+    .oto-heading .eyebrow {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--red); margin-bottom: 8px;
+    }
+    .oto-heading h2 {
+      font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 800;
+      color: var(--navy); margin-bottom: 6px; line-height: 1.3;
+    }
+    .oto-heading p { font-size: 14px; color: var(--gray-400); max-width: 440px; margin: 0 auto; }
+
+    /* BUNDLE HERO CARD */
+    .bundle-card {
+      background: var(--white); border: 3px solid var(--cyan-mid); border-radius: 16px;
+      margin: 20px 0; overflow: hidden;
+      box-shadow: 0 8px 40px rgba(120,228,255,0.15), 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .bundle-ribbon {
+      background: var(--navy); color: var(--cyan); text-align: center;
+      padding: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    }
+    .bundle-body { padding: 28px 30px; }
+    .bundle-body h3 {
       font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 800;
-      color: var(--navy); margin-bottom: 4px;
+      color: var(--navy); margin-bottom: 8px;
     }
-    .oto-section-title p { font-size: 13px; color: var(--gray-400); }
+    .bundle-body .desc { font-size: 14px; color: var(--gray-600); margin-bottom: 18px; line-height: 1.7; }
 
-    /* OTO Cards */
-    .oto-card {
-      background: var(--white); border: 2px solid var(--gray-100); border-radius: 12px;
-      padding: 28px 30px; margin-bottom: 16px; transition: all 0.3s;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    .value-stack {
+      background: #f8fafb; border-radius: 10px; padding: 16px 20px; margin-bottom: 18px;
     }
-    .oto-card:hover { border-color: var(--cyan-mid); box-shadow: 0 4px 24px rgba(120,228,255,0.15); transform: translateY(-2px); }
-    .oto-card.featured {
-      border-color: var(--cyan-mid); background: linear-gradient(135deg, var(--white) 0%, var(--cyan-pale) 100%);
-      position: relative;
+    .value-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid var(--gray-100);
     }
-    .oto-card.featured::before {
-      content: 'BEST VALUE'; position: absolute; top: -10px; right: 20px;
-      background: var(--navy); color: var(--cyan); font-size: 10px; font-weight: 800;
-      padding: 3px 12px; border-radius: 4px; letter-spacing: 1px;
+    .value-row:last-child { border-bottom: none; }
+    .value-row .item { font-size: 13.5px; color: var(--gray-800); font-weight: 600; }
+    .value-row .item-val {
+      font-size: 13.5px; color: var(--gray-400); text-decoration: line-through;
     }
-    .oto-card h3 {
-      font-size: 17px; font-weight: 800; color: var(--navy); margin-bottom: 6px;
+    .value-total {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0 0; margin-top: 4px; border-top: 2px solid var(--navy);
     }
-    .oto-card .desc { color: var(--gray-400); font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+    .value-total .item { font-size: 14px; font-weight: 800; color: var(--navy); }
+    .value-total .item-val { font-size: 14px; font-weight: 800; color: var(--gray-400); text-decoration: line-through; }
 
-    .oto-pricing {
-      display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px;
+    .bundle-price-row {
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      margin: 18px 0 8px; text-align: center;
     }
-    .oto-pricing .price {
-      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800; color: var(--navy);
+    .bundle-price-row .your-price-label {
+      font-size: 12px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .oto-pricing .was {
-      font-size: 16px; color: var(--gray-400); text-decoration: line-through;
+    .bundle-price-row .big-price {
+      font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 900;
+      color: var(--navy); line-height: 1;
     }
-    .oto-pricing .save-tag {
-      background: rgba(224,82,82,0.1); color: var(--red);
-      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+    .bundle-price-row .save-badge {
+      background: var(--red); color: white; font-size: 12px; font-weight: 800;
+      padding: 5px 14px; border-radius: 20px; white-space: nowrap;
     }
-
-    .oto-features {
-      list-style: none; margin-bottom: 18px; columns: 2; column-gap: 16px;
+    .social-proof {
+      text-align: center; font-size: 12px; color: var(--gray-400); margin-bottom: 16px;
     }
-    .oto-features li {
-      padding: 4px 0; font-size: 12.5px; color: var(--gray-600); break-inside: avoid;
-    }
-    .oto-features li::before {
-      content: '\\2713'; color: var(--green); font-weight: 700; margin-right: 8px;
-    }
+    .social-proof strong { color: var(--gray-600); }
 
     @keyframes shimmer {
       0% { background-position: -200% center; }
       100% { background-position: 200% center; }
     }
+    @keyframes pulse { 0%,100% { box-shadow: 0 4px 20px rgba(120,228,255,0.35); } 50% { box-shadow: 0 4px 30px rgba(120,228,255,0.6); } }
     .oto-btn {
-      display: block; width: 100%; padding: 14px; border: none; border-radius: 10px;
-      font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.3s;
-      text-align: center; text-decoration: none; letter-spacing: 0.3px;
+      display: block; width: 100%; padding: 18px; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.3s;
+      text-align: center; text-decoration: none; letter-spacing: 0.5px;
       background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
-      background-size: 200% 100%;
-      color: var(--navy);
-      box-shadow: 0 3px 15px rgba(120,228,255,0.3);
+      background-size: 200% 100%; color: var(--navy);
+      box-shadow: 0 4px 20px rgba(120,228,255,0.35);
+      animation: pulse 2s ease-in-out infinite;
     }
     .oto-btn:hover {
-      transform: translateY(-1px); box-shadow: 0 6px 25px rgba(120,228,255,0.45);
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 8px 35px rgba(120,228,255,0.55);
       animation: shimmer 1.5s ease infinite;
     }
+    .oto-btn:active { transform: translateY(0) scale(0.99); }
     .oto-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
+    .oto-btn-sub {
+      display: block; text-align: center; font-size: 11px; color: var(--gray-400);
+      margin-top: 8px;
+    }
 
+    /* Smaller individual cards */
+    .oto-singles { display: flex; gap: 14px; margin: 24px 0; }
+    .oto-single {
+      flex: 1; background: var(--white); border: 2px solid var(--gray-100); border-radius: 12px;
+      padding: 22px 20px; transition: all 0.3s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .oto-single:hover { border-color: var(--cyan-mid); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(120,228,255,0.12); }
+    .oto-single h4 { font-size: 14px; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+    .oto-single .s-desc { font-size: 12px; color: var(--gray-400); margin-bottom: 12px; line-height: 1.5; }
+    .oto-single .s-pricing { margin-bottom: 14px; }
+    .oto-single .s-price { font-family: 'Playfair Display',serif; font-size: 22px; font-weight: 800; color: var(--navy); }
+    .oto-single .s-was { font-size: 13px; color: var(--gray-400); text-decoration: line-through; margin-left: 6px; }
+    .oto-single .s-save { display: inline-block; background: rgba(224,82,82,0.1); color: var(--red); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
+    .oto-btn-sm {
+      display: block; width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+      background: linear-gradient(135deg, var(--cyan-dark), var(--cyan-mid));
+      color: var(--navy); text-align: center;
+    }
+    .oto-btn-sm:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(120,228,255,0.3); }
+    .oto-btn-sm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Care plan section */
+    .care-section {
+      background: var(--white); border: 2px solid var(--gray-100); border-radius: 12px;
+      padding: 24px 28px; margin: 24px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .care-section h4 { font-size: 15px; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
+    .care-section .care-desc { font-size: 13px; color: var(--gray-400); margin-bottom: 14px; }
+    .care-features { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-bottom: 16px; }
+    .care-features li { font-size: 12px; color: var(--gray-600); padding: 2px 0; }
+    .care-features li::before { content: '\\2713'; color: var(--green); font-weight: 700; margin-right: 6px; }
+    .care-price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 14px; }
+    .care-price-row .care-amt { font-family: 'Playfair Display',serif; font-size: 26px; font-weight: 800; color: var(--navy); }
+    .care-price-row .care-per { font-size: 13px; color: var(--gray-400); }
+
+    /* Skip/decline */
     .skip-link {
-      display: block; text-align: center; color: var(--gray-400);
-      font-size: 13px; text-decoration: none; padding: 24px 15px 40px;
+      display: block; text-align: center; color: var(--gray-400); font-size: 12px;
+      text-decoration: none; padding: 20px 15px 40px; line-height: 1.6;
     }
     .skip-link:hover { color: var(--gray-600); }
 
     @media (max-width: 600px) {
-      .oto-confirm h1 { font-size: 24px; }
-      .oto-card { padding: 22px; }
-      .oto-features { columns: 1; }
-      .oto-nav { padding: 14px 20px; }
+      .oto-hero h1 { font-size: 24px; }
+      .bundle-body { padding: 22px 20px; }
+      .bundle-price-row .big-price { font-size: 34px; }
+      .oto-singles { flex-direction: column; }
+      .oto-nav { padding: 12px 20px; }
+      .oto-nav .step-pills { display: none; }
+      .care-features { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="oto-nav">
     <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
-    <span>Project #${escapeHtml(projectNumber)}</span>
+    <div class="step-pills">
+      <span class="pill pill-done">\u2713 Proposal</span>
+      <span class="pill pill-done">\u2713 Payment</span>
+      <span class="pill pill-active">Extras</span>
+      <span class="pill pill-todo">Complete</span>
+    </div>
   </div>
 
-  <div class="oto-confirm">
-    <div class="badge">\u2713 Payment Confirmed</div>
-    <h1>Thank You, ${escapeHtml(firstName)}!</h1>
-    <p>Your security system is confirmed and being prepared. Before you go, we have some exclusive add-ons just for you.</p>
+  <div class="oto-hero">
+    <div class="check-circle">\u2713</div>
+    <h1>Payment Confirmed, ${escapeHtml(firstName)}!</h1>
+    <p>Your installation is locked in. One more thing before we get started\u2026</p>
+  </div>
+
+  <div class="urgency-bar">
+    <span>\u26a1 This exclusive pricing expires in <span class="timer" id="countdown">14:59</span></span>
   </div>
 
   <div class="oto-wrapper">
-    <div class="oto-section-title">
-      <h2>Enhance Your Protection</h2>
-      <p>These offers are only available right now at these prices.</p>
+    <div class="oto-heading">
+      <div class="eyebrow">One-Time Offer</div>
+      <h2>Maximise Your System\u2019s Protection</h2>
+      <p>Most of our customers add these upgrades during installation \u2014 it\u2019s significantly cheaper than adding them later.</p>
     </div>
 
     ${hasBundle ? `
-    <div class="oto-card featured">
-      <h3>Complete Protection Bundle</h3>
-      <p class="desc">Get everything in one package at a special bundled price \u2014 alarm monitoring, UPS battery backup, and our care plan all included.</p>
-      <div class="oto-pricing">
-        <span class="price">${formatCurrency(bundlePrice)}</span>
-        ${(alarmPrice + upsPrice) > bundlePrice ? `<span class="was">${formatCurrency(alarmPrice + upsPrice)}</span><span class="save-tag">SAVE ${formatCurrency((alarmPrice + upsPrice) - bundlePrice)}</span>` : ''}
+    <div class="bundle-card">
+      <div class="bundle-ribbon">\u2b50 Recommended \u2014 Most Popular Choice</div>
+      <div class="bundle-body">
+        <h3>Complete Protection Bundle</h3>
+        <p class="desc">Everything your system needs for total peace of mind. Alarm monitoring, power protection, and ongoing care \u2014 sorted in one go.</p>
+
+        <div class="value-stack">
+          ${hasAlarm ? `<div class="value-row"><span class="item">\u2713 24/7 Alarm Monitoring</span><span class="item-val">${formatCurrency(alarmPrice)}</span></div>` : ''}
+          ${hasUps ? `<div class="value-row"><span class="item">\u2713 UPS Battery Backup</span><span class="item-val">${formatCurrency(upsPrice)}</span></div>` : ''}
+          <div class="value-row"><span class="item">\u2713 Priority Support &amp; Maintenance</span><span class="item-val">Included</span></div>
+          <div class="value-total"><span class="item">Total Value</span><span class="item-val">${formatCurrency(bundleWas)}</span></div>
+        </div>
+
+        <div class="bundle-price-row">
+          <div>
+            <div class="your-price-label">Your Price Today</div>
+            <div class="big-price">${formatCurrency(bundlePrice)}</div>
+          </div>
+          ${bundleSaving > 0 ? `<span class="save-badge">SAVE ${formatCurrency(bundleSaving)}</span>` : ''}
+        </div>
+        <div class="social-proof">\u2b50 <strong>87% of customers</strong> choose this option</div>
+        <button class="oto-btn" onclick="purchaseOTO('bundle', ${bundlePrice})">Yes! Add the Bundle to My Order \u2192</button>
+        <span class="oto-btn-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</span>
       </div>
-      <ul class="oto-features">
-        <li>24/7 Alarm Monitoring Station</li>
-        <li>UPS Battery Backup System</li>
-        <li>Priority support &amp; maintenance</li>
-        <li>Annual system health check</li>
-      </ul>
-      <button class="oto-btn" onclick="purchaseOTO('bundle', ${bundlePrice})">Add Bundle to My Order \u2192</button>
     </div>
     ` : ''}
 
-    ${hasAlarm ? `
-    <div class="oto-card">
-      <h3>24/7 Alarm Monitoring</h3>
-      <p class="desc">Professional monitoring station watches your property around the clock. Instant emergency dispatch when triggered.</p>
-      <div class="oto-pricing">
-        <span class="price">${formatCurrency(alarmPrice)}</span>
-        ${alarmWasPrice > alarmPrice ? `<span class="was">${formatCurrency(alarmWasPrice)}</span><span class="save-tag">SAVE ${formatCurrency(alarmWasPrice - alarmPrice)}</span>` : ''}
-      </div>
-      <button class="oto-btn" onclick="purchaseOTO('alarm', ${alarmPrice})">Add Alarm Monitoring \u2192</button>
-    </div>
+    ${(hasAlarm || hasUps) && !hasBundle ? '' : (hasAlarm || hasUps) ? `
+    <p style="text-align:center;font-size:12px;color:var(--gray-400);margin:20px 0 8px;">Or add individually:</p>
     ` : ''}
 
-    ${hasUps ? `
-    <div class="oto-card">
-      <h3>UPS Battery Backup</h3>
-      <p class="desc">Keep your security system running during power outages. Protects NVR and cameras for hours of uninterrupted recording.</p>
-      <div class="oto-pricing">
-        <span class="price">${formatCurrency(upsPrice)}</span>
-        ${upsWasPrice > upsPrice ? `<span class="was">${formatCurrency(upsWasPrice)}</span><span class="save-tag">SAVE ${formatCurrency(upsWasPrice - upsPrice)}</span>` : ''}
+    ${(hasAlarm || hasUps) ? `
+    <div class="oto-singles">
+      ${hasAlarm ? `
+      <div class="oto-single">
+        <h4>24/7 Alarm Monitoring</h4>
+        <p class="s-desc">Professional monitoring station with instant emergency dispatch.</p>
+        <div class="s-pricing">
+          <span class="s-price">${formatCurrency(alarmPrice)}</span>
+          ${alarmWasPrice > alarmPrice ? `<span class="s-was">${formatCurrency(alarmWasPrice)}</span><span class="s-save">SAVE ${formatCurrency(alarmWasPrice - alarmPrice)}</span>` : ''}
+        </div>
+        <button class="oto-btn-sm" onclick="purchaseOTO('alarm', ${alarmPrice})">Add Monitoring \u2192</button>
       </div>
-      <button class="oto-btn" onclick="purchaseOTO('ups', ${upsPrice})">Add UPS Backup \u2192</button>
+      ` : ''}
+      ${hasUps ? `
+      <div class="oto-single">
+        <h4>UPS Battery Backup</h4>
+        <p class="s-desc">Keeps your system recording during power outages for hours.</p>
+        <div class="s-pricing">
+          <span class="s-price">${formatCurrency(upsPrice)}</span>
+          ${upsWasPrice > upsPrice ? `<span class="s-was">${formatCurrency(upsWasPrice)}</span><span class="s-save">SAVE ${formatCurrency(upsWasPrice - upsPrice)}</span>` : ''}
+        </div>
+        <button class="oto-btn-sm" onclick="purchaseOTO('ups', ${upsPrice})">Add UPS Backup \u2192</button>
+      </div>
+      ` : ''}
     </div>
     ` : ''}
 
     ${hasCare ? `
-    <div class="oto-card">
-      <h3>GWS Care Plan</h3>
-      <p class="desc">Ongoing maintenance, priority support, and an annual system health check. Complete peace of mind.</p>
-      <div class="oto-pricing">
-        <span class="price">${formatCurrency(carePrice)}<span style="font-family:'DM Sans';font-size:14px;font-weight:600;color:var(--gray-400);">/mo</span></span>
-      </div>
-      <ul class="oto-features">
+    <div class="care-section">
+      <h4>GWS Care Plan</h4>
+      <p class="care-desc">Keep your system in peak condition with ongoing maintenance and priority support.</p>
+      <ul class="care-features">
         <li>Priority phone &amp; text support</li>
         <li>Annual on-site health check</li>
         <li>Firmware updates &amp; optimisation</li>
         <li>15% off additional equipment</li>
       </ul>
-      <button class="oto-btn" onclick="purchaseOTO('care', ${carePrice})">Start Care Plan \u2192</button>
+      <div class="care-price-row">
+        <span class="care-amt">${formatCurrency(carePrice)}</span>
+        <span class="care-per">/ month</span>
+      </div>
+      <button class="oto-btn-sm" onclick="purchaseOTO('care', ${carePrice})">Start Care Plan \u2192</button>
     </div>
     ` : ''}
 
-    <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I'm all set \u2192</a>
+    <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
   </div>
 
   <script>
+    // Countdown timer
+    let timeLeft = 15 * 60;
+    const timerEl = document.getElementById('countdown');
+    setInterval(() => {
+      if (timeLeft <= 0) return;
+      timeLeft--;
+      const m = Math.floor(timeLeft / 60);
+      const s = timeLeft % 60;
+      timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+
     function purchaseOTO(type, amount) {
       const btn = event.target;
       btn.disabled = true;
