@@ -435,7 +435,6 @@ exports.showProposal = async (req, res) => {
     text-align: center; padding: 30px 40px 20px;
     background: linear-gradient(180deg, #e6f0f9 0%, #f0f6fc 100%);
   }
-  .pg-body:has(+ .cta-section) { padding-bottom: 10px; }
   .cta-section {
     text-align: center; padding: 8px 50px 14px;
     background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
@@ -614,9 +613,7 @@ ${sitePhotoPages}
       <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
     </div>
   </div>
-  <div class="pg-body">
-    <div class="sec-title">Your Investment</div>
-    <div class="sec-title-accent"></div>
+  <div class="pg-body" style="padding-bottom:8px;">
     ${hasMultiplePackages ? `
     <div style="margin-bottom:6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
       <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">
