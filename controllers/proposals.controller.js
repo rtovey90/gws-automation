@@ -521,7 +521,7 @@ exports.showProposal = async (req, res) => {
     <div class="cred-row">
       <div class="cred-item"><img src="/proposal-assets/wa-police-badge.png" alt="WA Police Licensed"><div class="cred-label">WA Police Licensed #79960</div></div>
       <div class="cred-item"><img src="/proposal-assets/google-reviews.png" alt="Google Reviews 4.6 Stars"></div>
-      <div class="cred-item"><img src="/proposal-assets/acma-logo.jpeg" alt="ACMA Registered"></div>
+      <div class="cred-item"><img src="/proposal-assets/acma-logo.png" alt="ACMA Registered"></div>
     </div>
   </div>
   ${pgFooter}
