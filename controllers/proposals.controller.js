@@ -893,188 +893,205 @@ exports.showOTO = async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Special Offers - Great White Security</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <title>Exclusive Offers - Great White Security</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --navy: #0a0e27; --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
+      --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
+      --white: #ffffff; --gray-100: #e8ecf2; --gray-200: #d4d9e3;
+      --gray-400: #8b90a0; --gray-600: #4a4f63; --gray-800: #1e2235;
+      --green: #22c55e; --red: #e05252;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'DM Sans', -apple-system, sans-serif;
-      background: linear-gradient(180deg, #0e1231 0%, #1a237e 50%, #0e1231 100%);
-      min-height: 100vh;
-      color: white;
+      font-family: 'DM Sans', sans-serif; color: var(--gray-800);
+      background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 60%, #f0f6fc 100%);
+      min-height: 100vh; line-height: 1.6; -webkit-font-smoothing: antialiased;
     }
-    .oto-container {
-      max-width: 700px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-    .oto-header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-    .oto-header img { max-width: 200px; margin-bottom: 20px; }
-    .oto-header .congrats {
-      font-size: 14px;
-      color: #00bcd4;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-    .oto-header h1 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 36px;
-      font-weight: 900;
-      margin-bottom: 10px;
-    }
-    .oto-header p { color: rgba(255,255,255,0.7); font-size: 16px; }
 
-    .oto-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 35px;
-      margin-bottom: 24px;
-      backdrop-filter: blur(10px);
-      transition: all 0.3s;
+    .oto-wrapper {
+      max-width: 660px; margin: 0 auto; padding: 0 20px;
     }
-    .oto-card:hover { border-color: #00bcd4; transform: translateY(-2px); }
-    .oto-card.bundle {
-      background: linear-gradient(135deg, rgba(0,188,212,0.15), rgba(0,188,212,0.05));
-      border-color: #00bcd4;
+
+    /* Header bar */
+    .oto-nav {
+      background: var(--navy); padding: 16px 40px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .oto-nav img { height: 32px; }
+    .oto-nav span { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
+
+    /* Confirmation banner */
+    .oto-confirm {
+      background: var(--white); text-align: center; padding: 32px 40px 28px;
+      border-bottom: 3px solid var(--cyan-mid);
+    }
+    .oto-confirm .badge {
+      display: inline-block; background: rgba(34,197,94,0.12); color: #16a34a;
+      font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px;
+      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px;
+    }
+    .oto-confirm h1 {
+      font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
+      color: var(--navy); margin-bottom: 6px;
+    }
+    .oto-confirm p { color: var(--gray-400); font-size: 14px; max-width: 420px; margin: 0 auto; }
+
+    /* Section title */
+    .oto-section-title {
+      text-align: center; padding: 28px 20px 20px;
+    }
+    .oto-section-title h2 {
+      font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 800;
+      color: var(--navy); margin-bottom: 4px;
+    }
+    .oto-section-title p { font-size: 13px; color: var(--gray-400); }
+
+    /* OTO Cards */
+    .oto-card {
+      background: var(--white); border: 2px solid var(--gray-100); border-radius: 12px;
+      padding: 28px 30px; margin-bottom: 16px; transition: all 0.3s;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .oto-card:hover { border-color: var(--cyan-mid); box-shadow: 0 4px 24px rgba(120,228,255,0.15); transform: translateY(-2px); }
+    .oto-card.featured {
+      border-color: var(--cyan-mid); background: linear-gradient(135deg, var(--white) 0%, var(--cyan-pale) 100%);
+      position: relative;
+    }
+    .oto-card.featured::before {
+      content: 'BEST VALUE'; position: absolute; top: -10px; right: 20px;
+      background: var(--navy); color: var(--cyan); font-size: 10px; font-weight: 800;
+      padding: 3px 12px; border-radius: 4px; letter-spacing: 1px;
     }
     .oto-card h3 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 22px;
-      margin-bottom: 10px;
+      font-size: 17px; font-weight: 800; color: var(--navy); margin-bottom: 6px;
     }
-    .oto-card p { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 15px; }
-    .oto-card .pricing {
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      margin-bottom: 20px;
+    .oto-card .desc { color: var(--gray-400); font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+
+    .oto-pricing {
+      display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px;
     }
-    .oto-card .current-price { font-size: 32px; font-weight: 800; color: #00bcd4; }
-    .oto-card .was-price { font-size: 18px; color: rgba(255,255,255,0.4); text-decoration: line-through; }
-    .oto-card .save-badge {
-      background: #ff5252;
-      color: white;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
+    .oto-pricing .price {
+      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800; color: var(--navy);
     }
-    .oto-btn {
-      display: block;
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-align: center;
-      text-decoration: none;
+    .oto-pricing .was {
+      font-size: 16px; color: var(--gray-400); text-decoration: line-through;
     }
-    .oto-btn-primary {
-      background: #00bcd4;
-      color: white;
+    .oto-pricing .save-tag {
+      background: rgba(224,82,82,0.1); color: var(--red);
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
     }
-    .oto-btn-primary:hover { background: #00a5bb; transform: translateY(-1px); }
-    .oto-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .oto-features {
-      list-style: none;
-      margin-bottom: 20px;
+      list-style: none; margin-bottom: 18px; columns: 2; column-gap: 16px;
     }
     .oto-features li {
-      padding: 6px 0;
-      font-size: 14px;
-      color: rgba(255,255,255,0.8);
+      padding: 4px 0; font-size: 12.5px; color: var(--gray-600); break-inside: avoid;
     }
     .oto-features li::before {
-      content: '\\2713';
-      color: #00bcd4;
-      font-weight: 700;
-      margin-right: 10px;
+      content: '\\2713'; color: var(--green); font-weight: 700; margin-right: 8px;
     }
+
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    .oto-btn {
+      display: block; width: 100%; padding: 14px; border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.3s;
+      text-align: center; text-decoration: none; letter-spacing: 0.3px;
+      background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
+      background-size: 200% 100%;
+      color: var(--navy);
+      box-shadow: 0 3px 15px rgba(120,228,255,0.3);
+    }
+    .oto-btn:hover {
+      transform: translateY(-1px); box-shadow: 0 6px 25px rgba(120,228,255,0.45);
+      animation: shimmer 1.5s ease infinite;
+    }
+    .oto-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
 
     .skip-link {
-      display: block;
-      text-align: center;
-      color: rgba(255,255,255,0.4);
-      font-size: 14px;
-      text-decoration: none;
-      margin-top: 30px;
-      padding: 15px;
+      display: block; text-align: center; color: var(--gray-400);
+      font-size: 13px; text-decoration: none; padding: 24px 15px 40px;
     }
-    .skip-link:hover { color: rgba(255,255,255,0.6); }
+    .skip-link:hover { color: var(--gray-600); }
 
     @media (max-width: 600px) {
-      .oto-container { padding: 20px 15px; }
-      .oto-header h1 { font-size: 28px; }
-      .oto-card { padding: 25px; }
+      .oto-confirm h1 { font-size: 24px; }
+      .oto-card { padding: 22px; }
+      .oto-features { columns: 1; }
+      .oto-nav { padding: 14px 20px; }
     }
   </style>
 </head>
 <body>
-  <div class="oto-container">
-    <div class="oto-header">
-      <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
-      <div class="congrats">Payment Confirmed</div>
-      <h1>Thank You, ${escapeHtml(firstName)}!</h1>
-      <p>Your security system is being prepared. Before you go, we have some exclusive offers just for you.</p>
+  <div class="oto-nav">
+    <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
+    <span>Project #${escapeHtml(projectNumber)}</span>
+  </div>
+
+  <div class="oto-confirm">
+    <div class="badge">\u2713 Payment Confirmed</div>
+    <h1>Thank You, ${escapeHtml(firstName)}!</h1>
+    <p>Your security system is confirmed and being prepared. Before you go, we have some exclusive add-ons just for you.</p>
+  </div>
+
+  <div class="oto-wrapper">
+    <div class="oto-section-title">
+      <h2>Enhance Your Protection</h2>
+      <p>These offers are only available right now at these prices.</p>
     </div>
 
     ${hasBundle ? `
-    <div class="oto-card bundle">
+    <div class="oto-card featured">
       <h3>Complete Protection Bundle</h3>
-      <p>Get everything below in one package at a special bundled price. Alarm monitoring, UPS battery backup, and our care plan — all included.</p>
-      <div class="pricing">
-        <span class="current-price">${formatCurrency(bundlePrice)}</span>
-        ${(alarmPrice + upsPrice) > bundlePrice ? `<span class="was-price">${formatCurrency(alarmPrice + upsPrice)}</span><span class="save-badge">SAVE ${formatCurrency((alarmPrice + upsPrice) - bundlePrice)}</span>` : ''}
+      <p class="desc">Get everything in one package at a special bundled price \u2014 alarm monitoring, UPS battery backup, and our care plan all included.</p>
+      <div class="oto-pricing">
+        <span class="price">${formatCurrency(bundlePrice)}</span>
+        ${(alarmPrice + upsPrice) > bundlePrice ? `<span class="was">${formatCurrency(alarmPrice + upsPrice)}</span><span class="save-tag">SAVE ${formatCurrency((alarmPrice + upsPrice) - bundlePrice)}</span>` : ''}
       </div>
       <ul class="oto-features">
         <li>24/7 Alarm Monitoring Station</li>
         <li>UPS Battery Backup System</li>
         <li>Priority support &amp; maintenance</li>
+        <li>Annual system health check</li>
       </ul>
-      <button class="oto-btn oto-btn-primary" onclick="purchaseOTO('bundle', ${bundlePrice})">Add Bundle to My Order</button>
+      <button class="oto-btn" onclick="purchaseOTO('bundle', ${bundlePrice})">Add Bundle to My Order \u2192</button>
     </div>
     ` : ''}
 
     ${hasAlarm ? `
     <div class="oto-card">
       <h3>24/7 Alarm Monitoring</h3>
-      <p>Professional monitoring station watches your property around the clock. Instant dispatch when triggered.</p>
-      <div class="pricing">
-        <span class="current-price">${formatCurrency(alarmPrice)}</span>
-        ${alarmWasPrice > alarmPrice ? `<span class="was-price">${formatCurrency(alarmWasPrice)}</span><span class="save-badge">SAVE ${formatCurrency(alarmWasPrice - alarmPrice)}</span>` : ''}
+      <p class="desc">Professional monitoring station watches your property around the clock. Instant emergency dispatch when triggered.</p>
+      <div class="oto-pricing">
+        <span class="price">${formatCurrency(alarmPrice)}</span>
+        ${alarmWasPrice > alarmPrice ? `<span class="was">${formatCurrency(alarmWasPrice)}</span><span class="save-tag">SAVE ${formatCurrency(alarmWasPrice - alarmPrice)}</span>` : ''}
       </div>
-      <button class="oto-btn oto-btn-primary" onclick="purchaseOTO('alarm', ${alarmPrice})">Add Alarm Monitoring</button>
+      <button class="oto-btn" onclick="purchaseOTO('alarm', ${alarmPrice})">Add Alarm Monitoring \u2192</button>
     </div>
     ` : ''}
 
     ${hasUps ? `
     <div class="oto-card">
       <h3>UPS Battery Backup</h3>
-      <p>Keep your security system running during power outages. Protects NVR and cameras for hours.</p>
-      <div class="pricing">
-        <span class="current-price">${formatCurrency(upsPrice)}</span>
-        ${upsWasPrice > upsPrice ? `<span class="was-price">${formatCurrency(upsWasPrice)}</span><span class="save-badge">SAVE ${formatCurrency(upsWasPrice - upsPrice)}</span>` : ''}
+      <p class="desc">Keep your security system running during power outages. Protects NVR and cameras for hours of uninterrupted recording.</p>
+      <div class="oto-pricing">
+        <span class="price">${formatCurrency(upsPrice)}</span>
+        ${upsWasPrice > upsPrice ? `<span class="was">${formatCurrency(upsWasPrice)}</span><span class="save-tag">SAVE ${formatCurrency(upsWasPrice - upsPrice)}</span>` : ''}
       </div>
-      <button class="oto-btn oto-btn-primary" onclick="purchaseOTO('ups', ${upsPrice})">Add UPS Backup</button>
+      <button class="oto-btn" onclick="purchaseOTO('ups', ${upsPrice})">Add UPS Backup \u2192</button>
     </div>
     ` : ''}
 
     ${hasCare ? `
     <div class="oto-card">
       <h3>GWS Care Plan</h3>
-      <p>Monthly maintenance, priority support, and annual system health check. Peace of mind, always.</p>
-      <div class="pricing">
-        <span class="current-price">${formatCurrency(carePrice)}/mo</span>
+      <p class="desc">Ongoing maintenance, priority support, and an annual system health check. Complete peace of mind.</p>
+      <div class="oto-pricing">
+        <span class="price">${formatCurrency(carePrice)}<span style="font-family:'DM Sans';font-size:14px;font-weight:600;color:var(--gray-400);">/mo</span></span>
       </div>
       <ul class="oto-features">
         <li>Priority phone &amp; text support</li>
@@ -1082,11 +1099,11 @@ exports.showOTO = async (req, res) => {
         <li>Firmware updates &amp; optimisation</li>
         <li>15% off additional equipment</li>
       </ul>
-      <button class="oto-btn oto-btn-primary" onclick="purchaseOTO('care', ${carePrice})">Start Care Plan</button>
+      <button class="oto-btn" onclick="purchaseOTO('care', ${carePrice})">Start Care Plan \u2192</button>
     </div>
     ` : ''}
 
-    <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I'm all set &rarr;</a>
+    <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I'm all set \u2192</a>
   </div>
 
   <script>
@@ -1864,7 +1881,8 @@ function renderProposalForm(proposal, prefill) {
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
               <button type="button" class="btn-save" onclick="saveProposal(false)">Save as Draft</button>
               <button type="button" class="btn-send" onclick="saveProposal(true)">Save & Send to Client</button>
-              ${isEdit ? `<a href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview Proposal</a>` : ''}
+              ${isEdit ? `<a href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview Proposal</a>
+              <a href="/offers/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview OTO Page</a>` : ''}
             </div>
             <div id="save-status" style="margin-top:12px;font-size:14px;"></div>
           </div>
