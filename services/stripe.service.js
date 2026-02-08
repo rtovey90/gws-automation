@@ -314,6 +314,10 @@ class StripeService {
           },
         ],
         mode: 'payment',
+        customer_creation: 'always',
+        payment_intent_data: {
+          setup_future_usage: 'off_session',
+        },
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
