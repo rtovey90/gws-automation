@@ -1450,7 +1450,6 @@ function renderProposalForm(proposal, prefill) {
   const f = proposal ? proposal.fields : {};
   const pf = prefill || {};
 
-  // Pre-fill values
   const projectNumber = f['Project Number'] || pf.projectNumber || '';
   const date = f['Proposal Date'] || new Date().toISOString().split('T')[0];
   const clientName = f['Client Name'] || pf.clientName || '';
@@ -1462,13 +1461,12 @@ function renderProposalForm(proposal, prefill) {
   const packageDesc = f['Package Description'] || '';
   const basePrice = f['Base Price'] || '';
   const coverImageUrl = f['Cover Image URL'] || '';
-  const status = f['Status'] || 'Draft';
 
-  const scopeItems = f['Scope Items'] || '[]';
-  const deliverables = f['Deliverables'] || '[]';
-  const cameraOptions = f['Camera Options'] || '[]';
-  const clarifications = f['Clarifications'] || '[]';
-  const sitePhotoUrls = f['Site Photo URLs'] || '[]';
+  // Parse JSON fields into arrays for the UI
+  const scopeItemsRaw = safeJsonParse(f['Scope Items']);
+  const deliverablesRaw = safeJsonParse(f['Deliverables']);
+  const cameraOptionsRaw = safeJsonParse(f['Camera Options']);
+  const sitePhotoUrlsRaw = safeJsonParse(f['Site Photo URLs']);
 
   const otoBundlePrice = f['OTO Bundle Price'] || '';
   const otoAlarmPrice = f['OTO Alarm Price'] || '';
@@ -1477,181 +1475,432 @@ function renderProposalForm(proposal, prefill) {
   const otoUpsWasPrice = f['OTO UPS Was Price'] || '';
   const otoCareMonthlyPrice = f['OTO Care Monthly Price'] || '';
 
-  const formAction = isEdit
-    ? `/api/admin/proposals/${proposal.id}`
-    : '/api/admin/proposals';
+  const formAction = isEdit ? `/api/admin/proposals/${proposal.id}` : '/api/admin/proposals';
   const formMethod = isEdit ? 'PUT' : 'POST';
 
+  // Default scope items for new proposals
+  const defaultScope = [
+    'Conduct Discovery Meeting to Determine Specific Security Needs',
+    'Collaborate with Vendors to Design Tailored Security Solution',
+    'Procure Parts & Materials from Local Suppliers',
+    '',
+    '',
+    'Program, Test & Commission System',
+    'Setup Customer Phone App & Full Demonstration',
+    'Clean Up Site After Installation',
+  ];
+  const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : (isEdit ? [] : defaultScope);
+  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : [];
+  const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
+  const sitePhotoUrls = sitePhotoUrlsRaw.length > 0 ? sitePhotoUrlsRaw : [];
+
+  // Build scope item rows
+  const scopeRowsHtml = scopeItems.map((item, i) => {
+    const val = typeof item === 'string' ? item : (item.description || '');
+    return `<div class="list-row" data-list="scope">
+      <span class="row-num">${i + 1}</span>
+      <input type="text" class="list-input" value="${escapeHtml(val)}" placeholder="Enter scope item...">
+      <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+    </div>`;
+  }).join('');
+
+  // Build deliverable rows
+  const deliverableRowsHtml = deliverables.map(d => {
+    const qty = typeof d === 'string' ? '' : (d.qty || '');
+    const desc = typeof d === 'string' ? d : (d.description || '');
+    return `<div class="list-row" data-list="deliverable">
+      <input type="text" class="qty-input" value="${escapeHtml(String(qty))}" placeholder="Qty">
+      <input type="text" class="list-input" value="${escapeHtml(desc)}" placeholder="Description...">
+      <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+    </div>`;
+  }).join('');
+
+  // Build camera option rows
+  const cameraRowsHtml = cameraOptions.map(opt => {
+    return `<div class="list-row camera-row" data-list="camera">
+      <input type="text" class="cam-name" value="${escapeHtml(opt.name || '')}" placeholder="Option name">
+      <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
+      <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
+      <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+    </div>`;
+  }).join('');
+
+  // Uploaded photo thumbnails
+  const photoThumbsHtml = sitePhotoUrls.map(url =>
+    `<div class="photo-thumb"><img src="${escapeHtml(url)}" alt="Site photo"><button type="button" class="photo-remove" onclick="removePhoto(this, '${escapeHtml(url)}')">&times;</button></div>`
+  ).join('');
+
   const bodyHtml = `
-    <div style="padding:24px;max-width:900px;margin:0 auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-        <h1 style="font-size:24px;color:#e0e6ed;">${isEdit ? 'Edit' : 'New'} Proposal</h1>
-        <a href="/admin/proposals" style="color:#8899aa;text-decoration:none;font-size:14px;">&larr; Back to Proposals</a>
+    <div style="padding:24px;max-width:800px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h1 style="font-size:22px;color:#e0e6ed;">${isEdit ? 'Edit' : 'New'} Proposal</h1>
+        <a href="/admin/proposals" style="color:#5a6a7a;text-decoration:none;font-size:13px;">&larr; All Proposals</a>
+      </div>
+      ${clientName ? `<p style="color:#00d4ff;font-size:15px;margin-bottom:20px;">for <strong>${escapeHtml(clientName)}</strong>${clientAddress ? ' &mdash; ' + escapeHtml(clientAddress) : ''}</p>` : ''}
+
+      <!-- STEP INDICATORS -->
+      <div class="steps-bar">
+        <button type="button" class="step-tab active" onclick="goStep(1)">1. Client</button>
+        <button type="button" class="step-tab" onclick="goStep(2)">2. Scope</button>
+        <button type="button" class="step-tab" onclick="goStep(3)">3. Pricing</button>
+        <button type="button" class="step-tab" onclick="goStep(4)">4. Upsells</button>
+        <button type="button" class="step-tab" onclick="goStep(5)">5. Photos</button>
       </div>
 
-      <form id="proposalForm" onsubmit="return saveProposal(event)">
-        <div class="form-section">
-          <h2 class="section-title">Client Details</h2>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Project Number *</label>
-              <input type="text" name="projectNumber" value="${escapeHtml(projectNumber)}" placeholder="e.g. 003256" required>
+      <form id="proposalForm">
+
+        <!-- STEP 1: CLIENT -->
+        <div class="step" id="step-1">
+          <div class="card">
+            <h2 class="card-title">Client Details</h2>
+            <div class="form-row">
+              <div class="fg"><label>Project Number</label><input type="text" name="projectNumber" value="${escapeHtml(projectNumber)}" placeholder="e.g. 003256"></div>
+              <div class="fg"><label>Date</label><input type="date" name="date" value="${escapeHtml(date)}"></div>
             </div>
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" name="date" value="${escapeHtml(date)}">
+            <div class="form-row">
+              <div class="fg"><label>Client Name</label><input type="text" name="clientName" value="${escapeHtml(clientName)}" placeholder="John Smith"></div>
+              <div class="fg"><label>Address</label><input type="text" name="clientAddress" value="${escapeHtml(clientAddress)}" placeholder="123 Main St, Suburb WA 6000"></div>
             </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Client Name *</label>
-              <input type="text" name="clientName" value="${escapeHtml(clientName)}" placeholder="John Smith" required>
+            <div class="form-row">
+              <div class="fg"><label>Phone</label><input type="text" id="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678"></div>
+              <div class="fg"><label>Email</label><input type="text" id="clientEmail" value="${escapeHtml(clientEmail)}" placeholder="john@example.com"></div>
             </div>
-            <div class="form-group">
-              <label>Client Address</label>
-              <input type="text" name="clientAddress" value="${escapeHtml(clientAddress)}" placeholder="123 Main St, Suburb WA 6000">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Client Phone</label>
-              <input type="text" id="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678">
-            </div>
-            <div class="form-group">
-              <label>Client Email</label>
-              <input type="text" id="clientEmail" value="${escapeHtml(clientEmail)}" placeholder="john@example.com">
+            <div class="fg">
+              <label>Custom Letter Note <span style="color:#5a6a7a;font-weight:400;">(leave blank for default)</span></label>
+              <textarea name="letterNote" rows="3" placeholder="Optional: custom intro paragraph for this client">${escapeHtml(letterNote)}</textarea>
             </div>
           </div>
-          <div class="form-group">
-            <label>Letter Note (custom intro paragraph)</label>
-            <textarea name="letterNote" rows="4" placeholder="Leave blank for default letter text">${escapeHtml(letterNote)}</textarea>
+          <div class="step-nav"><button type="button" class="btn-next" onclick="goStep(2)">Next: Scope &rarr;</button></div>
+        </div>
+
+        <!-- STEP 2: SCOPE & DELIVERABLES -->
+        <div class="step" id="step-2" style="display:none;">
+          <div class="card">
+            <h2 class="card-title">Project Scope</h2>
+            <p class="card-hint">What will you do? Add/remove/edit items.</p>
+            <div id="scope-list">${scopeRowsHtml}</div>
+            <button type="button" class="btn-add" onclick="addScopeRow()">+ Add Scope Item</button>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Deliverables</h2>
+            <p class="card-hint">What equipment/materials are included?</p>
+            <div id="deliverable-list">${deliverableRowsHtml}</div>
+            <button type="button" class="btn-add" onclick="addDeliverableRow()">+ Add Deliverable</button>
+            <p class="card-hint" style="margin-top:10px;color:#5a6a7a;font-size:11px;">Note: "Installation Materials", "Installation by Licensed Technicians", and "12 Month Warranty" are always included automatically.</p>
+          </div>
+          <div class="step-nav">
+            <button type="button" class="btn-back" onclick="goStep(1)">&larr; Back</button>
+            <button type="button" class="btn-next" onclick="goStep(3)">Next: Pricing &rarr;</button>
           </div>
         </div>
 
-        <div class="form-section">
-          <h2 class="section-title">Scope & Deliverables</h2>
-          <div class="form-group">
-            <label>Scope Items (JSON array of strings)</label>
-            <textarea name="scopeItems" rows="5" placeholder='["Conduct Discovery Meeting", "Procure Parts", ...]'>${escapeHtml(scopeItems)}</textarea>
-          </div>
-          <div class="form-group">
-            <label>Deliverables (JSON array: [{qty, description}])</label>
-            <textarea name="deliverables" rows="5" placeholder='[{"qty": "4", "description": "8MP AI Turret Camera"}, ...]'>${escapeHtml(deliverables)}</textarea>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <h2 class="section-title">Pricing</h2>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Package Name</label>
-              <input type="text" name="packageName" value="${escapeHtml(packageName)}" placeholder="e.g. Complete CCTV Package">
+        <!-- STEP 3: PRICING -->
+        <div class="step" id="step-3" style="display:none;">
+          <div class="card">
+            <h2 class="card-title">Package & Pricing</h2>
+            <div class="form-row">
+              <div class="fg"><label>Package Name</label><input type="text" name="packageName" value="${escapeHtml(packageName)}" placeholder="e.g. Complete 4-Camera CCTV Package"></div>
+              <div class="fg"><label>Total Price (inc. GST)</label><input type="number" name="basePrice" value="${escapeHtml(String(basePrice))}" step="1" placeholder="4990" style="font-size:20px;font-weight:700;"></div>
             </div>
-            <div class="form-group">
-              <label>Base Price ($)</label>
-              <input type="number" name="basePrice" value="${escapeHtml(String(basePrice))}" step="0.01" placeholder="4990">
+            <div class="fg"><label>Short Description</label><input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera AI security system with NVR"></div>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Optional Upgrades <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(customer can toggle these on/off)</span></h2>
+            <p class="card-hint">Add options the customer can add to their package.</p>
+            <div id="camera-list">${cameraRowsHtml}</div>
+            <button type="button" class="btn-add" onclick="addCameraRow()">+ Add Upgrade Option</button>
+          </div>
+          <div class="step-nav">
+            <button type="button" class="btn-back" onclick="goStep(2)">&larr; Back</button>
+            <button type="button" class="btn-next" onclick="goStep(4)">Next: Upsells &rarr;</button>
+          </div>
+        </div>
+
+        <!-- STEP 4: OTO UPSELLS -->
+        <div class="step" id="step-4" style="display:none;">
+          <div class="card">
+            <h2 class="card-title">Post-Payment Upsells (OTO)</h2>
+            <p class="card-hint">These show after the customer pays. Leave blank to skip any offer.</p>
+
+            <div class="oto-group">
+              <h3 class="oto-label">Bundle Deal <span style="color:#5a6a7a;font-weight:400;">— everything below in one discounted package</span></h3>
+              <div class="fg"><label>Bundle Price ($)</label><input type="number" name="otoBundlePrice" value="${escapeHtml(String(otoBundlePrice))}" step="1" placeholder="e.g. 1490"></div>
+            </div>
+
+            <div class="oto-group">
+              <h3 class="oto-label">Alarm Monitoring</h3>
+              <div class="form-row">
+                <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoAlarmPrice" value="${escapeHtml(String(otoAlarmPrice))}" step="1" placeholder="990"></div>
+                <div class="fg"><label>Was Price ($) <span style="color:#5a6a7a;font-weight:400;">for strikethrough</span></label><input type="number" name="otoAlarmWasPrice" value="${escapeHtml(String(otoAlarmWasPrice))}" step="1" placeholder="1290"></div>
+              </div>
+            </div>
+
+            <div class="oto-group">
+              <h3 class="oto-label">UPS Battery Backup</h3>
+              <div class="form-row">
+                <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoUpsPrice" value="${escapeHtml(String(otoUpsPrice))}" step="1" placeholder="590"></div>
+                <div class="fg"><label>Was Price ($)</label><input type="number" name="otoUpsWasPrice" value="${escapeHtml(String(otoUpsWasPrice))}" step="1" placeholder="790"></div>
+              </div>
+            </div>
+
+            <div class="oto-group">
+              <h3 class="oto-label">GWS Care Plan <span style="color:#5a6a7a;font-weight:400;">— monthly subscription</span></h3>
+              <div class="fg"><label>Monthly Price ($)</label><input type="number" name="otoCareMonthlyPrice" value="${escapeHtml(String(otoCareMonthlyPrice))}" step="1" placeholder="49"></div>
             </div>
           </div>
-          <div class="form-group">
-            <label>Package Description</label>
-            <input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera system">
-          </div>
-          <div class="form-group">
-            <label>Camera Options (JSON: [{name, description, price}])</label>
-            <textarea name="cameraOptions" rows="4" placeholder='[{"name": "Upgrade to 4K", "description": "8MP cameras", "price": 800}]'>${escapeHtml(cameraOptions)}</textarea>
+          <div class="step-nav">
+            <button type="button" class="btn-back" onclick="goStep(3)">&larr; Back</button>
+            <button type="button" class="btn-next" onclick="goStep(5)">Next: Photos &rarr;</button>
           </div>
         </div>
 
-        <div class="form-section">
-          <h2 class="section-title">OTO (Post-Purchase Offers)</h2>
-          <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
-            <div class="form-group"><label>Bundle Price ($)</label><input type="number" name="otoBundlePrice" value="${escapeHtml(String(otoBundlePrice))}" step="0.01"></div>
-            <div class="form-group"><label>Alarm Price ($)</label><input type="number" name="otoAlarmPrice" value="${escapeHtml(String(otoAlarmPrice))}" step="0.01"></div>
-            <div class="form-group"><label>Alarm Was Price ($)</label><input type="number" name="otoAlarmWasPrice" value="${escapeHtml(String(otoAlarmWasPrice))}" step="0.01"></div>
+        <!-- STEP 5: PHOTOS & FINISH -->
+        <div class="step" id="step-5" style="display:none;">
+          <div class="card">
+            <h2 class="card-title">Site Photos</h2>
+            <p class="card-hint">Upload photos to show on the proposal cover page.</p>
+            <div class="photo-grid" id="photo-grid">${photoThumbsHtml}</div>
+            <div class="fg">
+              <input type="file" id="photoUpload" accept="image/*" multiple style="display:none;">
+              <button type="button" class="btn-add" onclick="document.getElementById('photoUpload').click()" style="width:100%;padding:20px;">
+                + Upload Photos
+              </button>
+              <div id="upload-status" style="margin-top:8px;font-size:13px;color:#8899aa;text-align:center;"></div>
+            </div>
           </div>
-          <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
-            <div class="form-group"><label>UPS Price ($)</label><input type="number" name="otoUpsPrice" value="${escapeHtml(String(otoUpsPrice))}" step="0.01"></div>
-            <div class="form-group"><label>UPS Was Price ($)</label><input type="number" name="otoUpsWasPrice" value="${escapeHtml(String(otoUpsWasPrice))}" step="0.01"></div>
-            <div class="form-group"><label>Care Monthly ($)</label><input type="number" name="otoCareMonthlyPrice" value="${escapeHtml(String(otoCareMonthlyPrice))}" step="0.01"></div>
+
+          <div class="card" style="margin-top:16px;background:linear-gradient(135deg,#0a1628,#0f1e30);border-color:#00d4ff;">
+            <h2 class="card-title" style="color:#00d4ff;">Ready to Go</h2>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="button" class="btn-save" onclick="saveProposal(false)">Save as Draft</button>
+              <button type="button" class="btn-send" onclick="saveProposal(true)">Save & Send to Client</button>
+              ${isEdit ? `<a href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview Proposal</a>` : ''}
+            </div>
+            <div id="save-status" style="margin-top:12px;font-size:14px;"></div>
+          </div>
+
+          <div class="step-nav">
+            <button type="button" class="btn-back" onclick="goStep(4)">&larr; Back</button>
           </div>
         </div>
 
-        <div class="form-section">
-          <h2 class="section-title">Photos</h2>
-          <div class="form-group">
-            <label>Cover Image URL</label>
-            <input type="text" name="coverImageUrl" value="${escapeHtml(coverImageUrl)}" placeholder="https://res.cloudinary.com/...">
-          </div>
-          <div class="form-group">
-            <label>Site Photo URLs (JSON array)</label>
-            <textarea name="sitePhotoUrls" rows="3" placeholder='["https://...", "https://..."]'>${escapeHtml(sitePhotoUrls)}</textarea>
-          </div>
-          <div class="form-group">
-            <label>Upload New Photos</label>
-            <input type="file" id="photoUpload" accept="image/*" multiple style="padding:10px;background:#1a2332;border:2px dashed #2a3a4a;border-radius:8px;width:100%;">
-            <div id="upload-status" style="margin-top:8px;font-size:13px;color:#8899aa;"></div>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <h2 class="section-title">Clarifications</h2>
-          <div class="form-group">
-            <label>Clarifications (JSON array of strings, leave blank for defaults)</label>
-            <textarea name="clarifications" rows="4" placeholder='["Only items expressly listed are included.", ...]'>${escapeHtml(clarifications)}</textarea>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
-          <button type="submit" class="btn-save">Save Proposal</button>
-          ${isEdit ? `<button type="button" class="btn-send" onclick="sendProposal('${proposal.id}')">Send to Client</button>` : ''}
-          ${isEdit ? `<a href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview</a>` : ''}
-        </div>
-        <div id="save-status" style="margin-top:12px;font-size:14px;"></div>
+        <!-- Hidden fields for JSON data -->
+        <input type="hidden" name="scopeItems" id="h-scope">
+        <input type="hidden" name="deliverables" id="h-deliverables">
+        <input type="hidden" name="cameraOptions" id="h-cameras">
+        <input type="hidden" name="sitePhotoUrls" id="h-photos">
       </form>
     </div>`;
 
   const customStyles = `
-    .form-section { background:#0f1419; border:1px solid #2a3a4a; border-radius:12px; padding:24px; margin-bottom:20px; }
-    .section-title { font-size:16px; color:#00d4ff; margin-bottom:18px; font-weight:700; }
-    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .form-group { margin-bottom:16px; }
-    .form-group label { display:block; font-size:13px; color:#8899aa; margin-bottom:6px; font-weight:600; }
-    .form-group input, .form-group textarea {
+    .steps-bar { display:flex; gap:4px; margin-bottom:20px; overflow-x:auto; }
+    .step-tab {
+      flex:1; padding:10px 8px; background:#0f1419; border:2px solid #2a3a4a; border-radius:8px;
+      color:#5a6a7a; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap;
+    }
+    .step-tab:hover { border-color:#3a4a5a; color:#8899aa; }
+    .step-tab.active { border-color:#00d4ff; color:#00d4ff; background:#0a1628; }
+    .step-tab.done { border-color:#4caf50; color:#4caf50; }
+
+    .card {
+      background:#0f1419; border:1px solid #2a3a4a; border-radius:12px; padding:24px;
+    }
+    .card-title { font-size:18px; color:#e0e6ed; margin-bottom:6px; }
+    .card-hint { font-size:13px; color:#5a6a7a; margin-bottom:16px; }
+
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .fg { margin-bottom:14px; }
+    .fg label { display:block; font-size:12px; color:#8899aa; margin-bottom:5px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
+    .fg input, .fg textarea {
       width:100%; padding:10px 14px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; font-family:inherit; transition:border-color .2s;
     }
-    .form-group input:focus, .form-group textarea:focus { border-color:#00d4ff; outline:none; }
-    .btn-save {
+    .fg input:focus, .fg textarea:focus { border-color:#00d4ff; outline:none; }
+
+    .list-row {
+      display:flex; align-items:center; gap:8px; margin-bottom:8px;
+    }
+    .row-num { color:#5a6a7a; font-size:13px; font-weight:700; min-width:24px; text-align:center; }
+    .list-input {
+      flex:1; padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
+      color:#e0e6ed; font-size:14px; font-family:inherit;
+    }
+    .list-input:focus { border-color:#00d4ff; outline:none; }
+    .qty-input {
+      width:60px; padding:9px 8px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
+      color:#e0e6ed; font-size:14px; text-align:center; font-family:inherit;
+    }
+    .qty-input:focus { border-color:#00d4ff; outline:none; }
+    .row-remove {
+      background:none; border:none; color:#5a6a7a; font-size:20px; cursor:pointer; padding:4px 8px;
+      transition:color .2s;
+    }
+    .row-remove:hover { color:#ff5252; }
+
+    .camera-row { display:grid; grid-template-columns:1fr 1.5fr 80px 30px; gap:8px; align-items:center; margin-bottom:8px; }
+    .cam-name, .cam-desc, .cam-price {
+      padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
+      color:#e0e6ed; font-size:14px; font-family:inherit;
+    }
+    .cam-name:focus, .cam-desc:focus, .cam-price:focus { border-color:#00d4ff; outline:none; }
+
+    .btn-add {
+      background:none; border:2px dashed #2a3a4a; border-radius:8px; color:#00d4ff; padding:10px 18px;
+      font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; width:auto;
+    }
+    .btn-add:hover { border-color:#00d4ff; background:rgba(0,212,255,0.05); }
+
+    .step-nav { display:flex; justify-content:space-between; margin-top:16px; gap:12px; }
+    .btn-next {
       background:#00d4ff; color:#0f1419; padding:12px 28px; border:none; border-radius:8px;
-      font-size:15px; font-weight:700; cursor:pointer; transition:all .2s;
+      font-size:15px; font-weight:700; cursor:pointer; margin-left:auto;
+    }
+    .btn-next:hover { background:#00b8d9; }
+    .btn-back {
+      background:none; color:#8899aa; border:2px solid #2a3a4a; padding:12px 24px; border-radius:8px;
+      font-size:14px; font-weight:600; cursor:pointer;
+    }
+    .btn-back:hover { border-color:#5a6a7a; color:#e0e6ed; }
+    .btn-save {
+      background:#00d4ff; color:#0f1419; padding:14px 32px; border:none; border-radius:8px;
+      font-size:16px; font-weight:700; cursor:pointer;
     }
     .btn-save:hover { background:#00b8d9; }
     .btn-send {
-      background:#4caf50; color:white; padding:12px 28px; border:none; border-radius:8px;
-      font-size:15px; font-weight:700; cursor:pointer; transition:all .2s;
+      background:#4caf50; color:white; padding:14px 32px; border:none; border-radius:8px;
+      font-size:16px; font-weight:700; cursor:pointer;
     }
     .btn-send:hover { background:#43a047; }
     .btn-preview {
-      background:transparent; color:#00d4ff; padding:12px 28px; border:2px solid #00d4ff; border-radius:8px;
-      font-size:15px; font-weight:700; text-decoration:none; display:inline-block; transition:all .2s;
+      background:none; color:#00d4ff; padding:14px 28px; border:2px solid #00d4ff; border-radius:8px;
+      font-size:15px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center;
     }
     .btn-preview:hover { background:rgba(0,212,255,0.1); }
-    @media (max-width:768px) { .form-row { grid-template-columns:1fr; } }
+
+    .oto-group { border-bottom:1px solid #2a3a4a; padding-bottom:16px; margin-bottom:16px; }
+    .oto-group:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+    .oto-label { font-size:15px; color:#e0e6ed; margin-bottom:10px; font-weight:600; }
+
+    .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:10px; margin-bottom:14px; }
+    .photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:2px solid #2a3a4a; }
+    .photo-thumb img { width:100%; height:100%; object-fit:cover; }
+    .photo-remove {
+      position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:white; border:none;
+      border-radius:50%; width:22px; height:22px; font-size:14px; cursor:pointer; line-height:22px; padding:0;
+    }
+
+    @media (max-width:768px) {
+      .form-row { grid-template-columns:1fr; }
+      .camera-row { grid-template-columns:1fr 1fr; }
+      .steps-bar { gap:2px; }
+      .step-tab { font-size:11px; padding:8px 4px; }
+    }
   `;
 
   const customScripts = `<script>
-    async function saveProposal(e) {
-      e.preventDefault();
+    let currentStep = 1;
+    let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
+
+    function goStep(n) {
+      document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+      document.getElementById('step-' + n).style.display = 'block';
+      document.querySelectorAll('.step-tab').forEach((t, i) => {
+        t.classList.remove('active');
+        if (i + 1 < n) t.classList.add('done');
+        else t.classList.remove('done');
+        if (i + 1 === n) t.classList.add('active');
+      });
+      currentStep = n;
+      window.scrollTo(0, 0);
+      renumberScope();
+    }
+
+    function removeRow(btn) { btn.closest('.list-row, .camera-row').remove(); renumberScope(); }
+
+    function renumberScope() {
+      document.querySelectorAll('#scope-list .row-num').forEach((el, i) => el.textContent = i + 1);
+    }
+
+    function addScopeRow() {
+      const list = document.getElementById('scope-list');
+      const n = list.children.length + 1;
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.dataset.list = 'scope';
+      row.innerHTML = '<span class="row-num">' + n + '</span><input type="text" class="list-input" placeholder="Enter scope item..."><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      list.appendChild(row);
+      row.querySelector('input').focus();
+    }
+
+    function addDeliverableRow() {
+      const list = document.getElementById('deliverable-list');
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      row.dataset.list = 'deliverable';
+      row.innerHTML = '<input type="text" class="qty-input" placeholder="Qty"><input type="text" class="list-input" placeholder="Description..."><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      list.appendChild(row);
+      row.querySelector('.qty-input').focus();
+    }
+
+    function addCameraRow() {
+      const list = document.getElementById('camera-list');
+      const row = document.createElement('div');
+      row.className = 'list-row camera-row';
+      row.dataset.list = 'camera';
+      row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      list.appendChild(row);
+      row.querySelector('.cam-name').focus();
+    }
+
+    function removePhoto(btn, url) {
+      uploadedPhotoUrls = uploadedPhotoUrls.filter(u => u !== url);
+      btn.closest('.photo-thumb').remove();
+    }
+
+    function collectFormData() {
       const form = document.getElementById('proposalForm');
+      const fd = new FormData(form);
+      const data = {};
+      for (const [k, v] of fd.entries()) data[k] = v;
+
+      // Collect scope items
+      const scopeItems = [];
+      document.querySelectorAll('#scope-list .list-input').forEach(inp => {
+        if (inp.value.trim()) scopeItems.push(inp.value.trim());
+      });
+      data.scopeItems = JSON.stringify(scopeItems);
+
+      // Collect deliverables
+      const deliverables = [];
+      document.querySelectorAll('#deliverable-list .list-row').forEach(row => {
+        const qty = row.querySelector('.qty-input').value.trim();
+        const desc = row.querySelector('.list-input').value.trim();
+        if (desc) deliverables.push({ qty, description: desc });
+      });
+      data.deliverables = JSON.stringify(deliverables);
+
+      // Collect camera options
+      const cameras = [];
+      document.querySelectorAll('#camera-list .camera-row').forEach(row => {
+        const name = row.querySelector('.cam-name').value.trim();
+        const desc = row.querySelector('.cam-desc').value.trim();
+        const price = parseFloat(row.querySelector('.cam-price').value) || 0;
+        if (name) cameras.push({ name, description: desc, price });
+      });
+      data.cameraOptions = JSON.stringify(cameras);
+
+      // Photos
+      data.sitePhotoUrls = JSON.stringify(uploadedPhotoUrls);
+
+      return data;
+    }
+
+    async function saveProposal(andSend) {
       const status = document.getElementById('save-status');
       status.textContent = 'Saving...';
       status.style.color = '#ffd93d';
 
-      const formData = new FormData(form);
-      const data = {};
-      for (const [key, val] of formData.entries()) {
-        data[key] = val;
-      }
+      const data = collectFormData();
 
       try {
         const resp = await fetch('${formAction}', {
@@ -1661,92 +1910,82 @@ function renderProposalForm(proposal, prefill) {
         });
         const result = await resp.json();
 
-        if (result.success) {
-          status.textContent = 'Saved!';
-          status.style.color = '#4caf50';
-          ${!isEdit ? "if (result.id) window.location = '/admin/proposals/edit/' + result.id;" : ''}
-        } else {
+        if (!result.success) {
           status.textContent = 'Error: ' + (result.error || 'Unknown');
           status.style.color = '#ff5252';
+          return;
         }
-      } catch (err) {
-        status.textContent = 'Error: ' + err.message;
-        status.style.color = '#ff5252';
-      }
-      return false;
-    }
 
-    async function sendProposal(proposalId) {
-      let phone = document.getElementById('clientPhone').value.trim();
-      if (!phone) {
-        phone = prompt('Enter client phone number (e.g. 0412345678):');
-      }
-      if (!phone) return;
+        const proposalId = result.id || '${isEdit ? proposal.id : ''}';
 
-      const status = document.getElementById('save-status');
-      status.textContent = 'Sending...';
-      status.style.color = '#ffd93d';
-
-      try {
-        const resp = await fetch('/api/admin/proposals/' + proposalId + '/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone })
-        });
-        const result = await resp.json();
-
-        if (result.success) {
-          status.textContent = 'Sent! Short link: ' + result.shortUrl;
-          status.style.color = '#4caf50';
+        if (andSend && proposalId) {
+          status.textContent = 'Saved! Sending SMS...';
+          let phone = document.getElementById('clientPhone').value.trim();
+          if (!phone) phone = prompt('Enter client phone number (e.g. 0412345678):');
+          if (phone) {
+            const sendResp = await fetch('/api/admin/proposals/' + proposalId + '/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone })
+            });
+            const sendResult = await sendResp.json();
+            if (sendResult.success) {
+              status.textContent = 'Sent! Link: ' + sendResult.shortUrl;
+              status.style.color = '#4caf50';
+            } else {
+              status.textContent = 'Saved but send failed: ' + (sendResult.error || 'Unknown');
+              status.style.color = '#ff9800';
+            }
+          } else {
+            status.textContent = 'Saved! (send cancelled)';
+            status.style.color = '#4caf50';
+          }
         } else {
-          status.textContent = 'Error: ' + (result.error || 'Failed to send');
-          status.style.color = '#ff5252';
+          status.textContent = 'Saved!';
+          status.style.color = '#4caf50';
         }
+
+        ${!isEdit ? "if (result.id) { setTimeout(() => { window.location = '/admin/proposals/edit/' + result.id; }, 1000); }" : ''}
       } catch (err) {
         status.textContent = 'Error: ' + err.message;
         status.style.color = '#ff5252';
       }
     }
 
-    // Photo upload handler
+    // Photo upload
     document.getElementById('photoUpload').addEventListener('change', async function() {
       const files = this.files;
       if (!files.length) return;
-
       const statusEl = document.getElementById('upload-status');
       statusEl.textContent = 'Uploading ' + files.length + ' photo(s)...';
       statusEl.style.color = '#ffd93d';
 
       const formData = new FormData();
-      for (const file of files) {
-        formData.append('photos', file);
-      }
+      for (const file of files) formData.append('photos', file);
 
       try {
-        const resp = await fetch('/api/admin/proposals/upload-photos', {
-          method: 'POST',
-          body: formData
-        });
+        const resp = await fetch('/api/admin/proposals/upload-photos', { method: 'POST', body: formData });
         const result = await resp.json();
-
         if (result.success && result.urls) {
-          // Append to site photo URLs textarea
-          const textarea = document.querySelector('textarea[name="sitePhotoUrls"]');
-          let existing = [];
-          try { existing = JSON.parse(textarea.value || '[]'); } catch {}
-          existing.push(...result.urls);
-          textarea.value = JSON.stringify(existing, null, 2);
-
+          uploadedPhotoUrls.push(...result.urls);
+          const grid = document.getElementById('photo-grid');
+          result.urls.forEach(url => {
+            const div = document.createElement('div');
+            div.className = 'photo-thumb';
+            div.innerHTML = '<img src="' + url + '" alt="Photo"><button type="button" class="photo-remove" onclick="removePhoto(this, \\'' + url + '\\')">&times;</button>';
+            grid.appendChild(div);
+          });
           statusEl.textContent = result.urls.length + ' photo(s) uploaded!';
           statusEl.style.color = '#4caf50';
         } else {
-          statusEl.textContent = 'Upload failed: ' + (result.error || 'Unknown');
+          statusEl.textContent = 'Upload failed';
           statusEl.style.color = '#ff5252';
         }
       } catch (err) {
-        statusEl.textContent = 'Upload error: ' + err.message;
+        statusEl.textContent = 'Error: ' + err.message;
         statusEl.style.color = '#ff5252';
       }
+      this.value = '';
     });
   </script>`;
 
