@@ -111,6 +111,7 @@ exports.showProposal = async (req, res) => {
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
+    const stripeLink = f['Stripe Payment Link'] || '';
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = clientName.split(' ')[0] || 'there';
     const logoPath = '/proposal-assets/gws-logo.png';
@@ -149,12 +150,12 @@ exports.showProposal = async (req, res) => {
 
     // Build package selection cards if multiple packages exist
     const allPackages = [
-      { name: packageName, description: packageDesc, price: basePrice },
+      { name: packageName, description: packageDesc, price: basePrice, stripeLink },
       ...optionGroups
     ];
     const hasMultiplePackages = optionGroups.length > 0;
     const packageCardsHtml = hasMultiplePackages ? allPackages.map((pkg, i) => `
-      <div class="og-radio-card${i === 0 ? ' selected' : ''}" onclick="selectPackage(this, ${pkg.price || 0})" data-price="${pkg.price || 0}">
+      <div class="og-radio-card${i === 0 ? ' selected' : ''}" onclick="selectPackage(this, ${pkg.price || 0})" data-price="${pkg.price || 0}" data-stripe="${escapeHtml(pkg.stripeLink || '')}">
         <div class="og-radio-dot"></div>
         <div class="og-radio-info"><h4>${escapeHtml(pkg.name || '')}</h4>${pkg.description ? `<p>${escapeHtml(pkg.description)}</p>` : ''}</div>
         <div class="og-radio-price">${formatCurrency(pkg.price || 0)}</div>
@@ -687,6 +688,7 @@ ${sitePhotoPages}
 
 <script>
   let selectedBasePrice = ${basePrice};
+  let selectedStripeLink = '${escapeHtml(stripeLink)}';
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   let upgradeTotal = 0;
 
@@ -704,6 +706,7 @@ ${sitePhotoPages}
     document.querySelectorAll('.og-radio-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     selectedBasePrice = price;
+    selectedStripeLink = card.dataset.stripe || '';
     updateTotalDisplay();
   }
 
@@ -718,16 +721,25 @@ ${sitePhotoPages}
     btn.disabled = true;
     btn.textContent = 'Processing...';
 
+    // If a Stripe payment link is set, redirect directly to it
+    if (selectedStripeLink) {
+      // Track the acceptance first
+      fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
+      window.location.href = selectedStripeLink;
+      return;
+    }
+
+    // Otherwise fall back to dynamic checkout
     const selectedUpgrades = [];
     document.querySelectorAll('.upgrade-card.selected').forEach(card => {
       const name = card.querySelector('h4').textContent;
       const price = parseInt(card.querySelector('.upgrade-price').textContent.replace(/[^0-9]/g, ''));
       selectedUpgrades.push({ name, price });
     });
-    const selectedPackage = document.querySelector('.og-radio-card.selected');
-    const selectedPkg = selectedPackage ? {
-      name: selectedPackage.querySelector('h4').textContent,
-      price: parseFloat(selectedPackage.dataset.price) || 0
+    const selectedPkgEl = document.querySelector('.og-radio-card.selected');
+    const selectedPkg = selectedPkgEl ? {
+      name: selectedPkgEl.querySelector('h4').textContent,
+      price: parseFloat(selectedPkgEl.dataset.price) || 0
     } : null;
 
     fetch('/api/proposals/' + PROJECT_NUMBER + '/checkout', {
@@ -1531,6 +1543,7 @@ function buildProposalFields(body) {
   if (body.packageName) fields['Package Name'] = body.packageName;
   if (body.packageDescription !== undefined) fields['Package Description'] = body.packageDescription;
   if (body.basePrice !== undefined) fields['Base Price'] = Number(body.basePrice) || 0;
+  if (body.stripeLink !== undefined) fields['Stripe Payment Link'] = body.stripeLink || '';
   if (body.coverImageUrl) fields['Cover Image URL'] = body.coverImageUrl;
   if (body.status) fields['Status'] = body.status;
 
@@ -1570,6 +1583,7 @@ function renderProposalForm(proposal, prefill) {
   const packageName = f['Package Name'] || '';
   const packageDesc = f['Package Description'] || '';
   const basePrice = f['Base Price'] || '';
+  const stripeLink = f['Stripe Payment Link'] || '';
   const coverImageUrl = f['Cover Image URL'] || '';
 
   // Parse JSON fields into arrays for the UI
@@ -1688,6 +1702,7 @@ function renderProposalForm(proposal, prefill) {
       <div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ${i + 2}</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove package">&times;</button></div>
       <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
       <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>
+      <div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" value="${escapeHtml(pkg.stripeLink || '')}" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>
     </div>
   `).join('');
 
@@ -1775,6 +1790,7 @@ function renderProposalForm(proposal, prefill) {
               <div class="fg"><label>Total Price (inc. GST)</label><input type="number" name="basePrice" value="${escapeHtml(String(basePrice))}" step="1" placeholder="4990" style="font-size:20px;font-weight:700;"></div>
             </div>
             <div class="fg"><label>Short Description</label><input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera AI security system with NVR"></div>
+            <div class="fg"><label>Stripe Payment Link</label><input type="url" name="stripeLink" value="${escapeHtml(stripeLink)}" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>
           </div>
           <div id="additional-packages">${additionalPkgHtml}</div>
           <button type="button" class="btn-add" style="margin-top:12px;" onclick="addPackageOption()">+ Add Package Option</button>
@@ -2147,7 +2163,7 @@ function renderProposalForm(proposal, prefill) {
       const idx = list.querySelectorAll('.pkg-card').length + 2;
       const div = document.createElement('div');
       div.className = 'pkg-card';
-      div.innerHTML = '<div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>';
+      div.innerHTML = '<div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div><div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>';
       list.appendChild(div);
       div.querySelector('.pkg-name').focus();
     }
@@ -2192,7 +2208,8 @@ function renderProposalForm(proposal, prefill) {
         const name = card.querySelector('.pkg-name').value.trim();
         const desc = card.querySelector('.pkg-desc').value.trim();
         const price = parseFloat(card.querySelector('.pkg-price').value) || 0;
-        if (name) addlPkgs.push({ name, description: desc, price });
+        const pkgStripe = card.querySelector('.pkg-stripe').value.trim();
+        if (name) addlPkgs.push({ name, description: desc, price, stripeLink: pkgStripe });
       });
       data.optionGroups = JSON.stringify(addlPkgs);
 
