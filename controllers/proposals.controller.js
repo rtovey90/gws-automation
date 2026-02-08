@@ -667,7 +667,7 @@ ${sitePhotoPages}
   <div class="cta-section">
     <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Secure My Booking \u2192</button>
     <div class="cta-sub">
-      By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-and-conditions" target="_blank">Terms &amp; Conditions</a>
+      By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-of-service/" target="_blank">Terms &amp; Conditions</a>
       and the Clarifications &amp; Exclusions outlined in this proposal.<br>
       Pricing includes GST. Quotation valid for 30 days.
     </div>
@@ -932,153 +932,195 @@ exports.showOTO = async (req, res) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Exclusive Offer - Great White Security</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --navy: #0a0e27; --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
-      --cyan-pale: #edf9ff; --white: #ffffff; --gray-100: #e8ecf2;
-      --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63; --gray-800: #1e2235;
-      --green: #22c55e; --red: #e05252; --orange: #f59e0b;
+      --navy: #0a0e27; --navy-mid: #0f1430; --navy-light: #161c3a;
+      --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
+      --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
+      --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
+      --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
+      --gray-800: #1e2235; --green: #22c55e; --green-dark: #16a34a;
+      --red: #e05252; --red-bright: #dc2626; --orange: #f59e0b;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', sans-serif; color: var(--gray-800);
-      background: #f5f7fa; min-height: 100vh; line-height: 1.6;
+      background: linear-gradient(180deg, #eef3f9 0%, #dfe6ef 100%);
+      min-height: 100vh; line-height: 1.7; font-size: 14px;
       -webkit-font-smoothing: antialiased;
     }
 
+    /* ===== NAV ===== */
     .oto-nav {
-      background: var(--navy); padding: 14px 40px;
+      background: var(--navy); padding: 16px 50px;
       display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.3);
     }
-    .oto-nav img { height: 30px; }
-    .oto-nav .step-pills { display: flex; gap: 6px; align-items: center; }
+    .oto-nav img { height: 32px; object-fit: contain; }
+    .oto-nav .step-pills { display: flex; gap: 8px; align-items: center; }
     .oto-nav .pill {
-      font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.3px;
+      font-size: 10px; padding: 4px 12px; border-radius: 20px; font-weight: 600;
+      letter-spacing: 0.5px;
     }
-    .pill-done { background: rgba(34,197,94,0.2); color: #4ade80; }
-    .pill-active { background: var(--cyan-dark); color: var(--navy); }
-    .pill-todo { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
+    .pill-done { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .pill-active { background: var(--cyan); color: var(--navy); font-weight: 700; }
+    .pill-todo { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.25); }
+    .pill-sep { color: rgba(255,255,255,0.15); font-size: 10px; }
 
+    /* ===== HERO ===== */
     .oto-hero {
-      background: linear-gradient(135deg, var(--navy) 0%, #0f1a3a 100%);
-      text-align: center; padding: 36px 30px 30px; position: relative; overflow: hidden;
+      background: linear-gradient(175deg, var(--navy) 0%, var(--navy-light) 100%);
+      text-align: center; padding: 44px 30px 38px; position: relative; overflow: hidden;
     }
     .oto-hero::before {
-      content: ''; position: absolute; top: -50%; right: -20%; width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(120,228,255,0.08) 0%, transparent 70%);
+      content: ''; position: absolute; top: -60%; right: -15%; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(120,228,255,0.07) 0%, transparent 70%);
+    }
+    .oto-hero::after {
+      content: ''; position: absolute; bottom: -40%; left: -10%; width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(120,228,255,0.04) 0%, transparent 70%);
     }
     .oto-hero .check-circle {
-      width: 52px; height: 52px; border-radius: 50%; background: var(--green);
+      width: 60px; height: 60px; border-radius: 50%; background: var(--green);
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 14px; font-size: 24px; color: white;
+      margin: 0 auto 18px; font-size: 28px; color: white;
+      box-shadow: 0 4px 20px rgba(34,197,94,0.35);
     }
     .oto-hero h1 {
-      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800;
-      color: var(--white); margin-bottom: 6px;
+      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 800;
+      color: var(--white); margin-bottom: 8px; position: relative; z-index: 1;
     }
-    .oto-hero p { color: rgba(255,255,255,0.5); font-size: 14px; }
+    .oto-hero .hero-sub {
+      color: rgba(255,255,255,0.45); font-size: 14px; position: relative; z-index: 1;
+    }
 
+    /* ===== URGENCY ===== */
     .urgency-bar {
-      background: linear-gradient(90deg, #fef3c7 0%, #fff7e0 100%);
-      text-align: center; padding: 10px 20px; border-bottom: 2px solid #fbbf24;
+      background: linear-gradient(90deg, #fef3c7 0%, #fef9e7 100%);
+      text-align: center; padding: 11px 20px;
+      border-bottom: 2px solid #fbbf24;
+      box-shadow: 0 2px 10px rgba(251,191,36,0.15);
     }
     .urgency-bar span { font-size: 13px; font-weight: 700; color: #92400e; }
     .urgency-bar .timer {
       display: inline-block; background: #92400e; color: #fef3c7;
-      padding: 2px 8px; border-radius: 4px; font-weight: 800;
+      padding: 3px 10px; border-radius: 4px; font-weight: 800;
       font-variant-numeric: tabular-nums; margin-left: 6px; font-size: 13px;
+      letter-spacing: 0.5px;
     }
 
-    .oto-wrapper { max-width: 640px; margin: 0 auto; padding: 0 20px; }
+    /* ===== MAIN CONTENT ===== */
+    .oto-card {
+      max-width: 660px; margin: 30px auto 0; background: var(--white);
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 8px 60px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06);
+    }
 
-    .oto-heading { text-align: center; padding: 28px 20px 10px; }
+    /* ===== EYEBROW + HEADING ===== */
+    .oto-heading { text-align: center; padding: 36px 36px 8px; }
     .oto-heading .eyebrow {
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 2px; color: var(--red); margin-bottom: 8px;
+      font-size: 15px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 3px; color: var(--red-bright); margin-bottom: 12px;
     }
     .oto-heading h2 {
-      font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 800;
-      color: var(--navy); margin-bottom: 6px; line-height: 1.3;
+      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800;
+      color: var(--navy); margin-bottom: 10px; line-height: 1.25;
     }
-    .oto-heading p { font-size: 14px; color: var(--gray-400); max-width: 440px; margin: 0 auto; }
+    .oto-heading p {
+      font-size: 14px; color: var(--gray-400); max-width: 460px;
+      margin: 0 auto; line-height: 1.7;
+    }
 
-    /* Toggle card */
+    /* ===== ITEM CARDS ===== */
+    .oto-items-wrap { padding: 10px 36px 0; }
     .oto-item {
-      background: var(--white); border: 2px solid var(--cyan-mid); border-radius: 14px;
-      padding: 22px 24px; margin: 14px 0; cursor: pointer; transition: all 0.25s;
-      position: relative; box-shadow: 0 2px 12px rgba(120,228,255,0.1);
+      background: linear-gradient(135deg, var(--cyan-pale) 0%, var(--cyan-bg) 100%);
+      border: 2px solid var(--cyan-mid); border-radius: 12px;
+      padding: 20px 22px; margin: 12px 0; cursor: pointer; transition: all 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .oto-item::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+      background: var(--cyan); border-radius: 4px 0 0 4px;
     }
     .oto-item.unchecked {
-      border-color: var(--gray-200); opacity: 0.55;
-      box-shadow: none;
+      background: var(--gray-50); border-color: var(--gray-200); opacity: 0.5;
     }
+    .oto-item.unchecked::before { background: var(--gray-200); }
     .oto-item .item-top {
-      display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
     }
     .oto-item .item-info { flex: 1; }
-    .oto-item h4 { font-size: 16px; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
-    .oto-item .item-desc { font-size: 13px; color: var(--gray-400); line-height: 1.5; }
+    .oto-item h4 {
+      font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 3px;
+    }
+    .oto-item .item-desc { font-size: 12.5px; color: var(--gray-600); line-height: 1.6; }
     .oto-item .item-pricing {
       display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
     }
     .oto-item .item-price {
-      font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800; color: var(--navy);
+      font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 800;
+      color: var(--navy);
     }
-    .oto-item .item-per { font-size: 12px; color: var(--gray-400); }
+    .oto-item .item-per { font-size: 12px; color: var(--gray-400); font-weight: 500; }
     .oto-item .item-was { font-size: 13px; color: var(--gray-400); text-decoration: line-through; }
     .oto-item .item-save {
       display: inline-block; background: rgba(224,82,82,0.1); color: var(--red);
-      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
     }
     .oto-item .popular-badge {
       position: absolute; top: -1px; right: 20px;
-      background: var(--navy); color: var(--cyan); font-size: 9px; font-weight: 800;
-      letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+      color: var(--cyan); font-size: 9px; font-weight: 800;
+      letter-spacing: 1.5px; text-transform: uppercase; padding: 5px 14px;
       border-radius: 0 0 8px 8px;
+      box-shadow: 0 2px 8px rgba(10,14,39,0.2);
     }
 
-    /* Custom toggle */
+    /* ===== CUSTOM TOGGLE ===== */
     .toggle-wrap {
-      flex-shrink: 0; width: 48px; height: 28px; border-radius: 14px;
-      background: var(--cyan-mid); position: relative; transition: background 0.25s;
-      cursor: pointer;
+      flex-shrink: 0; width: 52px; height: 30px; border-radius: 15px;
+      background: linear-gradient(135deg, var(--cyan-dark), var(--cyan-mid));
+      position: relative; transition: all 0.3s; cursor: pointer;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
     }
     .toggle-wrap.off { background: var(--gray-200); }
     .toggle-knob {
-      position: absolute; top: 3px; left: 23px; width: 22px; height: 22px;
-      border-radius: 50%; background: white; transition: left 0.25s;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      position: absolute; top: 3px; left: 25px; width: 24px; height: 24px;
+      border-radius: 50%; background: white; transition: left 0.3s;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
     }
     .toggle-wrap.off .toggle-knob { left: 3px; }
 
-    /* Sticky total + CTA */
+    /* ===== FOOTER / CTA ===== */
     .oto-footer {
-      background: var(--white); border-top: 2px solid var(--gray-100);
-      padding: 20px; margin-top: 24px; border-radius: 14px 14px 0 0;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+      background: linear-gradient(180deg, #f8fafb 0%, var(--white) 100%);
+      border-top: 1px solid var(--gray-100);
+      padding: 24px 36px 28px;
     }
     .oto-total-row {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .oto-total-label { font-size: 14px; font-weight: 600; color: var(--gray-600); }
     .oto-total-amount {
-      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: var(--navy);
+      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; color: var(--navy);
     }
     .oto-monthly-note {
       font-size: 12px; color: var(--gray-400); text-align: right; margin-bottom: 14px;
     }
     .social-proof {
-      text-align: center; font-size: 12px; color: var(--gray-400); margin-bottom: 12px;
+      text-align: center; font-size: 12px; color: var(--gray-400); margin-bottom: 14px;
     }
     .social-proof strong { color: var(--gray-600); }
 
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     @keyframes pulse { 0%,100% { box-shadow: 0 4px 20px rgba(120,228,255,0.35); } 50% { box-shadow: 0 4px 30px rgba(120,228,255,0.6); } }
+
     .oto-btn {
-      display: block; width: 100%; padding: 18px; border: none; border-radius: 12px;
-      font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.3s;
+      display: block; width: 100%; padding: 20px; border: none; border-radius: 12px;
+      font-size: 17px; font-weight: 800; cursor: pointer; transition: all 0.3s;
       text-align: center; letter-spacing: 0.5px;
       background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
       background-size: 200% 100%; color: var(--navy);
@@ -1087,18 +1129,19 @@ exports.showOTO = async (req, res) => {
     }
     .oto-btn:hover {
       transform: translateY(-2px) scale(1.01);
-      box-shadow: 0 8px 35px rgba(120,228,255,0.55);
-      animation: shimmer 1.5s ease infinite;
+      box-shadow: 0 8px 35px rgba(120,228,255,0.55), 0 0 20px rgba(120,228,255,0.2);
+      animation: shimmer 1.5s ease infinite; letter-spacing: 0.8px;
     }
     .oto-btn:active { transform: translateY(0) scale(0.99); }
     .oto-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
     .oto-btn-sub {
-      display: block; text-align: center; font-size: 11px; color: var(--gray-400); margin-top: 8px;
+      display: block; text-align: center; font-size: 11px; color: var(--gray-400); margin-top: 10px;
     }
 
     .skip-link {
       display: block; text-align: center; color: var(--gray-400); font-size: 12px;
-      text-decoration: none; padding: 20px 15px 40px; line-height: 1.6;
+      text-decoration: none; padding: 24px 15px 40px; line-height: 1.6;
+      max-width: 660px; margin: 0 auto;
     }
     .skip-link:hover { color: var(--gray-600); }
 
@@ -1108,11 +1151,19 @@ exports.showOTO = async (req, res) => {
       text-align: center; display: none;
     }
 
-    @media (max-width: 600px) {
-      .oto-hero h1 { font-size: 24px; }
-      .oto-nav { padding: 12px 20px; }
+    @media (max-width: 640px) {
+      .oto-hero h1 { font-size: 26px; }
+      .oto-hero { padding: 32px 20px 28px; }
+      .oto-nav { padding: 14px 20px; }
       .oto-nav .step-pills { display: none; }
-      .oto-item .item-price { font-size: 20px; }
+      .oto-card { margin: 16px 12px 0; border-radius: 12px; }
+      .oto-heading { padding: 28px 24px 6px; }
+      .oto-heading .eyebrow { font-size: 13px; letter-spacing: 2px; }
+      .oto-heading h2 { font-size: 24px; }
+      .oto-items-wrap { padding: 8px 20px 0; }
+      .oto-footer { padding: 20px 24px 24px; }
+      .oto-item .item-price { font-size: 22px; }
+      .oto-total-amount { font-size: 28px; }
     }
   </style>
 </head>
@@ -1121,8 +1172,11 @@ exports.showOTO = async (req, res) => {
     <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
     <div class="step-pills">
       <span class="pill pill-done">\u2713 Proposal</span>
+      <span class="pill-sep">\u203a</span>
       <span class="pill pill-done">\u2713 Payment</span>
+      <span class="pill-sep">\u203a</span>
       <span class="pill pill-active">Extras</span>
+      <span class="pill-sep">\u203a</span>
       <span class="pill pill-todo">Complete</span>
     </div>
   </div>
@@ -1130,21 +1184,21 @@ exports.showOTO = async (req, res) => {
   <div class="oto-hero">
     <div class="check-circle">\u2713</div>
     <h1>Payment Confirmed, ${escapeHtml(firstName)}!</h1>
-    <p>Your installation is locked in. One more thing before we get started\u2026</p>
+    <p class="hero-sub">Your installation is locked in. One more thing before we get started\u2026</p>
   </div>
 
   <div class="urgency-bar">
     <span>\u26a1 This exclusive pricing expires in <span class="timer" id="countdown">14:59</span></span>
   </div>
 
-  <div class="oto-wrapper">
+  <div class="oto-card">
     <div class="oto-heading">
       <div class="eyebrow">One-Time Offer \u2014 Included With Your Install</div>
       <h2>We\u2019ve Pre-Selected the Most Popular Upgrades</h2>
       <p>Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later. Uncheck anything you don\u2019t want.</p>
     </div>
 
-    <div id="oto-items"></div>
+    <div class="oto-items-wrap" id="oto-items"></div>
 
     <div class="oto-footer">
       <div id="error-msg" class="error-msg"></div>
@@ -1157,9 +1211,9 @@ exports.showOTO = async (req, res) => {
       <button class="oto-btn" id="cta-btn" onclick="confirmSelection()">Yes, Protect My Investment \u2192</button>
       <span class="oto-btn-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</span>
     </div>
-
-    <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
   </div>
+
+  <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
 
   <script>
     const PROJECT = '${escapeHtml(projectNumber)}';
