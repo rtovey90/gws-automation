@@ -394,9 +394,9 @@ exports.showProposal = async (req, res) => {
 
   /* ===== CTA ===== */
   .cta-section {
-    text-align: center; padding: 40px 50px 45px; flex: 1;
-    display: flex; flex-direction: column; justify-content: center;
-    background: linear-gradient(180deg, #ffffff 0%, #f0f6fc 40%, #e6f0f9 100%);
+    text-align: center; padding: 30px 50px 20px;
+    background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
+    margin-top: auto;
   }
   .cta-steps { display: flex; gap: 18px; justify-content: center; margin: 25px 0; }
   .cta-step { flex: 1; max-width: 180px; text-align: center; }
@@ -591,12 +591,6 @@ ${sitePhotoPages}
       </div>
     </div>
   </div>
-  ${pgFooter}
-</div>
-
-<!-- ==================== ACCEPT & PAY ==================== -->
-<div class="page">
-  ${pgHeader}
   <div class="cta-section">
     <div class="sec-title">Ready to Get Started?</div>
     <div class="sec-title-accent" style="margin:6px auto 20px;"></div>
