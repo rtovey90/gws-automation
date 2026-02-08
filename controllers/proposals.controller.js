@@ -94,7 +94,7 @@ exports.showProposal = async (req, res) => {
       return res.status(404).send(`<!DOCTYPE html><html><head><title>Not Found</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>body{font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e27;color:white;text-align:center;}</style>
-        </head><body><div><h1>Proposal Not Found</h1><p>This link may have expired. Please contact us at (08) 6444 6308.</p></div></body></html>`);
+        </head><body><div><h1>Proposal Not Found</h1><p>This link may have expired. Please contact us at 0413 346 978.</p></div></body></html>`);
     }
 
     const f = proposal.fields;
@@ -946,15 +946,14 @@ exports.showOTO = async (req, res) => {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', sans-serif; color: var(--gray-800);
-      background: #c0c4cf; min-height: 100vh; line-height: 1.7; font-size: 14px;
+      background: var(--white); min-height: 100vh; line-height: 1.7; font-size: 14px;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ===== PAGE SHELL (matches proposal design language, responsive) ===== */
+    /* ===== PAGE SHELL ===== */
     .page {
-      max-width: 720px; margin: 40px auto; background: var(--white);
-      box-shadow: 0 8px 60px rgba(0,0,0,0.2); overflow: hidden;
-      display: flex; flex-direction: column; border-radius: 4px;
+      max-width: 100%; margin: 0 auto; background: var(--white);
+      overflow: hidden; display: flex; flex-direction: column; min-height: 100vh;
     }
     .pg-header {
       background: var(--navy); padding: 16px 50px;
@@ -1001,7 +1000,7 @@ exports.showOTO = async (req, res) => {
     }
 
     /* ===== BODY ===== */
-    .pg-body { padding: 40px 50px; }
+    .pg-body { padding: 40px 50px; max-width: 680px; margin: 0 auto; width: 100%; }
 
     .sec-title {
       font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
@@ -1073,7 +1072,7 @@ exports.showOTO = async (req, res) => {
     }
 
     /* ===== CTA SECTION ===== */
-    .cta-section { padding: 0 50px 10px; }
+    .cta-section { padding: 0 50px 10px; max-width: 680px; margin: 0 auto; width: 100%; }
     .social-proof {
       text-align: center; font-size: 11.5px; color: var(--gray-400); margin: 20px 0 12px;
     }
@@ -1122,9 +1121,9 @@ exports.showOTO = async (req, res) => {
       text-align: center; display: none;
     }
 
-    @media (max-width: 760px) {
-      .page { margin: 0; border-radius: 0; box-shadow: none; min-height: 100vh; }
-      .pg-header, .pg-body, .cta-section, .pg-footer { padding-left: 24px; padding-right: 24px; }
+    @media (max-width: 680px) {
+      .pg-header, .pg-footer { padding-left: 24px; padding-right: 24px; }
+      .pg-body, .cta-section { padding-left: 24px; padding-right: 24px; }
       .confirm-banner { padding: 20px 24px; }
       .urgency-strip { padding: 8px 24px; }
       .sec-title { font-size: 26px; }
@@ -1390,7 +1389,7 @@ exports.showOTOThankYou = async (req, res) => {
 
     <p>If you have any questions in the meantime, don't hesitate to reach out.</p>
     <div class="contact">
-      <p><a href="tel:+61864446308">(08) 6444 6308</a> &bull; <a href="mailto:hello@greatwhitesecurity.com">hello@greatwhitesecurity.com</a></p>
+      <p><a href="tel:+61413346978">0413 346 978</a> &bull; <a href="mailto:hello@greatwhitesecurity.com">hello@greatwhitesecurity.com</a></p>
     </div>
   </div>
 </body>
@@ -1760,7 +1759,7 @@ exports.sendProposal = async (req, res) => {
     }
 
     // Send SMS
-    const message = `Hi ${firstName}, your security proposal from Great White Security is ready!\n\nView it here: ${shortUrl}\n\nAny questions, give us a call on (08) 6444 6308.\n\nCheers,\nRicky`;
+    const message = `Hi ${firstName}, your security proposal from Great White Security is ready!\n\nView it here: ${shortUrl}\n\nAny questions, give us a call on 0413 346 978.\n\nCheers,\nRicky`;
 
     await twilioService.sendSMS(phone, message);
 
