@@ -147,24 +147,19 @@ exports.showProposal = async (req, res) => {
       </div>
     `).join('');
 
-    // Build option group sections for pricing page
-    const optionGroupsHtml = optionGroups.map((group, gi) => {
-      const choicesHtml = group.choices.map((c, ci) => `
-        <div class="og-radio-card${ci === 0 ? ' selected' : ''}" onclick="selectOption(this, ${gi}, ${c.price || 0})" data-group="${gi}" data-price="${c.price || 0}">
-          <div class="og-radio-dot"></div>
-          <div class="og-radio-info"><h4>${escapeHtml(c.name || '')}</h4>${c.description ? `<p>${escapeHtml(c.description)}</p>` : ''}</div>
-          <div class="og-radio-price">${formatCurrency(c.price || 0)}</div>
-        </div>
-      `).join('');
-      return `
-        <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
-          <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">
-            Choose Your ${escapeHtml(group.name)} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Select one option</span>
-          </h3>
-        </div>
-        <div class="og-radio-group" data-group="${gi}">${choicesHtml}</div>
-      `;
-    }).join('');
+    // Build package selection cards if multiple packages exist
+    const allPackages = [
+      { name: packageName, description: packageDesc, price: basePrice },
+      ...optionGroups
+    ];
+    const hasMultiplePackages = optionGroups.length > 0;
+    const packageCardsHtml = hasMultiplePackages ? allPackages.map((pkg, i) => `
+      <div class="og-radio-card${i === 0 ? ' selected' : ''}" onclick="selectPackage(this, ${pkg.price || 0})" data-price="${pkg.price || 0}">
+        <div class="og-radio-dot"></div>
+        <div class="og-radio-info"><h4>${escapeHtml(pkg.name || '')}</h4>${pkg.description ? `<p>${escapeHtml(pkg.description)}</p>` : ''}</div>
+        <div class="og-radio-price">${formatCurrency(pkg.price || 0)}</div>
+      </div>
+    `).join('') : '';
 
     // Build clarification rows
     const defaultClarifications = [
@@ -609,6 +604,14 @@ ${sitePhotoPages}
   <div class="pg-body">
     <div class="sec-title">Your Investment</div>
     <div class="sec-title-accent"></div>
+    ${hasMultiplePackages ? `
+    <div style="margin-bottom:6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
+      <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">
+        Choose Your Package <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Select one option</span>
+      </h3>
+    </div>
+    <div class="og-radio-group">${packageCardsHtml}</div>
+    ` : `
     <div class="hero-price">
       <div class="hero-price-left">
         <h3>${escapeHtml(packageName)}</h3>
@@ -620,8 +623,7 @@ ${sitePhotoPages}
         <div class="hero-price-gst">AUD Inc. GST</div>
       </div>
     </div>
-
-    ${optionGroups.length > 0 ? optionGroupsHtml : ''}
+    `}
 
     ${cameraOptions.length > 0 ? `
     <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
@@ -668,22 +670,12 @@ ${sitePhotoPages}
 </div>
 
 <script>
-  const BASE_PRICE = ${basePrice};
+  let selectedBasePrice = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   let upgradeTotal = 0;
-  const optionGroupPrices = {};
-
-  // Initialize default option group selections (first choice in each group)
-  document.querySelectorAll('.og-radio-group').forEach(group => {
-    const gi = group.dataset.group;
-    const firstCard = group.querySelector('.og-radio-card.selected');
-    if (firstCard) optionGroupPrices[gi] = parseFloat(firstCard.dataset.price) || 0;
-  });
 
   function getTotal() {
-    let optTotal = 0;
-    Object.values(optionGroupPrices).forEach(p => optTotal += p);
-    return BASE_PRICE + upgradeTotal + optTotal;
+    return selectedBasePrice + upgradeTotal;
   }
 
   function updateTotalDisplay() {
@@ -692,10 +684,10 @@ ${sitePhotoPages}
     document.getElementById('acceptBtn').textContent = 'Accept Proposal & Pay via Stripe \u2192';
   }
 
-  function selectOption(card, groupIdx, price) {
-    card.closest('.og-radio-group').querySelectorAll('.og-radio-card').forEach(c => c.classList.remove('selected'));
+  function selectPackage(card, price) {
+    document.querySelectorAll('.og-radio-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
-    optionGroupPrices[groupIdx] = price;
+    selectedBasePrice = price;
     updateTotalDisplay();
   }
 
@@ -716,17 +708,16 @@ ${sitePhotoPages}
       const price = parseInt(card.querySelector('.upgrade-price').textContent.replace(/[^0-9]/g, ''));
       selectedUpgrades.push({ name, price });
     });
-    const selectedOptions = [];
-    document.querySelectorAll('.og-radio-card.selected').forEach(card => {
-      const name = card.querySelector('h4').textContent;
-      const price = parseFloat(card.dataset.price) || 0;
-      selectedOptions.push({ name, price });
-    });
+    const selectedPackage = document.querySelector('.og-radio-card.selected');
+    const selectedPkg = selectedPackage ? {
+      name: selectedPackage.querySelector('h4').textContent,
+      price: parseFloat(selectedPackage.dataset.price) || 0
+    } : null;
 
     fetch('/api/proposals/' + PROJECT_NUMBER + '/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectedUpgrades, selectedOptions, total: getTotal() })
+      body: JSON.stringify({ selectedUpgrades, selectedPackage: selectedPkg, total: getTotal() })
     })
     .then(r => r.json())
     .then(data => {
@@ -1675,24 +1666,14 @@ function renderProposalForm(proposal, prefill) {
     </div>`;
   }).join('');
 
-  // Build option group rows for admin form
-  const optionGroupsHtml = optionGroups.map((group, gi) => {
-    const choicesHtml = (group.choices || []).map((c, ci) => `
-      <div class="og-choice" data-gi="${gi}" data-ci="${ci}">
-        <input type="text" class="og-choice-name" value="${escapeHtml(c.name || '')}" placeholder="Choice name (e.g. Ajax Alarm)">
-        <input type="text" class="og-choice-desc" value="${escapeHtml(c.description || '')}" placeholder="Description / features">
-        <input type="number" class="og-choice-price" value="${c.price || ''}" placeholder="Price" step="1">
-        <button type="button" class="row-remove" onclick="this.closest('.og-choice').remove()">&times;</button>
-      </div>`).join('');
-    return `<div class="og-group" data-gi="${gi}">
-      <div class="og-group-header">
-        <input type="text" class="og-group-name" value="${escapeHtml(group.name || '')}" placeholder="Group name (e.g. Alarm System)">
-        <button type="button" class="row-remove" onclick="this.closest('.og-group').remove()" title="Remove group">&times;</button>
-      </div>
-      <div class="og-choices">${choicesHtml}</div>
-      <button type="button" class="btn-add btn-add-sm" onclick="addOgChoice(this.closest('.og-group'))">+ Add Choice</button>
-    </div>`;
-  }).join('');
+  // Build additional package cards for admin form
+  const additionalPkgHtml = optionGroups.map((pkg, i) => `
+    <div class="pkg-card" data-idx="${i}">
+      <div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ${i + 2}</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove package">&times;</button></div>
+      <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
+      <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>
+    </div>
+  `).join('');
 
   // Uploaded photo thumbnails
   const photoThumbsHtml = sitePhotoUrls.map(url =>
@@ -1779,12 +1760,8 @@ function renderProposalForm(proposal, prefill) {
             </div>
             <div class="fg"><label>Short Description</label><input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera AI security system with NVR"></div>
           </div>
-          <div class="card" style="margin-top:16px;">
-            <h2 class="card-title">Option Groups <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(customer picks one per group)</span></h2>
-            <p class="card-hint">Add brand/product options the customer chooses between (e.g. Ajax Alarm vs Hikvision Alarm).</p>
-            <div id="option-groups-list">${optionGroupsHtml}</div>
-            <button type="button" class="btn-add" onclick="addOptionGroup()">+ Add Option Group</button>
-          </div>
+          <div id="additional-packages">${additionalPkgHtml}</div>
+          <button type="button" class="btn-add" style="margin-top:12px;" onclick="addPackageOption()">+ Add Package Option</button>
           <div class="card" style="margin-top:16px;">
             <h2 class="card-title">Optional Upgrades <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(customer can toggle these on/off)</span></h2>
             <p class="card-hint">Add options the customer can add to their package.</p>
@@ -1941,14 +1918,13 @@ function renderProposalForm(proposal, prefill) {
     }
     .cam-name:focus, .cam-desc:focus, .cam-price:focus { border-color:#00d4ff; outline:none; }
 
-    .og-group { background:#1a2332; border:2px solid #2a3a4a; border-radius:10px; padding:14px; margin-bottom:12px; }
-    .og-group-header { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
-    .og-group-name { flex:1; padding:9px 12px; background:#0f1419; border:2px solid #2a3a4a; border-radius:8px; color:#00d4ff; font-size:14px; font-weight:700; font-family:inherit; }
-    .og-group-name:focus { border-color:#00d4ff; outline:none; }
-    .og-choice { display:grid; grid-template-columns:1fr 1.5fr 80px 30px; gap:8px; align-items:center; margin-bottom:6px; }
-    .og-choice-name, .og-choice-desc, .og-choice-price { padding:8px 10px; background:#0f1419; border:2px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:13px; font-family:inherit; }
-    .og-choice-name:focus, .og-choice-desc:focus, .og-choice-price:focus { border-color:#00d4ff; outline:none; }
-    .btn-add-sm { font-size:12px; padding:6px 14px; margin-top:6px; }
+    .pkg-card { background:#1a2332; border:2px solid #2a3a4a; border-radius:10px; padding:16px; margin-top:12px; }
+    .pkg-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .pkg-card .fg { margin-bottom:8px; }
+    .pkg-card .fg label { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#5a6a7a; font-weight:700; margin-bottom:4px; display:block; }
+    .pkg-card .fg input { width:100%; padding:9px 12px; background:#0f1419; border:2px solid #2a3a4a; border-radius:8px; color:#e0e6ed; font-size:14px; font-family:inherit; box-sizing:border-box; }
+    .pkg-card .fg input:focus { border-color:#00d4ff; outline:none; }
+    .pkg-card .fg-row { display:grid; grid-template-columns:1fr auto; gap:12px; }
 
     .btn-add {
       background:none; border:2px dashed #2a3a4a; border-radius:8px; color:#00d4ff; padding:10px 18px;
@@ -2150,22 +2126,14 @@ function renderProposalForm(proposal, prefill) {
       row.querySelector('.cam-name').focus();
     }
 
-    function addOptionGroup() {
-      const list = document.getElementById('option-groups-list');
+    function addPackageOption() {
+      const list = document.getElementById('additional-packages');
+      const idx = list.querySelectorAll('.pkg-card').length + 2;
       const div = document.createElement('div');
-      div.className = 'og-group';
-      div.innerHTML = '<div class="og-group-header"><input type="text" class="og-group-name" placeholder="Group name (e.g. Alarm System)"><button type="button" class="row-remove" onclick="this.closest(\\'.og-group\\').remove()" title="Remove group">&times;</button></div><div class="og-choices"></div><button type="button" class="btn-add btn-add-sm" onclick="addOgChoice(this.closest(\\'.og-group\\'))">+ Add Choice</button>';
+      div.className = 'pkg-card';
+      div.innerHTML = '<div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>';
       list.appendChild(div);
-      addOgChoice(div);
-      addOgChoice(div);
-      div.querySelector('.og-group-name').focus();
-    }
-    function addOgChoice(groupEl) {
-      const choices = groupEl.querySelector('.og-choices');
-      const div = document.createElement('div');
-      div.className = 'og-choice';
-      div.innerHTML = '<input type="text" class="og-choice-name" placeholder="Choice name (e.g. Ajax Alarm)"><input type="text" class="og-choice-desc" placeholder="Description / features"><input type="number" class="og-choice-price" placeholder="Price" step="1"><button type="button" class="row-remove" onclick="this.closest(\\'.og-choice\\').remove()">&times;</button>';
-      choices.appendChild(div);
+      div.querySelector('.pkg-name').focus();
     }
 
     function removePhoto(btn, url) {
@@ -2202,21 +2170,15 @@ function renderProposalForm(proposal, prefill) {
       });
       data.clarifications = JSON.stringify(clarifications);
 
-      // Collect option groups
-      const optGroups = [];
-      document.querySelectorAll('#option-groups-list .og-group').forEach(groupEl => {
-        const name = groupEl.querySelector('.og-group-name').value.trim();
-        if (!name) return;
-        const choices = [];
-        groupEl.querySelectorAll('.og-choice').forEach(choiceEl => {
-          const cName = choiceEl.querySelector('.og-choice-name').value.trim();
-          const cDesc = choiceEl.querySelector('.og-choice-desc').value.trim();
-          const cPrice = parseFloat(choiceEl.querySelector('.og-choice-price').value) || 0;
-          if (cName) choices.push({ name: cName, description: cDesc, price: cPrice });
-        });
-        if (choices.length > 0) optGroups.push({ name, choices });
+      // Collect additional package options
+      const addlPkgs = [];
+      document.querySelectorAll('#additional-packages .pkg-card').forEach(card => {
+        const name = card.querySelector('.pkg-name').value.trim();
+        const desc = card.querySelector('.pkg-desc').value.trim();
+        const price = parseFloat(card.querySelector('.pkg-price').value) || 0;
+        if (name) addlPkgs.push({ name, description: desc, price });
       });
-      data.optionGroups = JSON.stringify(optGroups);
+      data.optionGroups = JSON.stringify(addlPkgs);
 
       // Collect camera options
       const cameras = [];
