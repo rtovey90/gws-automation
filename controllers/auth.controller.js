@@ -54,8 +54,10 @@ exports.handleLogin = async (req, res) => {
 
   const valid = await verifyLogin(email || '', password || '');
   if (valid) {
+    const returnTo = req.session.returnTo || '/dashboard';
     req.session.authenticated = true;
-    return res.redirect('/dashboard');
+    delete req.session.returnTo;
+    return res.redirect(returnTo);
   }
 
   res.redirect('/login?error=1');
