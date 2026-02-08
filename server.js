@@ -27,6 +27,7 @@ const techAvailabilityShortController = require('./controllers/tech-availability
 const dashboardController = require('./controllers/dashboard.controller');
 const estimatorController = require('./controllers/estimator.controller');
 const estimatorApiController = require('./controllers/estimator-api.controller');
+const proposalsController = require('./controllers/proposals.controller');
 const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
 
 const app = express();
@@ -193,6 +194,24 @@ app.get('/api/estimator/engagements', requireAuth, estimatorApiController.listEn
 app.post('/api/estimator/save-quote', requireAuth, estimatorApiController.saveQuote);
 app.get('/api/estimator/load-quote/:engagementId', requireAuth, estimatorApiController.loadQuote);
 // Note: /api/estimator/parse-invoice is defined earlier (before bodyParser) for larger body limit
+
+// Proposal routes - PUBLIC (no auth)
+app.get('/proposals/:projectNumber', proposalsController.showProposal);
+app.get('/offers/:projectNumber', proposalsController.showOTO);
+app.get('/offers/:projectNumber/thank-you', proposalsController.showOTOThankYou);
+app.post('/api/proposals/:projectNumber/track-view', proposalsController.trackProposalView);
+app.post('/api/proposals/:projectNumber/checkout', proposalsController.createProposalCheckout);
+app.post('/api/proposals/:projectNumber/oto-checkout', proposalsController.createOTOCheckout);
+
+// Proposal routes - ADMIN (require auth)
+app.get('/admin/proposals', requireAuth, proposalsController.listProposals);
+app.get('/admin/proposals/new', requireAuth, proposalsController.showCreateForm);
+app.get('/admin/proposals/new/:engagementId', requireAuth, proposalsController.showCreateFormForEngagement);
+app.get('/admin/proposals/edit/:proposalId', requireAuth, proposalsController.showEditForm);
+app.post('/api/admin/proposals', requireAuth, proposalsController.createProposal);
+app.put('/api/admin/proposals/:proposalId', requireAuth, proposalsController.updateProposal);
+app.post('/api/admin/proposals/upload-photos', requireAuth, proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
+app.post('/api/admin/proposals/:proposalId/send', requireAuth, proposalsController.sendProposal);
 
 // Tech availability short link routes (must come before /:code catch-all)
 app.get('/ty/:code', techAvailabilityShortController.techYes);

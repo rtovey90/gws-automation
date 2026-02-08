@@ -293,6 +293,96 @@ class StripeService {
       throw error;
     }
   }
+  /**
+   * Create a Checkout Session for a proposal payment
+   */
+  async createProposalCheckoutSession({ projectNumber, proposalId, amount, customerName, description, successUrl, cancelUrl }) {
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'aud',
+              product_data: {
+                name: `Security Proposal #${projectNumber}`,
+                description: description || `Security system installation for ${customerName}`,
+              },
+              unit_amount: Math.round(amount * 100), // Convert dollars to cents
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          type: 'proposal',
+          proposal_id: proposalId,
+          project_number: projectNumber,
+          customer_name: customerName,
+        },
+      });
+
+      return session;
+    } catch (error) {
+      console.error('Error creating proposal checkout session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a Checkout Session for an OTO (post-purchase upgrade)
+   */
+  async createOTOCheckoutSession({ projectNumber, proposalId, otoType, amount, description, successUrl, cancelUrl }) {
+    try {
+      const isSubscription = otoType === 'care';
+
+      const lineItem = isSubscription
+        ? {
+            price_data: {
+              currency: 'aud',
+              product_data: {
+                name: `GWS Care Plan`,
+                description: description || 'Monthly security maintenance & support plan',
+              },
+              unit_amount: Math.round(amount * 100),
+              recurring: { interval: 'month' },
+            },
+            quantity: 1,
+          }
+        : {
+            price_data: {
+              currency: 'aud',
+              product_data: {
+                name: `GWS ${otoType === 'bundle' ? 'Bundle Deal' : otoType === 'alarm' ? 'Alarm System' : 'UPS Battery Backup'}`,
+                description: description || `Upgrade for proposal #${projectNumber}`,
+              },
+              unit_amount: Math.round(amount * 100),
+            },
+            quantity: 1,
+          };
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [lineItem],
+        mode: isSubscription ? 'subscription' : 'payment',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          type: 'oto',
+          oto_type: otoType,
+          proposal_id: proposalId,
+          project_number: projectNumber,
+        },
+      });
+
+      return session;
+    } catch (error) {
+      console.error('Error creating OTO checkout session:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new StripeService();

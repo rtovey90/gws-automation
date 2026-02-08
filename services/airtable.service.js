@@ -804,6 +804,85 @@ class AirtableService {
       throw error;
     }
   }
+  // ============ PROPOSALS ============
+
+  /**
+   * Create a new proposal
+   */
+  async createProposal(data) {
+    clearCache('proposals');
+    try {
+      const records = await tables.proposals.create([{ fields: data }]);
+      console.log('✓ Proposal created:', records[0].id);
+      return records[0];
+    } catch (error) {
+      console.error('Error creating proposal:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get proposal by Airtable record ID
+   */
+  async getProposal(id) {
+    try {
+      return await tables.proposals.find(id);
+    } catch (error) {
+      console.error('Error getting proposal:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get proposal by Project Number
+   */
+  async getProposalByProjectNumber(projectNumber) {
+    try {
+      const records = await tables.proposals
+        .select({
+          filterByFormula: `{Project Number} = '${projectNumber}'`,
+          maxRecords: 1,
+        })
+        .firstPage();
+
+      return records[0] || null;
+    } catch (error) {
+      console.error('Error getting proposal by project number:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update proposal
+   */
+  async updateProposal(id, updates) {
+    clearCache('proposals');
+    try {
+      return await tables.proposals.update(id, updates);
+    } catch (error) {
+      console.error('Error updating proposal:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all proposals (cached 60s)
+   */
+  async getAllProposals() {
+    const cached = getCached('proposals');
+    if (cached) return cached;
+    try {
+      const records = await tables.proposals
+        .select()
+        .all();
+
+      setCache('proposals', records);
+      return records;
+    } catch (error) {
+      console.error('Error getting all proposals:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new AirtableService();

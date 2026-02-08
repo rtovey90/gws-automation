@@ -15,6 +15,7 @@ const tables = {
   messages: base(process.env.AIRTABLE_MESSAGES_TABLE),
   templates: base(process.env.AIRTABLE_TEMPLATES_TABLE),
   products: base(process.env.AIRTABLE_PRODUCTS_TABLE || 'Products'),
+  proposals: base(process.env.AIRTABLE_PROPOSALS_TABLE || 'Proposals'),
 };
 
 module.exports = { base, tables };

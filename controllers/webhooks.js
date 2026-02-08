@@ -276,6 +276,51 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       console.log(`PaymentIntent metadata - lead_id: ${engagementId}, job_id: ${jobId}`);
     }
 
+    // Proposal payment workflow
+    if (paymentObject.metadata?.type === 'proposal') {
+      const proposalId = paymentObject.metadata.proposal_id;
+      const projectNumber = paymentObject.metadata.project_number;
+      console.log(`✓ Proposal payment received: #${projectNumber} (${proposalId})`);
+
+      try {
+        await airtableService.updateProposal(proposalId, {
+          Status: 'Paid',
+          'Paid At': new Date().toISOString(),
+        });
+        console.log('✓ Proposal status updated to Paid');
+
+        // Notify admin
+        await twilioService.sendSMS(
+          process.env.ADMIN_PHONE,
+          `💰 PROPOSAL PAID! Project #${projectNumber}\n\nCustomer: ${paymentObject.metadata.customer_name || 'Unknown'}\nAmount: $${(paymentObject.amount_total || 0) / 100}\n\nTime to order equipment!`
+        );
+      } catch (err) {
+        console.error('Error updating proposal after payment:', err);
+      }
+
+      return;
+    }
+
+    // OTO (post-purchase upgrade) payment workflow
+    if (paymentObject.metadata?.type === 'oto') {
+      const proposalId = paymentObject.metadata.proposal_id;
+      const otoType = paymentObject.metadata.oto_type;
+      const projectNumber = paymentObject.metadata.project_number;
+      console.log(`✓ OTO payment received: ${otoType} for #${projectNumber}`);
+
+      try {
+        // Notify admin
+        await twilioService.sendSMS(
+          process.env.ADMIN_PHONE,
+          `🎉 OTO UPGRADE PURCHASED!\n\nProject #${projectNumber}\nType: ${otoType}\nAmount: $${(paymentObject.amount_total || 0) / 100}`
+        );
+      } catch (err) {
+        console.error('Error handling OTO payment:', err);
+      }
+
+      return;
+    }
+
     // New workflow: Payment for an Engagement → Update Engagement status (no Job creation)
     if (engagementId) {
       console.log(`✓ Payment received for engagement: ${engagementId}`);
