@@ -640,15 +640,15 @@ ${sitePhotoPages}
     </div>
   </div>
   <div class="cta-section">
-    <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Pay via Stripe \u2192</button>
+    <div class="sec-title" style="font-size:22px;">Ready to Get Started?</div>
+    <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
+    <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Secure My Booking \u2192</button>
     <div class="cta-sub">
       By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-and-conditions" target="_blank">Terms &amp; Conditions</a>
       and the Clarifications &amp; Exclusions outlined in this proposal.<br>
       Pricing includes GST. Quotation valid for 30 days.
     </div>
     <div class="cta-divider"></div>
-    <div class="sec-title" style="font-size:22px;">What Happens Next</div>
-    <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
     <div class="cta-steps">
       <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
       <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
@@ -681,7 +681,7 @@ ${sitePhotoPages}
   function updateTotalDisplay() {
     const total = getTotal();
     document.getElementById('totalAmount').textContent = '$' + total.toLocaleString('en-AU');
-    document.getElementById('acceptBtn').textContent = 'Accept Proposal & Pay via Stripe \u2192';
+    document.getElementById('acceptBtn').textContent = 'Accept Proposal & Secure My Booking \u2192';
   }
 
   function selectPackage(card, price) {
@@ -725,13 +725,13 @@ ${sitePhotoPages}
       else {
         alert(data.error || 'Something went wrong');
         btn.disabled = false;
-        btn.textContent = 'Accept Proposal & Pay via Stripe \u2192';
+        btn.textContent = 'Accept Proposal & Secure My Booking \u2192';
       }
     })
     .catch(() => {
       alert('Connection error. Please try again.');
       btn.disabled = false;
-      btn.textContent = 'Accept Proposal & Pay via Stripe \u2192';
+      btn.textContent = 'Accept Proposal & Secure My Booking \u2192';
     });
   }
 
