@@ -104,6 +104,7 @@ exports.showProposal = async (req, res) => {
     const scopeItems = safeJsonParse(f['Scope Items']);
     const deliverables = safeJsonParse(f['Deliverables']);
     const cameraOptions = safeJsonParse(f['Camera Options']);
+    const optionGroups = safeJsonParse(f['Option Groups']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
     const coverImage = f['Cover Image URL'] || '/proposal-assets/proposal-cover-page.png';
@@ -145,6 +146,25 @@ exports.showProposal = async (req, res) => {
         <div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>
       </div>
     `).join('');
+
+    // Build option group sections for pricing page
+    const optionGroupsHtml = optionGroups.map((group, gi) => {
+      const choicesHtml = group.choices.map((c, ci) => `
+        <div class="og-radio-card${ci === 0 ? ' selected' : ''}" onclick="selectOption(this, ${gi}, ${c.price || 0})" data-group="${gi}" data-price="${c.price || 0}">
+          <div class="og-radio-dot"></div>
+          <div class="og-radio-info"><h4>${escapeHtml(c.name || '')}</h4>${c.description ? `<p>${escapeHtml(c.description)}</p>` : ''}</div>
+          <div class="og-radio-price">${formatCurrency(c.price || 0)}</div>
+        </div>
+      `).join('');
+      return `
+        <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
+          <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">
+            Choose Your ${escapeHtml(group.name)} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Select one option</span>
+          </h3>
+        </div>
+        <div class="og-radio-group" data-group="${gi}">${choicesHtml}</div>
+      `;
+    }).join('');
 
     // Build clarification rows
     const defaultClarifications = [
@@ -392,6 +412,29 @@ exports.showProposal = async (req, res) => {
   .total-bar-left strong { color: var(--navy); }
   .total-bar-amount { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800; color: var(--navy); }
 
+  /* ===== OPTION GROUPS ===== */
+  .og-radio-card {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border: 2px solid var(--gray-100); border-radius: 8px;
+    margin: 8px 0; cursor: pointer; transition: all 0.2s; user-select: none;
+    background: rgba(255,255,255,0.6);
+  }
+  .og-radio-card:hover { border-color: var(--cyan-mid); background: var(--cyan-pale); }
+  .og-radio-card.selected { border-color: var(--cyan-mid); background: var(--cyan-pale); }
+  .og-radio-dot {
+    width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--gray-200);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; margin-top: 2px;
+  }
+  .og-radio-card.selected .og-radio-dot {
+    border-color: var(--cyan-mid); background: var(--cyan-mid);
+    box-shadow: inset 0 0 0 3px var(--white);
+  }
+  .og-radio-info { flex: 1; }
+  .og-radio-info h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
+  .og-radio-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
+  .og-radio-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+
   /* ===== CTA ===== */
   .cta-section {
     text-align: center; padding: 30px 50px 20px;
@@ -419,6 +462,7 @@ exports.showProposal = async (req, res) => {
   .cta-button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
   .cta-sub { font-size: 11px; color: var(--gray-400); margin-top: 12px; line-height: 1.6; }
   .cta-sub a { color: var(--cyan-dark); text-decoration: underline; }
+  .cta-divider { width: 60px; height: 1px; background: var(--gray-200); margin: 20px auto; }
   .cta-or { font-size: 12px; color: var(--gray-400); margin: 16px 0; }
   .cta-alt { font-size: 12.5px; color: var(--gray-600); }
   .cta-alt a { color: var(--cyan-dark); font-weight: 600; text-decoration: none; }
@@ -577,6 +621,8 @@ ${sitePhotoPages}
       </div>
     </div>
 
+    ${optionGroups.length > 0 ? optionGroupsHtml : ''}
+
     ${cameraOptions.length > 0 ? `
     <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
       <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">Extend Your Coverage <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Add additional options to your install</span></h3>
@@ -592,19 +638,19 @@ ${sitePhotoPages}
     </div>
   </div>
   <div class="cta-section">
-    <div class="sec-title">Ready to Get Started?</div>
-    <div class="sec-title-accent" style="margin:6px auto 20px;"></div>
-    <p style="color:var(--gray-600); max-width:460px; margin:0 auto 8px; font-size:13.5px; line-height:1.7;">Accept the proposal and secure your installation slot. We'll order your equipment and schedule your install promptly.</p>
-    <div class="cta-steps">
-      <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Click below to accept and complete payment via Stripe</p></div>
-      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
-      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
-    </div>
     <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Pay via Stripe \u2192</button>
     <div class="cta-sub">
       By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-and-conditions" target="_blank">Terms &amp; Conditions</a>
       and the Clarifications &amp; Exclusions outlined in this proposal.<br>
       Pricing includes GST. Quotation valid for 30 days.
+    </div>
+    <div class="cta-divider"></div>
+    <div class="sec-title" style="font-size:22px;">What Happens Next</div>
+    <div class="sec-title-accent" style="margin:6px auto 16px;"></div>
+    <div class="cta-steps">
+      <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
+      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
+      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
     </div>
   </div>
   ${pgFooter}
@@ -625,13 +671,38 @@ ${sitePhotoPages}
   const BASE_PRICE = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   let upgradeTotal = 0;
+  const optionGroupPrices = {};
+
+  // Initialize default option group selections (first choice in each group)
+  document.querySelectorAll('.og-radio-group').forEach(group => {
+    const gi = group.dataset.group;
+    const firstCard = group.querySelector('.og-radio-card.selected');
+    if (firstCard) optionGroupPrices[gi] = parseFloat(firstCard.dataset.price) || 0;
+  });
+
+  function getTotal() {
+    let optTotal = 0;
+    Object.values(optionGroupPrices).forEach(p => optTotal += p);
+    return BASE_PRICE + upgradeTotal + optTotal;
+  }
+
+  function updateTotalDisplay() {
+    const total = getTotal();
+    document.getElementById('totalAmount').textContent = '$' + total.toLocaleString('en-AU');
+    document.getElementById('acceptBtn').textContent = 'Accept Proposal & Pay via Stripe \u2192';
+  }
+
+  function selectOption(card, groupIdx, price) {
+    card.closest('.og-radio-group').querySelectorAll('.og-radio-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    optionGroupPrices[groupIdx] = price;
+    updateTotalDisplay();
+  }
 
   function toggleUpgrade(card, price) {
     card.classList.toggle('selected');
     upgradeTotal += card.classList.contains('selected') ? price : -price;
-    const total = BASE_PRICE + upgradeTotal;
-    document.getElementById('totalAmount').textContent = '$' + total.toLocaleString('en-AU');
-    document.getElementById('acceptBtn').textContent = 'Accept Proposal & Pay via Stripe \u2192';
+    updateTotalDisplay();
   }
 
   function acceptAndPay() {
@@ -645,11 +716,17 @@ ${sitePhotoPages}
       const price = parseInt(card.querySelector('.upgrade-price').textContent.replace(/[^0-9]/g, ''));
       selectedUpgrades.push({ name, price });
     });
+    const selectedOptions = [];
+    document.querySelectorAll('.og-radio-card.selected').forEach(card => {
+      const name = card.querySelector('h4').textContent;
+      const price = parseFloat(card.dataset.price) || 0;
+      selectedOptions.push({ name, price });
+    });
 
     fetch('/api/proposals/' + PROJECT_NUMBER + '/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectedUpgrades, total: BASE_PRICE + upgradeTotal })
+      body: JSON.stringify({ selectedUpgrades, selectedOptions, total: getTotal() })
     })
     .then(r => r.json())
     .then(data => {
@@ -657,15 +734,18 @@ ${sitePhotoPages}
       else {
         alert(data.error || 'Something went wrong');
         btn.disabled = false;
-        btn.textContent = 'Accept Proposal & Pay $' + (BASE_PRICE + upgradeTotal).toLocaleString('en-AU') + ' \u2192';
+        btn.textContent = 'Accept Proposal & Pay via Stripe \u2192';
       }
     })
     .catch(() => {
       alert('Connection error. Please try again.');
       btn.disabled = false;
-      btn.textContent = 'Accept Proposal & Pay $' + (BASE_PRICE + upgradeTotal).toLocaleString('en-AU') + ' \u2192';
+      btn.textContent = 'Accept Proposal & Pay via Stripe \u2192';
     });
   }
+
+  // Set initial total including default option group selections
+  updateTotalDisplay();
 
   // Track view
   fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
@@ -1451,6 +1531,7 @@ function buildProposalFields(body) {
   if (body.scopeItems) fields['Scope Items'] = typeof body.scopeItems === 'string' ? body.scopeItems : JSON.stringify(body.scopeItems);
   if (body.deliverables) fields['Deliverables'] = typeof body.deliverables === 'string' ? body.deliverables : JSON.stringify(body.deliverables);
   if (body.cameraOptions) fields['Camera Options'] = typeof body.cameraOptions === 'string' ? body.cameraOptions : JSON.stringify(body.cameraOptions);
+  if (body.optionGroups) fields['Option Groups'] = typeof body.optionGroups === 'string' ? body.optionGroups : JSON.stringify(body.optionGroups);
   if (body.clarifications) fields['Clarifications'] = typeof body.clarifications === 'string' ? body.clarifications : JSON.stringify(body.clarifications);
   if (body.sitePhotoUrls) fields['Site Photo URLs'] = typeof body.sitePhotoUrls === 'string' ? body.sitePhotoUrls : JSON.stringify(body.sitePhotoUrls);
 
@@ -1488,6 +1569,7 @@ function renderProposalForm(proposal, prefill) {
   const scopeItemsRaw = safeJsonParse(f['Scope Items']);
   const deliverablesRaw = safeJsonParse(f['Deliverables']);
   const cameraOptionsRaw = safeJsonParse(f['Camera Options']);
+  const optionGroupsRaw = safeJsonParse(f['Option Groups']);
   const clarificationsRaw = safeJsonParse(f['Clarifications']);
   const sitePhotoUrlsRaw = safeJsonParse(f['Site Photo URLs']);
 
@@ -1530,6 +1612,7 @@ function renderProposalForm(proposal, prefill) {
   ];
   const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : (isEdit ? [] : defaultDeliverables);
   const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
+  const optionGroups = optionGroupsRaw.length > 0 ? optionGroupsRaw : [];
 
   const defaultClarifications = [
     'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
@@ -1589,6 +1672,25 @@ function renderProposalForm(proposal, prefill) {
       <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
       <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+    </div>`;
+  }).join('');
+
+  // Build option group rows for admin form
+  const optionGroupsHtml = optionGroups.map((group, gi) => {
+    const choicesHtml = (group.choices || []).map((c, ci) => `
+      <div class="og-choice" data-gi="${gi}" data-ci="${ci}">
+        <input type="text" class="og-choice-name" value="${escapeHtml(c.name || '')}" placeholder="Choice name (e.g. Ajax Alarm)">
+        <input type="text" class="og-choice-desc" value="${escapeHtml(c.description || '')}" placeholder="Description / features">
+        <input type="number" class="og-choice-price" value="${c.price || ''}" placeholder="Price" step="1">
+        <button type="button" class="row-remove" onclick="this.closest('.og-choice').remove()">&times;</button>
+      </div>`).join('');
+    return `<div class="og-group" data-gi="${gi}">
+      <div class="og-group-header">
+        <input type="text" class="og-group-name" value="${escapeHtml(group.name || '')}" placeholder="Group name (e.g. Alarm System)">
+        <button type="button" class="row-remove" onclick="this.closest('.og-group').remove()" title="Remove group">&times;</button>
+      </div>
+      <div class="og-choices">${choicesHtml}</div>
+      <button type="button" class="btn-add btn-add-sm" onclick="addOgChoice(this.closest('.og-group'))">+ Add Choice</button>
     </div>`;
   }).join('');
 
@@ -1676,6 +1778,12 @@ function renderProposalForm(proposal, prefill) {
               <div class="fg"><label>Total Price (inc. GST)</label><input type="number" name="basePrice" value="${escapeHtml(String(basePrice))}" step="1" placeholder="4990" style="font-size:20px;font-weight:700;"></div>
             </div>
             <div class="fg"><label>Short Description</label><input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera AI security system with NVR"></div>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Option Groups <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(customer picks one per group)</span></h2>
+            <p class="card-hint">Add brand/product options the customer chooses between (e.g. Ajax Alarm vs Hikvision Alarm).</p>
+            <div id="option-groups-list">${optionGroupsHtml}</div>
+            <button type="button" class="btn-add" onclick="addOptionGroup()">+ Add Option Group</button>
           </div>
           <div class="card" style="margin-top:16px;">
             <h2 class="card-title">Optional Upgrades <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(customer can toggle these on/off)</span></h2>
@@ -1832,6 +1940,15 @@ function renderProposalForm(proposal, prefill) {
       color:#e0e6ed; font-size:14px; font-family:inherit;
     }
     .cam-name:focus, .cam-desc:focus, .cam-price:focus { border-color:#00d4ff; outline:none; }
+
+    .og-group { background:#1a2332; border:2px solid #2a3a4a; border-radius:10px; padding:14px; margin-bottom:12px; }
+    .og-group-header { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+    .og-group-name { flex:1; padding:9px 12px; background:#0f1419; border:2px solid #2a3a4a; border-radius:8px; color:#00d4ff; font-size:14px; font-weight:700; font-family:inherit; }
+    .og-group-name:focus { border-color:#00d4ff; outline:none; }
+    .og-choice { display:grid; grid-template-columns:1fr 1.5fr 80px 30px; gap:8px; align-items:center; margin-bottom:6px; }
+    .og-choice-name, .og-choice-desc, .og-choice-price { padding:8px 10px; background:#0f1419; border:2px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:13px; font-family:inherit; }
+    .og-choice-name:focus, .og-choice-desc:focus, .og-choice-price:focus { border-color:#00d4ff; outline:none; }
+    .btn-add-sm { font-size:12px; padding:6px 14px; margin-top:6px; }
 
     .btn-add {
       background:none; border:2px dashed #2a3a4a; border-radius:8px; color:#00d4ff; padding:10px 18px;
@@ -2033,6 +2150,24 @@ function renderProposalForm(proposal, prefill) {
       row.querySelector('.cam-name').focus();
     }
 
+    function addOptionGroup() {
+      const list = document.getElementById('option-groups-list');
+      const div = document.createElement('div');
+      div.className = 'og-group';
+      div.innerHTML = '<div class="og-group-header"><input type="text" class="og-group-name" placeholder="Group name (e.g. Alarm System)"><button type="button" class="row-remove" onclick="this.closest(\\'.og-group\\').remove()" title="Remove group">&times;</button></div><div class="og-choices"></div><button type="button" class="btn-add btn-add-sm" onclick="addOgChoice(this.closest(\\'.og-group\\'))">+ Add Choice</button>';
+      list.appendChild(div);
+      addOgChoice(div);
+      addOgChoice(div);
+      div.querySelector('.og-group-name').focus();
+    }
+    function addOgChoice(groupEl) {
+      const choices = groupEl.querySelector('.og-choices');
+      const div = document.createElement('div');
+      div.className = 'og-choice';
+      div.innerHTML = '<input type="text" class="og-choice-name" placeholder="Choice name (e.g. Ajax Alarm)"><input type="text" class="og-choice-desc" placeholder="Description / features"><input type="number" class="og-choice-price" placeholder="Price" step="1"><button type="button" class="row-remove" onclick="this.closest(\\'.og-choice\\').remove()">&times;</button>';
+      choices.appendChild(div);
+    }
+
     function removePhoto(btn, url) {
       uploadedPhotoUrls = uploadedPhotoUrls.filter(u => u !== url);
       btn.closest('.photo-thumb').remove();
@@ -2066,6 +2201,22 @@ function renderProposalForm(proposal, prefill) {
         if (inp.value.trim()) clarifications.push(inp.value.trim());
       });
       data.clarifications = JSON.stringify(clarifications);
+
+      // Collect option groups
+      const optGroups = [];
+      document.querySelectorAll('#option-groups-list .og-group').forEach(groupEl => {
+        const name = groupEl.querySelector('.og-group-name').value.trim();
+        if (!name) return;
+        const choices = [];
+        groupEl.querySelectorAll('.og-choice').forEach(choiceEl => {
+          const cName = choiceEl.querySelector('.og-choice-name').value.trim();
+          const cDesc = choiceEl.querySelector('.og-choice-desc').value.trim();
+          const cPrice = parseFloat(choiceEl.querySelector('.og-choice-price').value) || 0;
+          if (cName) choices.push({ name: cName, description: cDesc, price: cPrice });
+        });
+        if (choices.length > 0) optGroups.push({ name, choices });
+      });
+      data.optionGroups = JSON.stringify(optGroups);
 
       // Collect camera options
       const cameras = [];
