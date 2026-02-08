@@ -888,8 +888,43 @@ exports.showOTO = async (req, res) => {
       return res.redirect(`/offers/${projectNumber}/thank-you`);
     }
 
+    // If session_id is present, retrieve customer & payment method and save to Airtable
+    const sessionId = req.query.session_id;
+    let hasCard = !!(f['Stripe Customer ID'] && f['Stripe Payment Method ID']);
+
+    if (sessionId && !hasCard) {
+      try {
+        const session = await stripeService.getCheckoutSession(sessionId);
+        if (session.customer && session.payment_intent?.payment_method) {
+          const customerId = session.customer;
+          const paymentMethodId = typeof session.payment_intent.payment_method === 'object'
+            ? session.payment_intent.payment_method.id
+            : session.payment_intent.payment_method;
+          await airtableService.updateProposal(proposal.id, {
+            'Stripe Customer ID': customerId,
+            'Stripe Payment Method ID': paymentMethodId,
+          });
+          hasCard = true;
+        }
+      } catch (e) {
+        console.error('Could not retrieve session for card-on-file:', e.message);
+      }
+    }
+
     const bundleSaving = (alarmPrice + upsPrice) > bundlePrice ? (alarmPrice + upsPrice) - bundlePrice : 0;
     const bundleWas = alarmPrice + upsPrice;
+
+    // Build the list of available OTO items for the pre-checked model
+    const otoItems = [];
+    if (hasBundle) {
+      otoItems.push({ key: 'bundle', name: 'Complete Protection Bundle', desc: 'Alarm monitoring + UPS battery backup bundled together.', price: bundlePrice, wasPrice: bundleWas, saving: bundleSaving, monthly: false });
+    } else {
+      if (hasAlarm) otoItems.push({ key: 'alarm', name: '24/7 Alarm Monitoring', desc: 'Professional monitoring station with instant emergency dispatch.', price: alarmPrice, wasPrice: alarmWasPrice, saving: alarmWasPrice > alarmPrice ? alarmWasPrice - alarmPrice : 0, monthly: false });
+      if (hasUps) otoItems.push({ key: 'ups', name: 'UPS Battery Backup', desc: 'Keeps your system recording during power outages for hours.', price: upsPrice, wasPrice: upsWasPrice, saving: upsWasPrice > upsPrice ? upsWasPrice - upsPrice : 0, monthly: false });
+    }
+    if (hasCare) otoItems.push({ key: 'care', name: 'GWS Care Plan', desc: 'Priority support, annual health check, firmware updates & 15% off equipment.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
+
+    const otoItemsJson = JSON.stringify(otoItems);
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -917,18 +952,14 @@ exports.showOTO = async (req, res) => {
       display: flex; justify-content: space-between; align-items: center;
     }
     .oto-nav img { height: 30px; }
-    .oto-nav .step-pills {
-      display: flex; gap: 6px; align-items: center;
-    }
+    .oto-nav .step-pills { display: flex; gap: 6px; align-items: center; }
     .oto-nav .pill {
-      font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 600;
-      letter-spacing: 0.3px;
+      font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.3px;
     }
     .pill-done { background: rgba(34,197,94,0.2); color: #4ade80; }
     .pill-active { background: var(--cyan-dark); color: var(--navy); }
     .pill-todo { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
 
-    /* Hero confirmation */
     .oto-hero {
       background: linear-gradient(135deg, var(--navy) 0%, #0f1a3a 100%);
       text-align: center; padding: 36px 30px 30px; position: relative; overflow: hidden;
@@ -948,15 +979,11 @@ exports.showOTO = async (req, res) => {
     }
     .oto-hero p { color: rgba(255,255,255,0.5); font-size: 14px; }
 
-    /* Urgency bar */
     .urgency-bar {
       background: linear-gradient(90deg, #fef3c7 0%, #fff7e0 100%);
-      text-align: center; padding: 10px 20px;
-      border-bottom: 2px solid #fbbf24;
+      text-align: center; padding: 10px 20px; border-bottom: 2px solid #fbbf24;
     }
-    .urgency-bar span {
-      font-size: 13px; font-weight: 700; color: #92400e;
-    }
+    .urgency-bar span { font-size: 13px; font-weight: 700; color: #92400e; }
     .urgency-bar .timer {
       display: inline-block; background: #92400e; color: #fef3c7;
       padding: 2px 8px; border-radius: 4px; font-weight: 800;
@@ -965,10 +992,7 @@ exports.showOTO = async (req, res) => {
 
     .oto-wrapper { max-width: 640px; margin: 0 auto; padding: 0 20px; }
 
-    /* One-time offer heading */
-    .oto-heading {
-      text-align: center; padding: 28px 20px 10px;
-    }
+    .oto-heading { text-align: center; padding: 28px 20px 10px; }
     .oto-heading .eyebrow {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 2px; color: var(--red); margin-bottom: 8px;
@@ -979,71 +1003,83 @@ exports.showOTO = async (req, res) => {
     }
     .oto-heading p { font-size: 14px; color: var(--gray-400); max-width: 440px; margin: 0 auto; }
 
-    /* BUNDLE HERO CARD */
-    .bundle-card {
-      background: var(--white); border: 3px solid var(--cyan-mid); border-radius: 16px;
-      margin: 20px 0; overflow: hidden;
-      box-shadow: 0 8px 40px rgba(120,228,255,0.15), 0 2px 8px rgba(0,0,0,0.06);
+    /* Toggle card */
+    .oto-item {
+      background: var(--white); border: 2px solid var(--cyan-mid); border-radius: 14px;
+      padding: 22px 24px; margin: 14px 0; cursor: pointer; transition: all 0.25s;
+      position: relative; box-shadow: 0 2px 12px rgba(120,228,255,0.1);
     }
-    .bundle-ribbon {
-      background: var(--navy); color: var(--cyan); text-align: center;
-      padding: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    .oto-item.unchecked {
+      border-color: var(--gray-200); opacity: 0.55;
+      box-shadow: none;
     }
-    .bundle-body { padding: 28px 30px; }
-    .bundle-body h3 {
-      font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 800;
-      color: var(--navy); margin-bottom: 8px;
+    .oto-item .item-top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;
     }
-    .bundle-body .desc { font-size: 14px; color: var(--gray-600); margin-bottom: 18px; line-height: 1.7; }
+    .oto-item .item-info { flex: 1; }
+    .oto-item h4 { font-size: 16px; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
+    .oto-item .item-desc { font-size: 13px; color: var(--gray-400); line-height: 1.5; }
+    .oto-item .item-pricing {
+      display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
+    }
+    .oto-item .item-price {
+      font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800; color: var(--navy);
+    }
+    .oto-item .item-per { font-size: 12px; color: var(--gray-400); }
+    .oto-item .item-was { font-size: 13px; color: var(--gray-400); text-decoration: line-through; }
+    .oto-item .item-save {
+      display: inline-block; background: rgba(224,82,82,0.1); color: var(--red);
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    }
+    .oto-item .popular-badge {
+      position: absolute; top: -1px; right: 20px;
+      background: var(--navy); color: var(--cyan); font-size: 9px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px;
+      border-radius: 0 0 8px 8px;
+    }
 
-    .value-stack {
-      background: #f8fafb; border-radius: 10px; padding: 16px 20px; margin-bottom: 18px;
+    /* Custom toggle */
+    .toggle-wrap {
+      flex-shrink: 0; width: 48px; height: 28px; border-radius: 14px;
+      background: var(--cyan-mid); position: relative; transition: background 0.25s;
+      cursor: pointer;
     }
-    .value-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 0; border-bottom: 1px solid var(--gray-100);
+    .toggle-wrap.off { background: var(--gray-200); }
+    .toggle-knob {
+      position: absolute; top: 3px; left: 23px; width: 22px; height: 22px;
+      border-radius: 50%; background: white; transition: left 0.25s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
     }
-    .value-row:last-child { border-bottom: none; }
-    .value-row .item { font-size: 13.5px; color: var(--gray-800); font-weight: 600; }
-    .value-row .item-val {
-      font-size: 13.5px; color: var(--gray-400); text-decoration: line-through;
-    }
-    .value-total {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 0 0; margin-top: 4px; border-top: 2px solid var(--navy);
-    }
-    .value-total .item { font-size: 14px; font-weight: 800; color: var(--navy); }
-    .value-total .item-val { font-size: 14px; font-weight: 800; color: var(--gray-400); text-decoration: line-through; }
+    .toggle-wrap.off .toggle-knob { left: 3px; }
 
-    .bundle-price-row {
-      display: flex; align-items: center; justify-content: center; gap: 14px;
-      margin: 18px 0 8px; text-align: center;
+    /* Sticky total + CTA */
+    .oto-footer {
+      background: var(--white); border-top: 2px solid var(--gray-100);
+      padding: 20px; margin-top: 24px; border-radius: 14px 14px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
     }
-    .bundle-price-row .your-price-label {
-      font-size: 12px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.5px;
+    .oto-total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
     }
-    .bundle-price-row .big-price {
-      font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 900;
-      color: var(--navy); line-height: 1;
+    .oto-total-label { font-size: 14px; font-weight: 600; color: var(--gray-600); }
+    .oto-total-amount {
+      font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: var(--navy);
     }
-    .bundle-price-row .save-badge {
-      background: var(--red); color: white; font-size: 12px; font-weight: 800;
-      padding: 5px 14px; border-radius: 20px; white-space: nowrap;
+    .oto-monthly-note {
+      font-size: 12px; color: var(--gray-400); text-align: right; margin-bottom: 14px;
     }
     .social-proof {
-      text-align: center; font-size: 12px; color: var(--gray-400); margin-bottom: 16px;
+      text-align: center; font-size: 12px; color: var(--gray-400); margin-bottom: 12px;
     }
     .social-proof strong { color: var(--gray-600); }
 
-    @keyframes shimmer {
-      0% { background-position: -200% center; }
-      100% { background-position: 200% center; }
-    }
+    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     @keyframes pulse { 0%,100% { box-shadow: 0 4px 20px rgba(120,228,255,0.35); } 50% { box-shadow: 0 4px 30px rgba(120,228,255,0.6); } }
     .oto-btn {
       display: block; width: 100%; padding: 18px; border: none; border-radius: 12px;
       font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.3s;
-      text-align: center; text-decoration: none; letter-spacing: 0.5px;
+      text-align: center; letter-spacing: 0.5px;
       background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
       background-size: 200% 100%; color: var(--navy);
       box-shadow: 0 4px 20px rgba(120,228,255,0.35);
@@ -1057,63 +1093,26 @@ exports.showOTO = async (req, res) => {
     .oto-btn:active { transform: translateY(0) scale(0.99); }
     .oto-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
     .oto-btn-sub {
-      display: block; text-align: center; font-size: 11px; color: var(--gray-400);
-      margin-top: 8px;
+      display: block; text-align: center; font-size: 11px; color: var(--gray-400); margin-top: 8px;
     }
 
-    /* Smaller individual cards */
-    .oto-singles { display: flex; gap: 14px; margin: 24px 0; }
-    .oto-single {
-      flex: 1; background: var(--white); border: 2px solid var(--gray-100); border-radius: 12px;
-      padding: 22px 20px; transition: all 0.3s;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    .oto-single:hover { border-color: var(--cyan-mid); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(120,228,255,0.12); }
-    .oto-single h4 { font-size: 14px; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
-    .oto-single .s-desc { font-size: 12px; color: var(--gray-400); margin-bottom: 12px; line-height: 1.5; }
-    .oto-single .s-pricing { margin-bottom: 14px; }
-    .oto-single .s-price { font-family: 'Playfair Display',serif; font-size: 22px; font-weight: 800; color: var(--navy); }
-    .oto-single .s-was { font-size: 13px; color: var(--gray-400); text-decoration: line-through; margin-left: 6px; }
-    .oto-single .s-save { display: inline-block; background: rgba(224,82,82,0.1); color: var(--red); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
-    .oto-btn-sm {
-      display: block; width: 100%; padding: 12px; border: none; border-radius: 8px;
-      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
-      background: linear-gradient(135deg, var(--cyan-dark), var(--cyan-mid));
-      color: var(--navy); text-align: center;
-    }
-    .oto-btn-sm:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(120,228,255,0.3); }
-    .oto-btn-sm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* Care plan section */
-    .care-section {
-      background: var(--white); border: 2px solid var(--gray-100); border-radius: 12px;
-      padding: 24px 28px; margin: 24px 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    .care-section h4 { font-size: 15px; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
-    .care-section .care-desc { font-size: 13px; color: var(--gray-400); margin-bottom: 14px; }
-    .care-features { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-bottom: 16px; }
-    .care-features li { font-size: 12px; color: var(--gray-600); padding: 2px 0; }
-    .care-features li::before { content: '\\2713'; color: var(--green); font-weight: 700; margin-right: 6px; }
-    .care-price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 14px; }
-    .care-price-row .care-amt { font-family: 'Playfair Display',serif; font-size: 26px; font-weight: 800; color: var(--navy); }
-    .care-price-row .care-per { font-size: 13px; color: var(--gray-400); }
-
-    /* Skip/decline */
     .skip-link {
       display: block; text-align: center; color: var(--gray-400); font-size: 12px;
       text-decoration: none; padding: 20px 15px 40px; line-height: 1.6;
     }
     .skip-link:hover { color: var(--gray-600); }
 
+    .error-msg {
+      background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+      padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 14px;
+      text-align: center; display: none;
+    }
+
     @media (max-width: 600px) {
       .oto-hero h1 { font-size: 24px; }
-      .bundle-body { padding: 22px 20px; }
-      .bundle-price-row .big-price { font-size: 34px; }
-      .oto-singles { flex-direction: column; }
       .oto-nav { padding: 12px 20px; }
       .oto-nav .step-pills { display: none; }
-      .care-features { grid-template-columns: 1fr; }
+      .oto-item .item-price { font-size: 20px; }
     }
   </style>
 </head>
@@ -1140,92 +1139,137 @@ exports.showOTO = async (req, res) => {
 
   <div class="oto-wrapper">
     <div class="oto-heading">
-      <div class="eyebrow">One-Time Offer</div>
-      <h2>Maximise Your System\u2019s Protection</h2>
-      <p>Most of our customers add these upgrades during installation \u2014 it\u2019s significantly cheaper than adding them later.</p>
+      <div class="eyebrow">One-Time Offer \u2014 Included With Your Install</div>
+      <h2>We\u2019ve Pre-Selected the Most Popular Upgrades</h2>
+      <p>Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later. Uncheck anything you don\u2019t want.</p>
     </div>
 
-    ${hasBundle ? `
-    <div class="bundle-card">
-      <div class="bundle-ribbon">\u2b50 Recommended \u2014 Most Popular Choice</div>
-      <div class="bundle-body">
-        <h3>Complete Protection Bundle</h3>
-        <p class="desc">Everything your system needs for total peace of mind. Alarm monitoring, power protection, and ongoing care \u2014 sorted in one go.</p>
+    <div id="oto-items"></div>
 
-        <div class="value-stack">
-          ${hasAlarm ? `<div class="value-row"><span class="item">\u2713 24/7 Alarm Monitoring</span><span class="item-val">${formatCurrency(alarmPrice)}</span></div>` : ''}
-          ${hasUps ? `<div class="value-row"><span class="item">\u2713 UPS Battery Backup</span><span class="item-val">${formatCurrency(upsPrice)}</span></div>` : ''}
-          <div class="value-row"><span class="item">\u2713 Priority Support &amp; Maintenance</span><span class="item-val">Included</span></div>
-          <div class="value-total"><span class="item">Total Value</span><span class="item-val">${formatCurrency(bundleWas)}</span></div>
-        </div>
-
-        <div class="bundle-price-row">
-          <div>
-            <div class="your-price-label">Your Price Today</div>
-            <div class="big-price">${formatCurrency(bundlePrice)}</div>
-          </div>
-          ${bundleSaving > 0 ? `<span class="save-badge">SAVE ${formatCurrency(bundleSaving)}</span>` : ''}
-        </div>
-        <div class="social-proof">\u2b50 <strong>87% of customers</strong> choose this option</div>
-        <button class="oto-btn" onclick="purchaseOTO('bundle', ${bundlePrice})">Yes! Add the Bundle to My Order \u2192</button>
-        <span class="oto-btn-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</span>
+    <div class="oto-footer">
+      <div id="error-msg" class="error-msg"></div>
+      <div class="social-proof">\u2b50 <strong>87% of customers</strong> keep all upgrades selected</div>
+      <div class="oto-total-row">
+        <span class="oto-total-label">Charged to your card today</span>
+        <span class="oto-total-amount" id="oto-total">$0</span>
       </div>
+      <div class="oto-monthly-note" id="monthly-note" style="display:none;"></div>
+      <button class="oto-btn" id="cta-btn" onclick="confirmSelection()">Yes, Protect My Investment \u2192</button>
+      <span class="oto-btn-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</span>
     </div>
-    ` : ''}
-
-    ${(hasAlarm || hasUps) && !hasBundle ? '' : (hasAlarm || hasUps) ? `
-    <p style="text-align:center;font-size:12px;color:var(--gray-400);margin:20px 0 8px;">Or add individually:</p>
-    ` : ''}
-
-    ${(hasAlarm || hasUps) ? `
-    <div class="oto-singles">
-      ${hasAlarm ? `
-      <div class="oto-single">
-        <h4>24/7 Alarm Monitoring</h4>
-        <p class="s-desc">Professional monitoring station with instant emergency dispatch.</p>
-        <div class="s-pricing">
-          <span class="s-price">${formatCurrency(alarmPrice)}</span>
-          ${alarmWasPrice > alarmPrice ? `<span class="s-was">${formatCurrency(alarmWasPrice)}</span><span class="s-save">SAVE ${formatCurrency(alarmWasPrice - alarmPrice)}</span>` : ''}
-        </div>
-        <button class="oto-btn-sm" onclick="purchaseOTO('alarm', ${alarmPrice})">Add Monitoring \u2192</button>
-      </div>
-      ` : ''}
-      ${hasUps ? `
-      <div class="oto-single">
-        <h4>UPS Battery Backup</h4>
-        <p class="s-desc">Keeps your system recording during power outages for hours.</p>
-        <div class="s-pricing">
-          <span class="s-price">${formatCurrency(upsPrice)}</span>
-          ${upsWasPrice > upsPrice ? `<span class="s-was">${formatCurrency(upsWasPrice)}</span><span class="s-save">SAVE ${formatCurrency(upsWasPrice - upsPrice)}</span>` : ''}
-        </div>
-        <button class="oto-btn-sm" onclick="purchaseOTO('ups', ${upsPrice})">Add UPS Backup \u2192</button>
-      </div>
-      ` : ''}
-    </div>
-    ` : ''}
-
-    ${hasCare ? `
-    <div class="care-section">
-      <h4>GWS Care Plan</h4>
-      <p class="care-desc">Keep your system in peak condition with ongoing maintenance and priority support.</p>
-      <ul class="care-features">
-        <li>Priority phone &amp; text support</li>
-        <li>Annual on-site health check</li>
-        <li>Firmware updates &amp; optimisation</li>
-        <li>15% off additional equipment</li>
-      </ul>
-      <div class="care-price-row">
-        <span class="care-amt">${formatCurrency(carePrice)}</span>
-        <span class="care-per">/ month</span>
-      </div>
-      <button class="oto-btn-sm" onclick="purchaseOTO('care', ${carePrice})">Start Care Plan \u2192</button>
-    </div>
-    ` : ''}
 
     <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
   </div>
 
   <script>
+    const PROJECT = '${escapeHtml(projectNumber)}';
+    const HAS_CARD = ${hasCard};
+    const items = ${otoItemsJson};
+    const selected = {};
+    items.forEach(it => selected[it.key] = true);
+
+    function render() {
+      const container = document.getElementById('oto-items');
+      container.innerHTML = '';
+      items.forEach((it, i) => {
+        const on = selected[it.key];
+        const isFirst = i === 0;
+        const div = document.createElement('div');
+        div.className = 'oto-item' + (on ? '' : ' unchecked');
+        div.onclick = function(e) {
+          if (e.target.closest('.toggle-wrap')) return;
+          toggleItem(it.key);
+        };
+        let html = '';
+        if (isFirst) html += '<div class="popular-badge">MOST POPULAR</div>';
+        html += '<div class="item-top"><div class="item-info">';
+        html += '<h4>' + it.name + '</h4>';
+        html += '<p class="item-desc">' + it.desc + '</p>';
+        html += '<div class="item-pricing">';
+        html += '<span class="item-price">$' + it.price.toLocaleString() + '</span>';
+        if (it.monthly) html += '<span class="item-per">/ month</span>';
+        if (it.wasPrice > it.price) html += ' <span class="item-was">$' + it.wasPrice.toLocaleString() + '</span>';
+        if (it.saving > 0) html += ' <span class="item-save">SAVE $' + it.saving.toLocaleString() + '</span>';
+        html += '</div></div>';
+        html += '<div class="toggle-wrap' + (on ? '' : ' off') + '" onclick="toggleItem(\\''+it.key+'\\')">';
+        html += '<div class="toggle-knob"></div></div>';
+        html += '</div>';
+        div.innerHTML = html;
+        container.appendChild(div);
+      });
+      updateTotal();
+    }
+
+    function toggleItem(key) {
+      selected[key] = !selected[key];
+      render();
+    }
+
+    function updateTotal() {
+      let oneTime = 0, monthly = 0;
+      items.forEach(it => {
+        if (!selected[it.key]) return;
+        if (it.monthly) monthly += it.price;
+        else oneTime += it.price;
+      });
+      document.getElementById('oto-total').textContent = '$' + oneTime.toLocaleString();
+      const note = document.getElementById('monthly-note');
+      if (monthly > 0) {
+        note.style.display = 'block';
+        note.textContent = '+ $' + monthly.toLocaleString() + '/month for Care Plan';
+      } else {
+        note.style.display = 'none';
+      }
+      const anySelected = items.some(it => selected[it.key]);
+      const btn = document.getElementById('cta-btn');
+      if (anySelected) {
+        btn.textContent = 'Yes, Protect My Investment \\u2192';
+        btn.style.animation = 'pulse 2s ease-in-out infinite';
+      } else {
+        btn.textContent = 'Continue Without Extras \\u2192';
+        btn.style.animation = 'none';
+      }
+    }
+
+    function confirmSelection() {
+      const chosen = items.filter(it => selected[it.key]).map(it => it.key);
+      if (chosen.length === 0) {
+        window.location.href = '/offers/' + PROJECT + '/thank-you';
+        return;
+      }
+      const btn = document.getElementById('cta-btn');
+      const errEl = document.getElementById('error-msg');
+      errEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+      btn.style.animation = 'none';
+
+      fetch('/api/proposals/' + PROJECT + '/oto-charge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: chosen })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          window.location.href = '/offers/' + PROJECT + '/thank-you';
+        } else if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        } else {
+          errEl.textContent = data.error || 'Something went wrong. Please try again.';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Try Again \\u2192';
+        }
+      })
+      .catch(() => {
+        errEl.textContent = 'Connection error. Please try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Try Again \\u2192';
+      });
+    }
+
     // Countdown timer
     let timeLeft = 15 * 60;
     const timerEl = document.getElementById('countdown');
@@ -1237,32 +1281,7 @@ exports.showOTO = async (req, res) => {
       timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
     }, 1000);
 
-    function purchaseOTO(type, amount) {
-      const btn = event.target;
-      btn.disabled = true;
-      btn.textContent = 'Processing...';
-
-      fetch('/api/proposals/${escapeHtml(projectNumber)}/oto-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otoType: type, amount: amount })
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.checkoutUrl) {
-          window.location.href = data.checkoutUrl;
-        } else {
-          alert(data.error || 'Something went wrong');
-          btn.disabled = false;
-          btn.textContent = 'Try Again';
-        }
-      })
-      .catch(() => {
-        alert('Connection error. Please try again.');
-        btn.disabled = false;
-        btn.textContent = 'Try Again';
-      });
-    }
+    render();
   </script>
 </body>
 </html>`;
@@ -1365,12 +1384,12 @@ exports.showOTOThankYou = async (req, res) => {
   }
 };
 
-// ─── PUBLIC: OTO Checkout ─────────────────────────────────────
+// ─── PUBLIC: OTO Direct Charge ───────────────────────────────
 
-exports.createOTOCheckout = async (req, res) => {
+exports.chargeOTODirect = async (req, res) => {
   try {
     const { projectNumber } = req.params;
-    const { otoType, amount } = req.body;
+    const { items } = req.body; // e.g. ['bundle', 'care'] or ['alarm', 'ups', 'care']
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
 
     if (!proposal) {
@@ -1378,34 +1397,99 @@ exports.createOTOCheckout = async (req, res) => {
     }
 
     const f = proposal.fields;
+    const customerId = f['Stripe Customer ID'];
+    const paymentMethodId = f['Stripe Payment Method ID'];
 
-    // Server-side price validation — never trust client amount
+    // Server-side price validation — never trust client
     const priceMap = {
-      bundle: f['OTO Bundle Price'],
-      alarm: f['OTO Alarm Price'],
-      ups: f['OTO UPS Price'],
-      care: f['OTO Care Monthly Price'],
+      bundle: f['OTO Bundle Price'] || 0,
+      alarm: f['OTO Alarm Price'] || 0,
+      ups: f['OTO UPS Price'] || 0,
+      care: f['OTO Care Monthly Price'] || 0,
+    };
+    const nameMap = {
+      bundle: 'Complete Protection Bundle',
+      alarm: '24/7 Alarm Monitoring',
+      ups: 'UPS Battery Backup',
+      care: 'GWS Care Plan',
     };
 
-    const serverPrice = priceMap[otoType];
-    if (!serverPrice || serverPrice <= 0) {
-      return res.status(400).json({ error: 'Invalid upgrade option' });
+    // Validate all requested items have prices
+    const validItems = (items || []).filter(key => priceMap[key] > 0);
+    if (validItems.length === 0) {
+      return res.status(400).json({ error: 'No valid items selected' });
     }
 
+    // Separate one-time items from subscription (care)
+    const oneTimeItems = validItems.filter(k => k !== 'care');
+    const hasCare = validItems.includes('care');
+    const oneTimeTotal = oneTimeItems.reduce((sum, k) => sum + priceMap[k], 0);
+
+    // If we have a saved card, charge directly
+    if (customerId && paymentMethodId) {
+      try {
+        const results = [];
+
+        // Charge one-time items as a single payment
+        if (oneTimeTotal > 0) {
+          const description = oneTimeItems.map(k => nameMap[k]).join(' + ');
+          const pi = await stripeService.chargeOffSession({
+            customerId,
+            paymentMethodId,
+            amount: oneTimeTotal,
+            description: `${description} - Proposal #${projectNumber}`,
+            metadata: {
+              type: 'oto',
+              oto_items: oneTimeItems.join(','),
+              project_number: projectNumber,
+              proposal_id: proposal.id,
+            },
+          });
+          results.push({ type: 'payment', status: pi.status });
+        }
+
+        // Create subscription for care plan
+        if (hasCare) {
+          const sub = await stripeService.createOffSessionSubscription({
+            customerId,
+            paymentMethodId,
+            amount: priceMap.care,
+            productName: 'GWS Care Plan',
+            metadata: {
+              type: 'oto',
+              oto_type: 'care',
+              project_number: projectNumber,
+              proposal_id: proposal.id,
+            },
+          });
+          results.push({ type: 'subscription', status: sub.status });
+        }
+
+        return res.json({ success: true, results });
+      } catch (chargeError) {
+        console.error('Off-session charge failed, falling back to checkout:', chargeError.message);
+        // Fall through to Checkout Session fallback below
+      }
+    }
+
+    // Fallback: no saved card or off-session charge failed — create a Checkout Session
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+
+    // For fallback, charge the first item via checkout (simplified)
+    const firstItem = validItems[0];
     const session = await stripeService.createOTOCheckoutSession({
       projectNumber,
       proposalId: proposal.id,
-      otoType,
-      amount: serverPrice,
+      otoType: firstItem,
+      amount: priceMap[firstItem],
       successUrl: `${baseUrl}/offers/${projectNumber}/thank-you`,
       cancelUrl: `${baseUrl}/offers/${projectNumber}`,
     });
 
     res.json({ checkoutUrl: session.url });
   } catch (error) {
-    console.error('Error creating OTO checkout:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('Error charging OTO:', error);
+    res.status(500).json({ error: 'Failed to process upgrades. Please try again.' });
   }
 };
 

@@ -201,7 +201,7 @@ app.get('/offers/:projectNumber', proposalsController.showOTO);
 app.get('/offers/:projectNumber/thank-you', proposalsController.showOTOThankYou);
 app.post('/api/proposals/:projectNumber/track-view', proposalsController.trackProposalView);
 app.post('/api/proposals/:projectNumber/checkout', proposalsController.createProposalCheckout);
-app.post('/api/proposals/:projectNumber/oto-checkout', proposalsController.createOTOCheckout);
+app.post('/api/proposals/:projectNumber/oto-charge', proposalsController.chargeOTODirect);
 
 // Proposal routes - ADMIN (require auth)
 app.get('/admin/proposals', requireAuth, proposalsController.listProposals);

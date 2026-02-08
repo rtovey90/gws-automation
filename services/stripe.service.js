@@ -336,7 +336,7 @@ class StripeService {
   }
 
   /**
-   * Create a Checkout Session for an OTO (post-purchase upgrade)
+   * Create a Checkout Session for an OTO (post-purchase upgrade) — fallback if off-session fails
    */
   async createOTOCheckoutSession({ projectNumber, proposalId, otoType, amount, description, successUrl, cancelUrl }) {
     try {
@@ -384,6 +384,70 @@ class StripeService {
       return session;
     } catch (error) {
       console.error('Error creating OTO checkout session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieve a completed Checkout Session with payment details
+   */
+  async getCheckoutSession(sessionId) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['payment_intent'],
+      });
+      return session;
+    } catch (error) {
+      console.error('Error retrieving checkout session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Charge a customer off-session using their saved payment method (one-time)
+   */
+  async chargeOffSession({ customerId, paymentMethodId, amount, description, metadata }) {
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100),
+        currency: 'aud',
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        description,
+        metadata,
+      });
+      return paymentIntent;
+    } catch (error) {
+      console.error('Error charging off-session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create an off-session subscription using saved payment method
+   */
+  async createOffSessionSubscription({ customerId, paymentMethodId, amount, productName, metadata }) {
+    try {
+      // Create a price on the fly
+      const price = await stripe.prices.create({
+        currency: 'aud',
+        unit_amount: Math.round(amount * 100),
+        recurring: { interval: 'month' },
+        product_data: { name: productName || 'GWS Care Plan' },
+      });
+
+      const subscription = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: price.id }],
+        default_payment_method: paymentMethodId,
+        metadata,
+      });
+
+      return subscription;
+    } catch (error) {
+      console.error('Error creating off-session subscription:', error);
       throw error;
     }
   }
