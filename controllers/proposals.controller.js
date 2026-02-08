@@ -955,48 +955,53 @@ exports.showOTO = async (req, res) => {
       max-width: 100%; margin: 0 auto; background: var(--white);
       overflow: hidden; display: flex; flex-direction: column; min-height: 100vh;
     }
-    .pg-header {
-      background: var(--navy); padding: 16px 50px;
-      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
-    }
-    .pg-header img { height: 32px; object-fit: contain; }
-    .pg-header-right { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
-
-    /* ===== CONFIRMATION BANNER ===== */
-    .confirm-banner {
-      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-      padding: 24px 50px; display: flex; align-items: center; gap: 16px;
+    /* ===== HERO (matches thank-you page) ===== */
+    .oto-hero {
+      background: var(--navy); text-align: center; padding: 50px 30px 44px;
       position: relative; overflow: hidden;
     }
-    .confirm-banner::before {
-      content: ''; position: absolute; top: 0; right: 0; width: 300px; height: 100%;
-      background: linear-gradient(135deg, transparent 50%, rgba(120,228,255,0.05));
+    .oto-hero::before {
+      content: ''; position: absolute; top: -40%; right: -10%; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(120,228,255,0.06) 0%, transparent 70%);
     }
-    .confirm-banner .check-icon {
-      width: 40px; height: 40px; border-radius: 50%; background: var(--green);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; color: white; flex-shrink: 0;
-      box-shadow: 0 2px 10px rgba(34,197,94,0.3);
+    .oto-hero img { max-width: 180px; margin-bottom: 28px; position: relative; z-index: 1; }
+    .oto-hero .check {
+      width: 72px; height: 72px; background: var(--cyan-mid);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 22px; font-size: 36px; color: white;
+      box-shadow: 0 4px 20px rgba(93,212,240,0.3);
+      position: relative; z-index: 1;
     }
-    .confirm-banner h2 {
-      font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 800;
-      color: var(--white); position: relative; z-index: 1;
+    .oto-hero h1 {
+      font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900;
+      color: var(--white); margin-bottom: 10px; position: relative; z-index: 1;
     }
-    .confirm-banner p {
-      font-size: 12.5px; color: rgba(255,255,255,0.45); position: relative; z-index: 1; margin-top: 2px;
+    .oto-hero .hero-sub {
+      color: rgba(255,255,255,0.55); font-size: 16px; line-height: 1.7;
+      max-width: 500px; margin: 0 auto; position: relative; z-index: 1;
     }
 
-    /* ===== URGENCY (subtle, inline) ===== */
-    .urgency-strip {
-      background: linear-gradient(90deg, #fef3c7, #fef9e7);
-      padding: 8px 50px; font-size: 12px; font-weight: 700; color: #92400e;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      border-bottom: 1px solid #fde68a;
+    /* ===== WAIT / INTERRUPT ===== */
+    .wait-section {
+      text-align: center; padding: 32px 30px 24px;
+      border-bottom: 1px solid var(--gray-100);
     }
-    .urgency-strip .timer {
-      display: inline-block; background: #92400e; color: #fef3c7;
-      padding: 2px 8px; border-radius: 4px; font-weight: 800;
-      font-variant-numeric: tabular-nums; font-size: 12px;
+    .wait-text {
+      font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 900;
+      color: var(--red-bright); margin-bottom: 8px; line-height: 1.1;
+    }
+    .wait-sub {
+      font-size: 15px; color: var(--gray-600); max-width: 480px;
+      margin: 0 auto; line-height: 1.7;
+    }
+    .wait-timer {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--gray-400);
+    }
+    .wait-timer .timer {
+      display: inline-block; background: var(--navy); color: var(--cyan);
+      padding: 4px 12px; border-radius: 6px; font-weight: 800;
+      font-variant-numeric: tabular-nums; font-size: 14px; letter-spacing: 0.5px;
     }
 
     /* ===== BODY ===== */
@@ -1108,13 +1113,6 @@ exports.showOTO = async (req, res) => {
     }
     .skip-link:hover { color: var(--gray-600); }
 
-    .pg-footer {
-      padding: 14px 50px; border-top: 1px solid rgba(0,0,0,0.06);
-      display: flex; justify-content: space-between;
-      font-size: 10px; color: var(--gray-400); flex-shrink: 0;
-      background: rgba(255,255,255,0.5);
-    }
-
     .error-msg {
       background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
       padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 12px;
@@ -1122,39 +1120,38 @@ exports.showOTO = async (req, res) => {
     }
 
     @media (max-width: 680px) {
-      .pg-header, .pg-footer { padding-left: 24px; padding-right: 24px; }
       .pg-body, .cta-section { padding-left: 24px; padding-right: 24px; }
-      .confirm-banner { padding: 20px 24px; }
-      .urgency-strip { padding: 8px 24px; }
+      .oto-hero { padding: 36px 20px 32px; }
+      .oto-hero h1 { font-size: 28px; }
+      .oto-hero img { max-width: 140px; }
+      .wait-text { font-size: 32px; }
+      .wait-section { padding: 24px 20px 20px; }
       .sec-title { font-size: 26px; }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="pg-header">
+    <div class="oto-hero">
       <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
-      <div class="pg-header-right">Project #${escapeHtml(projectNumber)}</div>
+      <div class="check">\u2713</div>
+      <h1>Payment Confirmed, ${escapeHtml(firstName)}!</h1>
+      <p class="hero-sub">Your payment has been received and your installation is locked in.</p>
     </div>
 
-    <div class="confirm-banner">
-      <div class="check-icon">\u2713</div>
-      <div>
-        <h2>Payment Confirmed, ${escapeHtml(firstName)}!</h2>
-        <p>Your installation is locked in. One more thing before we get started\u2026</p>
+    <div class="wait-section">
+      <div class="wait-text">Wait \u2014 Before You Go!</div>
+      <p class="wait-sub">We\u2019ve pre-selected the most popular upgrades for your system. Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later.</p>
+      <div class="wait-timer">
+        <span>Exclusive pricing expires in</span>
+        <span class="timer" id="countdown">14:59</span>
       </div>
     </div>
 
-    <div class="urgency-strip">
-      <span>\u26a1 This exclusive pricing expires in</span>
-      <span class="timer" id="countdown">14:59</span>
-    </div>
-
     <div class="pg-body">
-      <div class="eyebrow">One-Time Offer \u2014 Included With Your Install</div>
+      <div class="eyebrow">One-Time Offer</div>
       <div class="sec-title">Protect Your Investment</div>
       <div class="sec-title-accent"></div>
-      <p class="oto-subtitle">Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later. We\u2019ve pre-selected the most popular upgrades. Uncheck anything you don\u2019t want.</p>
 
       <div class="section-label">Your Upgrades<span>\u2014 Pre-selected for you</span></div>
       <div class="section-divider"></div>
@@ -1181,11 +1178,6 @@ exports.showOTO = async (req, res) => {
       <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
     </div>
 
-    <div class="pg-footer">
-      <span>${new Date().toISOString().split('T')[0]}</span>
-      <span>www.greatwhitesecurity.com</span>
-      <span>Project #${escapeHtml(projectNumber)}</span>
-    </div>
   </div>
 
   <script>
