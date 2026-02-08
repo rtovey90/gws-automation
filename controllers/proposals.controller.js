@@ -435,8 +435,9 @@ exports.showProposal = async (req, res) => {
     text-align: center; padding: 30px 40px 20px;
     background: linear-gradient(180deg, #e6f0f9 0%, #f0f6fc 100%);
   }
+  .pg-body:has(+ .cta-section) { padding-bottom: 10px; }
   .cta-section {
-    text-align: center; padding: 12px 50px 14px;
+    text-align: center; padding: 8px 50px 14px;
     background: linear-gradient(180deg, #f0f6fc 0%, #e6f0f9 100%);
   }
   .cta-steps { display: flex; gap: 30px; justify-content: center; margin: 20px 0 5px; }
