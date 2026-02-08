@@ -1503,7 +1503,22 @@ function renderProposalForm(proposal, prefill) {
     'Clean Up Site After Installation',
   ];
   const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : (isEdit ? [] : defaultScope);
-  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : [];
+  const defaultDeliverables = [
+    { qty: '2', description: 'Dahua 8MP Dual Light CCTV Turret Cameras' },
+    { qty: '2', description: 'Dahua CCTV Camera Mounting Brackets' },
+    { qty: '1', description: '8 Channel NVR (Network Video Recorder) & Hard Drive (With AI) \u2013 4 TB HDD' },
+    { qty: '1', description: 'SD Card \u2014 Approx. 30 Days Recording' },
+    { qty: '1', description: 'Aiphone WL-11 Wireless, Battery Powered Video Doorbell (External Station, Internal Monitor & Charging Stand)' },
+    { qty: '2', description: 'Wi-Fi Extenders' },
+    { qty: '1', description: 'Surge Protector UPS' },
+    { qty: '\u2014', description: 'Batteries for Aiphone Doorbell' },
+    { qty: '\u2014', description: 'Cat 6 Cable & Patch Leads' },
+    { qty: '\u2014', description: 'Conduit, Ducting, Installation Materials and Sundries' },
+    { qty: '\u2014', description: 'Installation & Programming by Licensed Security Technician/s' },
+    { qty: '\u2014', description: '12 Month Warranty on Installation & Manufacturer Equipment Warranty' },
+    { qty: '\u2014', description: 'Smartphone App (No Subscription Costs)' },
+  ];
+  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : (isEdit ? [] : defaultDeliverables);
   const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
 
   const defaultClarifications = [
