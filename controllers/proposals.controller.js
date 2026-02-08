@@ -147,11 +147,14 @@ exports.showProposal = async (req, res) => {
     // Build clarification rows
     const defaultClarifications = [
       'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
-      'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays.',
-      'Great White Security requires full and free access to all areas of the site containing security equipment for the duration of the works.',
-      'If required, customer smartphones must be present during installation.',
+      'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.',
+      'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
+      'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
       'Quotation valid for 30 days.',
-      'Customer must provide spare internet router port and have working internet for app connectivity.',
+      'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
+      'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 \u2013 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
+      'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
+      'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.',
     ];
     const allClarifications = clarifications.length > 0 ? clarifications : defaultClarifications;
     const clarificationRows = allClarifications.map((c, i) =>
@@ -1473,12 +1476,15 @@ function renderProposalForm(proposal, prefill) {
   const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
 
   const defaultClarifications = [
-    'Only items expressly listed above are included in this quotation.',
-    'Works conducted 08:00-17:00 Monday-Friday excluding WA public holidays.',
-    'Full and free access to all areas of the site is required for duration of works.',
-    'If required, customer smartphones must be present during installation.',
+    'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
+    'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.',
+    'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
+    'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
     'Quotation valid for 30 days.',
-    'Customer must provide spare internet router port and have working internet for app connectivity.',
+    'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
+    'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 \u2013 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
+    'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
+    'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.',
   ];
   const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : (isEdit ? [] : defaultClarifications);
   const sitePhotoUrls = sitePhotoUrlsRaw.length > 0 ? sitePhotoUrlsRaw : [];
