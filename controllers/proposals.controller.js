@@ -106,14 +106,16 @@ exports.showProposal = async (req, res) => {
     const cameraOptions = safeJsonParse(f['Camera Options']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
-    const coverImage = f['Cover Image URL'] || '/proposal-assets/cover-page.png';
+    const coverImage = f['Cover Image URL'] || '/proposal-assets/proposal-cover-page.png';
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = clientName.split(' ')[0] || 'there';
     const logoPath = '/proposal-assets/gws-logo.png';
-    const formattedDate = new Date(proposalDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const dateObj = new Date(proposalDate + 'T00:00:00');
+    const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const coverMonthYear = dateObj.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }).toUpperCase();
 
     // Track view (fire-and-forget)
     if (!f['Viewed At']) {
@@ -219,8 +221,32 @@ exports.showProposal = async (req, res) => {
   .cover-page {
     width: 794px; height: 1123px; overflow: hidden;
     margin: 40px auto; box-shadow: 0 8px 60px rgba(0,0,0,0.2);
+    position: relative;
   }
-  .cover-page img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cover-page .cover-bg {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .cover-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; padding: 50px;
+  }
+  .cover-spacer { flex: 1; }
+  .cover-client-name {
+    font-family: 'DM Sans', sans-serif; font-size: 68px; font-weight: 800;
+    color: var(--white); line-height: 1.05; margin-bottom: 12px;
+  }
+  .cover-client-address {
+    font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 600;
+    color: var(--cyan); margin-bottom: 0;
+  }
+  .cover-footer {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: auto; padding-top: 60px;
+  }
+  .cover-footer span {
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700;
+    color: var(--white); letter-spacing: 2px; text-transform: uppercase;
+  }
 
   /* ===== PAGE CHROME ===== */
   .pg-header {
@@ -416,7 +442,10 @@ exports.showProposal = async (req, res) => {
   /* ===== RESPONSIVE ===== */
   @media (max-width: 820px) {
     .page, .cover-page { width: 100%; min-height: auto; margin: 0; box-shadow: none; }
-    .cover-page { height: auto; }
+    .cover-page { height: auto; min-height: 100vh; }
+    .cover-client-name { font-size: 42px !important; }
+    .cover-client-address { font-size: 16px !important; }
+    .cover-overlay { padding: 30px !important; }
     body { background: var(--white); }
     .cap-grid { grid-template-columns: 1fr; }
     .cred-row { gap: 20px; flex-wrap: wrap; }
@@ -437,7 +466,16 @@ exports.showProposal = async (req, res) => {
 
 <!-- ==================== COVER ==================== -->
 <div class="cover-page">
-  <img src="${escapeHtml(coverImage)}" alt="Great White Security \u2014 Security &amp; Safety Proposal">
+  <img class="cover-bg" src="${escapeHtml(coverImage)}" alt="Great White Security">
+  <div class="cover-overlay">
+    <div class="cover-spacer"></div>
+    <div class="cover-client-name">Prepared for<br>${escapeHtml(clientName)}</div>
+    <div class="cover-client-address">${escapeHtml(clientAddress)}</div>
+    <div class="cover-footer">
+      <span>CONFIDENTIAL</span>
+      <span>${coverMonthYear}</span>
+    </div>
+  </div>
 </div>
 
 <!-- ==================== LETTER ==================== -->
