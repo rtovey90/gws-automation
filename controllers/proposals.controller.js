@@ -1258,6 +1258,17 @@ exports.showCreateForm = async (req, res) => {
 exports.showCreateFormForEngagement = async (req, res) => {
   try {
     const { engagementId } = req.params;
+
+    // Check if a proposal already exists for this engagement
+    const allProposals = await airtableService.getAllProposals();
+    const existing = allProposals.find(p => {
+      const engLinks = p.fields['Engagement'];
+      return engLinks && engLinks.includes(engagementId);
+    });
+    if (existing) {
+      return res.redirect(`/admin/proposals/edit/${existing.id}`);
+    }
+
     const result = await airtableService.getEngagementWithCustomer(engagementId);
 
     let prefill = null;
@@ -1434,6 +1445,7 @@ function buildProposalFields(body) {
   const fields = {};
 
   if (body.projectNumber) fields['Project Number'] = body.projectNumber;
+  if (body.engagementId) fields['Engagement'] = [body.engagementId];
   if (body.date) fields['Proposal Date'] = body.date;
   if (body.clientName) fields['Client Name'] = body.clientName;
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
@@ -1740,6 +1752,7 @@ function renderProposalForm(proposal, prefill) {
         </div>
 
         <!-- Hidden fields for JSON data -->
+        <input type="hidden" name="engagementId" value="${escapeHtml(pf.engagementId || '')}">
         <input type="hidden" name="scopeItems" id="h-scope">
         <input type="hidden" name="deliverables" id="h-deliverables">
         <input type="hidden" name="clarifications" id="h-clarifications">
