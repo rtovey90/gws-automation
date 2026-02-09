@@ -122,7 +122,6 @@ exports.showProposal = async (req, res) => {
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
-    const stripeLink = f['Stripe Payment Link'] || '';
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = getFirstNames(clientName);
     const logoPath = '/proposal-assets/gws-logo.png';
@@ -161,12 +160,12 @@ exports.showProposal = async (req, res) => {
 
     // Build package selection cards if multiple packages exist
     const allPackages = [
-      { name: packageName, description: packageDesc, price: basePrice, stripeLink },
+      { name: packageName, description: packageDesc, price: basePrice },
       ...optionGroups
     ];
     const hasMultiplePackages = optionGroups.length > 0;
     const packageCardsHtml = hasMultiplePackages ? allPackages.map((pkg, i) => `
-      <div class="og-radio-card${i === 0 ? ' selected' : ''}" onclick="selectPackage(this, ${pkg.price || 0})" data-price="${pkg.price || 0}" data-stripe="${escapeHtml(pkg.stripeLink || '')}">
+      <div class="og-radio-card${i === 0 ? ' selected' : ''}" onclick="selectPackage(this, ${pkg.price || 0})" data-price="${pkg.price || 0}">
         <div class="og-radio-dot"></div>
         <div class="og-radio-info"><h4>${escapeHtml(pkg.name || '')}</h4>${pkg.description ? `<p>${escapeHtml(pkg.description)}</p>` : ''}</div>
         <div class="og-radio-price">${formatCurrency(pkg.price || 0)}</div>
@@ -699,7 +698,6 @@ ${sitePhotoPages}
 
 <script>
   let selectedBasePrice = ${basePrice};
-  let selectedStripeLink = '${escapeHtml(stripeLink)}';
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   let upgradeTotal = 0;
 
@@ -717,7 +715,6 @@ ${sitePhotoPages}
     document.querySelectorAll('.og-radio-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     selectedBasePrice = price;
-    selectedStripeLink = card.dataset.stripe || '';
     updateTotalDisplay();
   }
 
@@ -732,15 +729,6 @@ ${sitePhotoPages}
     btn.disabled = true;
     btn.textContent = 'Processing...';
 
-    // If a Stripe payment link is set, redirect directly to it
-    if (selectedStripeLink) {
-      // Track the acceptance first
-      fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
-      window.location.href = selectedStripeLink;
-      return;
-    }
-
-    // Otherwise fall back to dynamic checkout
     const selectedUpgrades = [];
     document.querySelectorAll('.upgrade-card.selected').forEach(card => {
       const name = card.querySelector('h4').textContent;
@@ -760,7 +748,7 @@ ${sitePhotoPages}
     })
     .then(r => r.json())
     .then(data => {
-      if (data.url) window.location.href = data.url;
+      if (data.checkoutUrl) window.location.href = data.checkoutUrl;
       else {
         alert(data.error || 'Something went wrong');
         btn.disabled = false;
@@ -818,7 +806,7 @@ exports.trackProposalView = async (req, res) => {
 exports.createProposalCheckout = async (req, res) => {
   try {
     const { projectNumber } = req.params;
-    const { selectedOptions } = req.body;
+    const { selectedUpgrades, selectedPackage } = req.body;
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
 
     if (!proposal) {
@@ -827,14 +815,34 @@ exports.createProposalCheckout = async (req, res) => {
 
     const f = proposal.fields;
     const basePrice = f['Base Price'] || 0;
+    const packageName = f['Package Name'] || 'Security System Installation';
+    const optionGroups = safeJsonParse(f['Option Groups']);
     const cameraOptions = safeJsonParse(f['Camera Options']);
 
+    // Determine which package was selected (server-side price lookup)
+    let selectedPrice = basePrice;
+    let selectedName = packageName;
+    if (selectedPackage && selectedPackage.name && optionGroups.length > 0) {
+      // Build full list of packages (base + additional)
+      const allPackages = [
+        { name: packageName, price: basePrice },
+        ...optionGroups
+      ];
+      const match = allPackages.find(p => p.name === selectedPackage.name);
+      if (match) {
+        selectedPrice = Number(match.price) || basePrice;
+        selectedName = match.name;
+      }
+    }
+
     // Server-side total calculation (never trust client amount)
-    let total = basePrice;
-    if (Array.isArray(selectedOptions)) {
-      for (const idx of selectedOptions) {
-        if (cameraOptions[idx] && cameraOptions[idx].price) {
-          total += Number(cameraOptions[idx].price);
+    let total = selectedPrice;
+    if (Array.isArray(selectedUpgrades)) {
+      for (const upgrade of selectedUpgrades) {
+        // Look up each upgrade by name in the server-side camera options
+        const match = cameraOptions.find(opt => opt.name === upgrade.name);
+        if (match && match.price) {
+          total += Number(match.price);
         }
       }
     }
@@ -849,7 +857,7 @@ exports.createProposalCheckout = async (req, res) => {
       proposalId: proposal.id,
       amount: total,
       customerName: f['Client Name'] || 'Customer',
-      description: f['Package Name'] || 'Security System Installation',
+      description: selectedName,
       successUrl: `${baseUrl}/offers/${projectNumber}?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/proposals/${projectNumber}`,
     });
@@ -1759,7 +1767,7 @@ exports.sendProposal = async (req, res) => {
     const f = proposal.fields;
     const projectNumber = f['Project Number'];
     const clientName = f['Client Name'] || 'there';
-    const firstName = clientName.split(' ')[0];
+    const firstName = getFirstNames(clientName);
 
     // Build proposal URL
     const baseUrl = process.env.BASE_URL || 'https://book.greatwhitesecurity.com';
@@ -1769,31 +1777,21 @@ exports.sendProposal = async (req, res) => {
     const shortCode = shortLinkService.createShortLink(proposalUrl, proposalId);
     const shortUrl = `${baseUrl}/${shortCode}`;
 
-    // Get phone number — try to get from engagement link or from request body
-    let phone = req.body.phone;
-    if (!phone) {
-      // Try to find via engagement
-      const engagements = await airtableService.getAllEngagements();
-      // Look for engagement with matching client name
-      for (const eng of engagements) {
-        const engName = eng.fields['First Name (from Customer)'];
-        if (engName && clientName.toLowerCase().includes(String(engName).toLowerCase())) {
-          const custIds = eng.fields['Customer'];
-          if (custIds && custIds[0]) {
-            const cust = await airtableService.getCustomer(custIds[0]);
-            phone = cust.fields['Mobile Phone'] || cust.fields['Phone'];
-            break;
-          }
-        }
-      }
-    }
+    // Get phone number from request body
+    const phone = req.body.phone;
 
     if (!phone) {
       return res.status(400).json({ error: 'No phone number found. Please provide one.' });
     }
 
-    // Send SMS
-    const message = `Hi ${firstName}, your security proposal from Great White Security is ready!\n\nView it here: ${shortUrl}\n\nAny questions, give us a call on 0413 346 978.\n\nCheers,\nRicky`;
+    // Use custom message if provided, otherwise default
+    let message;
+    if (req.body.message) {
+      // Replace {proposalUrl} placeholder with the actual short URL
+      message = req.body.message.replace(/\{proposalUrl\}/g, shortUrl);
+    } else {
+      message = `Hi ${firstName}, your security proposal from Great White Security is ready!\n\nView it here: ${shortUrl}\n\nAny questions, give us a call on 0413 346 978.\n\nCheers,\nRicky`;
+    }
 
     await twilioService.sendSMS(phone, message);
 
@@ -1807,6 +1805,39 @@ exports.sendProposal = async (req, res) => {
   } catch (error) {
     console.error('Error sending proposal:', error);
     res.status(500).json({ error: 'Failed to send proposal' });
+  }
+};
+
+// ─── ADMIN: Preview Checkout (creates a Stripe session for admin to verify) ──
+
+exports.previewCheckout = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+    const { packageName, packagePrice } = req.body;
+    const proposal = await airtableService.getProposal(proposalId);
+
+    if (!proposal) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    const f = proposal.fields;
+    const projectNumber = f['Project Number'];
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+
+    const session = await stripeService.createProposalCheckoutSession({
+      projectNumber,
+      proposalId: proposal.id,
+      amount: Number(packagePrice) || 0,
+      customerName: f['Client Name'] || 'Customer',
+      description: packageName || 'Security System Installation',
+      successUrl: `${baseUrl}/admin/proposals`,
+      cancelUrl: `${baseUrl}/admin/proposals/edit/${proposalId}`,
+    });
+
+    res.json({ success: true, checkoutUrl: session.url });
+  } catch (error) {
+    console.error('Error creating preview checkout:', error);
+    res.status(500).json({ error: 'Failed to create preview checkout' });
   }
 };
 
@@ -1824,7 +1855,6 @@ function buildProposalFields(body) {
   if (body.packageName) fields['Package Name'] = body.packageName;
   if (body.packageDescription !== undefined) fields['Package Description'] = body.packageDescription;
   if (body.basePrice !== undefined) fields['Base Price'] = Number(body.basePrice) || 0;
-  if (body.stripeLink !== undefined) fields['Stripe Payment Link'] = body.stripeLink || '';
   if (body.coverImageUrl) fields['Cover Image URL'] = body.coverImageUrl;
   if (body.status) fields['Status'] = body.status;
 
@@ -1876,7 +1906,6 @@ function renderProposalForm(proposal, prefill) {
   const packageName = f['Package Name'] || '';
   const packageDesc = f['Package Description'] || '';
   const basePrice = f['Base Price'] || '';
-  const stripeLink = f['Stripe Payment Link'] || '';
   const coverImageUrl = f['Cover Image URL'] || '';
 
   // Parse JSON fields into arrays for the UI
@@ -2015,7 +2044,6 @@ function renderProposalForm(proposal, prefill) {
       <div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ${i + 2}</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove package">&times;</button></div>
       <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
       <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>
-      <div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" value="${escapeHtml(pkg.stripeLink || '')}" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>
     </div>
   `).join('');
 
@@ -2120,7 +2148,6 @@ function renderProposalForm(proposal, prefill) {
               <div class="fg"><label>Total Price (inc. GST)</label><input type="number" name="basePrice" value="${escapeHtml(String(basePrice))}" step="1" placeholder="4990" style="font-size:20px;font-weight:700;"></div>
             </div>
             <div class="fg"><label>Short Description</label><input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera AI security system with NVR"></div>
-            <div class="fg"><label>Stripe Payment Link</label><input type="url" name="stripeLink" value="${escapeHtml(stripeLink)}" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>
           </div>
           <div id="additional-packages">${additionalPkgHtml}</div>
           <button type="button" class="btn-add" style="margin-top:12px;" onclick="addPackageOption()">+ Add Package Option</button>
@@ -2175,7 +2202,7 @@ function renderProposalForm(proposal, prefill) {
             <h2 class="card-title" style="color:#00d4ff;">Ready to Go</h2>
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
               <button type="button" class="btn-save" onclick="saveProposal(false)">Save as Draft</button>
-              <button type="button" class="btn-send" onclick="saveProposal(true)">Save & Send to Client</button>
+              <button type="button" class="btn-send" onclick="openSendModal()">Save & Send to Client</button>
               ${isEdit ? `<a href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview Proposal</a>
               <a href="/offers/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview OTO Page</a>` : ''}
             </div>
@@ -2195,6 +2222,39 @@ function renderProposalForm(proposal, prefill) {
         <input type="hidden" name="cameraOptions" id="h-cameras">
         <input type="hidden" name="sitePhotoUrls" id="h-photos">
       </form>
+
+      <!-- Send Preview Modal -->
+      <div id="sendModal" class="send-modal-overlay" style="display:none;">
+        <div class="send-modal">
+          <div class="send-modal-header">
+            <h2 id="sendModalTitle">Send Proposal</h2>
+            <button type="button" class="send-modal-close" onclick="closeSendModal()">&times;</button>
+          </div>
+          <div class="send-modal-body">
+            <div class="fg">
+              <label>Phone Number</label>
+              <input type="text" id="sendPhone" placeholder="0412 345 678">
+            </div>
+
+            <div class="send-modal-section">
+              <label style="display:block;font-size:12px;color:#8899aa;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">Payment Summary</label>
+              <div id="sendPackageList"></div>
+            </div>
+
+            <div class="fg">
+              <label>SMS Message <span style="color:#5a6a7a;font-weight:400;">(edit before sending)</span></label>
+              <textarea id="sendMessage" rows="8" style="font-size:13px;line-height:1.6;"></textarea>
+            </div>
+
+            <div id="sendModalStatus" style="font-size:14px;margin-bottom:12px;"></div>
+
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="button" class="btn-send" id="sendModalBtn" onclick="sendFromModal()">Send</button>
+              <button type="button" class="btn-back" onclick="closeSendModal()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>`;
 
   const customStyles = `
@@ -2324,6 +2384,39 @@ function renderProposalForm(proposal, prefill) {
       position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:white; border:none;
       border-radius:50%; width:22px; height:22px; font-size:14px; cursor:pointer; line-height:22px; padding:0;
     }
+
+    .send-modal-overlay {
+      position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7);
+      z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;
+    }
+    .send-modal {
+      background:#0f1419; border:2px solid #2a3a4a; border-radius:16px; width:100%; max-width:560px;
+      max-height:90vh; overflow-y:auto;
+    }
+    .send-modal-header {
+      display:flex; justify-content:space-between; align-items:center; padding:20px 24px;
+      border-bottom:1px solid #2a3a4a;
+    }
+    .send-modal-header h2 { font-size:18px; color:#e0e6ed; margin:0; }
+    .send-modal-close {
+      background:none; border:none; color:#5a6a7a; font-size:24px; cursor:pointer; padding:4px 8px;
+    }
+    .send-modal-close:hover { color:#ff5252; }
+    .send-modal-body { padding:24px; }
+    .send-modal-section { margin-bottom:16px; }
+    .send-pkg-row {
+      display:flex; justify-content:space-between; align-items:center; padding:10px 14px;
+      background:#1a2332; border:1px solid #2a3a4a; border-radius:8px; margin-bottom:6px;
+    }
+    .send-pkg-row .pkg-info { display:flex; align-items:center; gap:8px; }
+    .send-pkg-row .pkg-check { color:#4caf50; font-size:16px; }
+    .send-pkg-row .pkg-label { color:#e0e6ed; font-size:14px; font-weight:500; }
+    .send-pkg-row .pkg-amount { color:#00d4ff; font-size:15px; font-weight:700; }
+    .send-pkg-row .btn-preview-checkout {
+      background:none; border:1px solid #3a4a5a; border-radius:6px; color:#8899aa; font-size:11px;
+      padding:4px 10px; cursor:pointer; margin-left:10px; white-space:nowrap;
+    }
+    .send-pkg-row .btn-preview-checkout:hover { border-color:#00d4ff; color:#00d4ff; }
 
     @media (max-width:768px) {
       .form-row { grid-template-columns:1fr; }
@@ -2558,7 +2651,7 @@ function renderProposalForm(proposal, prefill) {
       const div = document.createElement('div');
       div.className = 'pkg-card';
       div.draggable = true;
-      div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div><div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>';
+      div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>';
       list.appendChild(div);
       initPkgDrag(div);
       div.querySelector('.pkg-name').focus();
@@ -2604,8 +2697,7 @@ function renderProposalForm(proposal, prefill) {
         const name = card.querySelector('.pkg-name').value.trim();
         const desc = card.querySelector('.pkg-desc').value.trim();
         const price = parseFloat(card.querySelector('.pkg-price').value) || 0;
-        const pkgStripe = card.querySelector('.pkg-stripe').value.trim();
-        if (name) addlPkgs.push({ name, description: desc, price, stripeLink: pkgStripe });
+        if (name) addlPkgs.push({ name, description: desc, price });
       });
       data.optionGroups = JSON.stringify(addlPkgs);
 
@@ -2642,6 +2734,8 @@ function renderProposalForm(proposal, prefill) {
       return data;
     }
 
+    let savedProposalId = '${isEdit ? proposal.id : ''}';
+
     async function saveProposal(andSend) {
       const status = document.getElementById('save-status');
       status.textContent = 'Saving...';
@@ -2660,42 +2754,146 @@ function renderProposalForm(proposal, prefill) {
         if (!result.success) {
           status.textContent = 'Error: ' + (result.error || 'Unknown');
           status.style.color = '#ff5252';
-          return;
+          return null;
         }
 
-        const proposalId = result.id || '${isEdit ? proposal.id : ''}';
-
-        if (andSend && proposalId) {
-          status.textContent = 'Saved! Sending SMS...';
-          let phone = document.getElementById('clientPhone').value.trim();
-          if (!phone) phone = prompt('Enter client phone number (e.g. 0412345678):');
-          if (phone) {
-            const sendResp = await fetch('/api/admin/proposals/' + proposalId + '/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ phone })
-            });
-            const sendResult = await sendResp.json();
-            if (sendResult.success) {
-              status.textContent = 'Sent! Link: ' + sendResult.shortUrl;
-              status.style.color = '#4caf50';
-            } else {
-              status.textContent = 'Saved but send failed: ' + (sendResult.error || 'Unknown');
-              status.style.color = '#ff9800';
-            }
-          } else {
-            status.textContent = 'Saved! (send cancelled)';
-            status.style.color = '#4caf50';
-          }
-        } else {
-          status.textContent = 'Saved!';
-          status.style.color = '#4caf50';
-        }
+        savedProposalId = result.id || savedProposalId;
+        status.textContent = 'Saved!';
+        status.style.color = '#4caf50';
 
         ${!isEdit ? "if (result.id) { setTimeout(() => { window.location = '/admin/proposals/edit/' + result.id; }, 1000); }" : ''}
+        return savedProposalId;
       } catch (err) {
         status.textContent = 'Error: ' + err.message;
         status.style.color = '#ff5252';
+        return null;
+      }
+    }
+
+    function getPackagesFromForm() {
+      const packages = [];
+      const mainName = document.querySelector('[name="packageName"]').value.trim();
+      const mainPrice = parseFloat(document.querySelector('[name="basePrice"]').value) || 0;
+      if (mainName) packages.push({ name: mainName, price: mainPrice });
+      document.querySelectorAll('#additional-packages .pkg-card').forEach(card => {
+        const name = card.querySelector('.pkg-name').value.trim();
+        const price = parseFloat(card.querySelector('.pkg-price').value) || 0;
+        if (name) packages.push({ name, price });
+      });
+      return packages;
+    }
+
+    async function openSendModal() {
+      // Save first
+      const status = document.getElementById('save-status');
+      status.textContent = 'Saving before send...';
+      status.style.color = '#ffd93d';
+      const id = await saveProposal(false);
+      if (!id) return;
+
+      const clientName = document.querySelector('[name="clientName"]').value.trim() || 'Client';
+      const phone = document.getElementById('clientPhone').value.trim();
+      const packages = getPackagesFromForm();
+
+      // Set modal title
+      document.getElementById('sendModalTitle').textContent = 'Send Proposal to ' + clientName;
+
+      // Set phone
+      document.getElementById('sendPhone').value = phone;
+
+      // Build package list
+      const listEl = document.getElementById('sendPackageList');
+      listEl.innerHTML = '';
+      packages.forEach(pkg => {
+        const row = document.createElement('div');
+        row.className = 'send-pkg-row';
+        row.innerHTML = '<div class="pkg-info"><span class="pkg-check">&#10003;</span><span class="pkg-label"></span></div>' +
+          '<div style="display:flex;align-items:center;"><span class="pkg-amount">$' + pkg.price.toLocaleString('en-AU') + '</span>' +
+          '<button type="button" class="btn-preview-checkout">Preview Checkout</button></div>';
+        row.querySelector('.pkg-label').textContent = pkg.name;
+        row.querySelector('.btn-preview-checkout').addEventListener('click', function() {
+          previewCheckout(pkg.name, pkg.price);
+        });
+        listEl.appendChild(row);
+      });
+
+      // Set default SMS message
+      const firstName = clientName.split('&')[0].trim().split(' ')[0] || 'there';
+      const fullFirstNames = clientName.includes('&')
+        ? clientName.split('&').map(s => s.trim().split(' ')[0]).join(' & ')
+        : firstName;
+      document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from Great White Security is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0413 346 978.\\n\\nCheers,\\nRicky';
+
+      // Update send button text
+      document.getElementById('sendModalBtn').textContent = 'Send to ' + clientName;
+
+      // Show modal
+      document.getElementById('sendModal').style.display = 'flex';
+      document.getElementById('sendModalStatus').textContent = '';
+    }
+
+    function closeSendModal() {
+      document.getElementById('sendModal').style.display = 'none';
+    }
+
+    async function previewCheckout(packageName, packagePrice) {
+      if (!savedProposalId) { alert('Please save the proposal first.'); return; }
+      try {
+        const resp = await fetch('/api/admin/proposals/' + savedProposalId + '/preview-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ packageName, packagePrice })
+        });
+        const result = await resp.json();
+        if (result.checkoutUrl) {
+          window.open(result.checkoutUrl, '_blank');
+        } else {
+          alert(result.error || 'Failed to create preview checkout');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function sendFromModal() {
+      const phone = document.getElementById('sendPhone').value.trim();
+      const message = document.getElementById('sendMessage').value;
+      const statusEl = document.getElementById('sendModalStatus');
+      const btn = document.getElementById('sendModalBtn');
+
+      if (!phone) { statusEl.textContent = 'Please enter a phone number.'; statusEl.style.color = '#ff5252'; return; }
+      if (!savedProposalId) { statusEl.textContent = 'No proposal ID. Save first.'; statusEl.style.color = '#ff5252'; return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      statusEl.textContent = 'Sending SMS...';
+      statusEl.style.color = '#ffd93d';
+
+      try {
+        const resp = await fetch('/api/admin/proposals/' + savedProposalId + '/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, message })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          statusEl.textContent = 'Sent! Link: ' + result.shortUrl;
+          statusEl.style.color = '#4caf50';
+          btn.textContent = 'Sent!';
+          document.getElementById('save-status').textContent = 'Saved & Sent! Link: ' + result.shortUrl;
+          document.getElementById('save-status').style.color = '#4caf50';
+          setTimeout(() => closeSendModal(), 2000);
+        } else {
+          statusEl.textContent = 'Failed: ' + (result.error || 'Unknown error');
+          statusEl.style.color = '#ff5252';
+          btn.disabled = false;
+          btn.textContent = 'Retry Send';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = '#ff5252';
+        btn.disabled = false;
+        btn.textContent = 'Retry Send';
       }
     }
 

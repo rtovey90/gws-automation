@@ -212,6 +212,7 @@ app.post('/api/admin/proposals', requireAuth, proposalsController.createProposal
 app.put('/api/admin/proposals/:proposalId', requireAuth, proposalsController.updateProposal);
 app.post('/api/admin/proposals/upload-photos', requireAuth, proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
 app.post('/api/admin/proposals/:proposalId/send', requireAuth, proposalsController.sendProposal);
+app.post('/api/admin/proposals/:proposalId/preview-checkout', requireAuth, proposalsController.previewCheckout);
 
 // Tech availability short link routes (must come before /:code catch-all)
 app.get('/ty/:code', techAvailabilityShortController.techYes);
