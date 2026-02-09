@@ -347,8 +347,8 @@ class StripeService {
             price_data: {
               currency: 'aud',
               product_data: {
-                name: `GWS Care Plan`,
-                description: description || 'Monthly security maintenance & support plan',
+                name: `After Install Support Package`,
+                description: description || 'Annual on-site health check, remote troubleshooting, firmware updates, priority support & 15% off equipment',
               },
               unit_amount: Math.round(amount * 100),
               recurring: { interval: 'month' },
@@ -435,7 +435,7 @@ class StripeService {
         currency: 'aud',
         unit_amount: Math.round(amount * 100),
         recurring: { interval: 'month' },
-        product_data: { name: productName || 'GWS Care Plan' },
+        product_data: { name: productName || 'After Install Support Package' },
       });
 
       const subscription = await stripe.subscriptions.create({

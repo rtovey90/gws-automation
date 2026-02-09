@@ -76,7 +76,7 @@ exports.redirect = async (req, res) => {
             <div class="error-icon">❌</div>
             <h1>Link Not Found</h1>
             <p>This link has expired or is invalid.</p>
-            <p class="contact">Please contact us at (08) 6444 6308</p>
+            <p class="contact">Please contact us at 0413 346 978</p>
           </div>
         </body>
         </html>

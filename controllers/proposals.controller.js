@@ -75,6 +75,17 @@ function formatCurrency(amount) {
   return '$' + Number(amount).toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+function getFirstNames(fullName) {
+  if (!fullName) return 'there';
+  const name = fullName.trim();
+  if (name.includes('&')) {
+    const parts = name.split('&').map(s => s.trim());
+    const secondWords = parts[1].split(' ');
+    return parts[0] + ' & ' + secondWords[0];
+  }
+  return name.split(' ')[0] || 'there';
+}
+
 function proposalPageHeader(logoPath, projectNumber) {
   return `<div class="header">
     <img src="${logoPath}" class="header-logo" alt="Great White Security">
@@ -113,7 +124,7 @@ exports.showProposal = async (req, res) => {
     const basePrice = f['Base Price'] || 0;
     const stripeLink = f['Stripe Payment Link'] || '';
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
-    const firstName = clientName.split(' ')[0] || 'there';
+    const firstName = getFirstNames(clientName);
     const logoPath = '/proposal-assets/gws-logo.png';
     const dateObj = new Date(proposalDate + 'T00:00:00');
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -569,7 +580,7 @@ exports.showProposal = async (req, res) => {
     </div>
     <div class="cap-grid">
       <div class="cap-card"><h4>24/7 Reliable Protection</h4><p>Advanced systems designed to safeguard your premises day and night.</p></div>
-      <div class="cap-card"><h4>Complete Coverage</h4><p>Strategic placement of cameras, alarms, and sensors for maximum protection.</p></div>
+      <div class="cap-card"><h4>Layered Protection</h4><p>Multiple systems working together &mdash; cameras, alarms, sensors &amp; monitoring for complete coverage.</p></div>
       <div class="cap-card"><h4>AI Driven Technology</h4><p>Intuitive systems with simple remote access from your phone.</p></div>
       <div class="cap-card"><h4>Future-Proof Security</h4><p>Scalable solutions that can expand as your needs evolve.</p></div>
     </div>
@@ -870,7 +881,7 @@ exports.showOTO = async (req, res) => {
 
     const f = proposal.fields;
     const clientName = f['Client Name'] || '';
-    const firstName = clientName.split(' ')[0] || 'there';
+    const firstName = getFirstNames(clientName);
     const bundlePrice = f['OTO Bundle Price'] || 0;
     const alarmPrice = f['OTO Alarm Price'] || 0;
     const alarmWasPrice = f['OTO Alarm Was Price'] || 0;
@@ -922,7 +933,7 @@ exports.showOTO = async (req, res) => {
       if (hasAlarm) otoItems.push({ key: 'alarm', name: '24/7 Alarm Monitoring', desc: 'Professional monitoring station with instant emergency dispatch.', price: alarmPrice, wasPrice: alarmWasPrice, saving: alarmWasPrice > alarmPrice ? alarmWasPrice - alarmPrice : 0, monthly: false });
       if (hasUps) otoItems.push({ key: 'ups', name: 'UPS Battery Backup', desc: 'Keeps your system recording during power outages for hours.', price: upsPrice, wasPrice: upsWasPrice, saving: upsWasPrice > upsPrice ? upsWasPrice - upsPrice : 0, monthly: false });
     }
-    if (hasCare) otoItems.push({ key: 'care', name: 'GWS Care Plan', desc: 'Priority support, annual health check, firmware updates & 15% off equipment.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
+    if (hasCare) otoItems.push({ key: 'care', name: 'After Install Support Package', desc: 'Annual on-site health check, remote troubleshooting, firmware updates, priority support & 15% off all future equipment. Cancel anytime.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
 
     const otoItemsJson = JSON.stringify(otoItems);
 
@@ -966,10 +977,10 @@ exports.showOTO = async (req, res) => {
     }
     .oto-hero img { max-width: 180px; margin-bottom: 28px; position: relative; z-index: 1; }
     .oto-hero .check {
-      width: 72px; height: 72px; background: var(--cyan-mid);
+      width: 72px; height: 72px; background: var(--green);
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       margin: 0 auto 22px; font-size: 36px; color: white;
-      box-shadow: 0 4px 20px rgba(93,212,240,0.3);
+      box-shadow: 0 4px 20px rgba(34,197,94,0.3);
       position: relative; z-index: 1;
     }
     .oto-hero h1 {
@@ -1056,7 +1067,7 @@ exports.showOTO = async (req, res) => {
       display: inline-block; background: rgba(224,82,82,0.1); color: var(--red);
       font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-top: 2px;
     }
-    .upgrade-per { font-size: 11px; color: var(--gray-400); font-weight: 400; }
+    .upgrade-per { font-size: 14px; color: var(--gray-600); font-weight: 600; }
 
     /* ===== TOTAL BAR (matches proposal) ===== */
     .total-bar {
@@ -1073,7 +1084,8 @@ exports.showOTO = async (req, res) => {
       color: var(--navy);
     }
     .total-monthly-note {
-      font-size: 11px; color: var(--gray-400); text-align: right; margin-top: 2px;
+      font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800;
+      color: var(--navy); text-align: right; margin-top: 4px;
     }
 
     /* ===== CTA SECTION ===== */
@@ -1135,13 +1147,13 @@ exports.showOTO = async (req, res) => {
     <div class="oto-hero">
       <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
       <div class="check">\u2713</div>
-      <h1>Payment Confirmed, ${escapeHtml(firstName)}!</h1>
+      <h1>Payment Confirmed!</h1>
       <p class="hero-sub">Your payment has been received and your installation is locked in.</p>
     </div>
 
     <div class="wait-section">
       <div class="wait-text">Wait \u2014 Before You Go!</div>
-      <p class="wait-sub">We\u2019ve pre-selected the most popular upgrades for your system. Most customers add these during installation \u2014 it\u2019s significantly cheaper than adding them later.</p>
+      <p class="wait-sub">Want more peace of mind? Most customers add these upgrades during installation \u2014 it\u2019s significantly cheaper than adding them later.</p>
       <div class="wait-timer">
         <span>Exclusive pricing expires in</span>
         <span class="timer" id="countdown">14:59</span>
@@ -1161,7 +1173,7 @@ exports.showOTO = async (req, res) => {
       <div class="total-bar">
         <div class="total-bar-left">
           <div class="total-bar-label">Your Total</div>
-          <div class="total-bar-sub" id="total-sub">Charged to card on file</div>
+          <div class="total-bar-sub" id="total-sub">All prices inc. GST</div>
         </div>
         <div style="text-align:right;">
           <div class="total-bar-amount" id="oto-total">$0</div>
@@ -1174,7 +1186,7 @@ exports.showOTO = async (req, res) => {
       <div id="error-msg" class="error-msg"></div>
       <div class="social-proof">\u2b50 <strong>87% of customers</strong> keep all upgrades selected</div>
       <button class="cta-button" id="cta-btn" onclick="confirmSelection()">Yes, Protect My Investment \u2192</button>
-      <div class="cta-sub">\ud83d\udd12 Charged securely to your card on file. No extra forms.</div>
+      <div class="cta-sub">\ud83d\udd12 All prices inc. GST. Charged securely to your card on file.</div>
       <a href="/offers/${escapeHtml(projectNumber)}/thank-you" class="skip-link">No thanks, I\u2019ll leave my system without these protections \u2192</a>
     </div>
 
@@ -1198,8 +1210,9 @@ exports.showOTO = async (req, res) => {
         let rightHtml = '<div class="upgrade-price">$' + it.price.toLocaleString();
         if (it.monthly) rightHtml += '<span class="upgrade-per">/mo</span>';
         rightHtml += '</div>';
-        if (it.wasPrice > it.price) rightHtml += '<div class="upgrade-was">$' + it.wasPrice.toLocaleString() + '</div>';
+        if (it.wasPrice > it.price) rightHtml += '<div class="upgrade-was">Was $' + it.wasPrice.toLocaleString() + '</div>';
         if (it.saving > 0) rightHtml += '<div class="upgrade-save">SAVE $' + it.saving.toLocaleString() + '</div>';
+        rightHtml += '<div style="font-size:10px;color:#8b90a0;margin-top:1px;">inc. GST</div>';
         div.innerHTML = '<div class="upgrade-check">' + (on ? '\\u2713' : '') + '</div>'
           + '<div class="upgrade-info"><h4>' + it.name + '</h4><p>' + it.desc + '</p></div>'
           + '<div class="upgrade-right">' + rightHtml + '</div>';
@@ -1220,11 +1233,20 @@ exports.showOTO = async (req, res) => {
         if (it.monthly) monthly += it.price;
         else oneTime += it.price;
       });
-      document.getElementById('oto-total').textContent = '$' + oneTime.toLocaleString();
+      const totalEl = document.getElementById('oto-total');
       const note = document.getElementById('monthly-note');
+      if (oneTime > 0) {
+        totalEl.textContent = '$' + oneTime.toLocaleString();
+        totalEl.style.display = 'block';
+      } else if (monthly > 0) {
+        totalEl.style.display = 'none';
+      } else {
+        totalEl.textContent = '$0';
+        totalEl.style.display = 'block';
+      }
       if (monthly > 0) {
         note.style.display = 'block';
-        note.textContent = '+ $' + monthly.toLocaleString() + '/mo Care Plan';
+        note.textContent = (oneTime > 0 ? '+ ' : '') + '$' + monthly.toLocaleString() + '/mo';
       } else {
         note.style.display = 'none';
       }
@@ -1307,7 +1329,7 @@ exports.showOTOThankYou = async (req, res) => {
   try {
     const { projectNumber } = req.params;
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
-    const firstName = proposal ? (proposal.fields['Client Name'] || '').split(' ')[0] || 'there' : 'there';
+    const firstName = proposal ? getFirstNames(proposal.fields['Client Name'] || '') : 'there';
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -1419,7 +1441,7 @@ exports.chargeOTODirect = async (req, res) => {
       bundle: 'Complete Protection Bundle',
       alarm: '24/7 Alarm Monitoring',
       ups: 'UPS Battery Backup',
-      care: 'GWS Care Plan',
+      care: 'After Install Support Package',
     };
 
     // Validate all requested items have prices
@@ -1462,7 +1484,7 @@ exports.chargeOTODirect = async (req, res) => {
             customerId,
             paymentMethodId,
             amount: priceMap.care,
-            productName: 'GWS Care Plan',
+            productName: 'After Install Support Package',
             metadata: {
               type: 'oto',
               oto_type: 'care',
@@ -1937,8 +1959,8 @@ function renderProposalForm(proposal, prefill) {
 
   // Build additional package cards for admin form
   const additionalPkgHtml = optionGroups.map((pkg, i) => `
-    <div class="pkg-card" data-idx="${i}">
-      <div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ${i + 2}</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove package">&times;</button></div>
+    <div class="pkg-card" data-idx="${i}" draggable="true">
+      <div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ${i + 2}</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove package">&times;</button></div>
       <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
       <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>
       <div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" value="${escapeHtml(pkg.stripeLink || '')}" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>
@@ -2049,32 +2071,45 @@ function renderProposalForm(proposal, prefill) {
         <div class="step" id="step-4" style="display:none;">
           <div class="card">
             <h2 class="card-title">Post-Payment Upsells (OTO)</h2>
-            <p class="card-hint">These show after the customer pays. Leave blank to skip any offer.</p>
+            <p class="card-hint">These appear after the customer pays. Toggle items on/off. All prices inc. GST. Leave value blank or toggle off to hide from customer.</p>
 
-            <div class="oto-group">
-              <h3 class="oto-label">Bundle Deal <span style="color:#5a6a7a;font-weight:400;">— everything below in one discounted package</span></h3>
-              <div class="fg"><label>Bundle Price ($)</label><input type="number" name="otoBundlePrice" value="${escapeHtml(String(otoBundlePrice))}" step="1" placeholder="e.g. 1490"></div>
-            </div>
+            <div style="font-size:12px;font-weight:700;color:#8899aa;text-transform:uppercase;letter-spacing:1.5px;margin:20px 0 10px;">One-Time Add-Ons</div>
 
-            <div class="oto-group">
-              <h3 class="oto-label">Alarm Monitoring</h3>
-              <div class="form-row">
-                <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoAlarmPrice" value="${escapeHtml(String(otoAlarmPrice))}" step="1" placeholder="990"></div>
-                <div class="fg"><label>Was Price ($) <span style="color:#5a6a7a;font-weight:400;">for strikethrough</span></label><input type="number" name="otoAlarmWasPrice" value="${escapeHtml(String(otoAlarmWasPrice))}" step="1" placeholder="1290"></div>
+            <div class="oto-toggle-card">
+              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-alarm-fields" ${otoAlarmPrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>24/7 Alarm Monitoring</strong><span class="oto-badge-onetime">ONE-TIME</span></label>
+              <div class="oto-toggle-fields" id="oto-alarm-fields" ${otoAlarmPrice ? '' : 'style="display:none;"'}>
+                <div class="form-row">
+                  <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoAlarmPrice" value="${escapeHtml(String(otoAlarmPrice))}" step="1" placeholder="990"></div>
+                  <div class="fg"><label>Was Price ($) <span style="color:#5a6a7a;font-weight:400;">strikethrough</span></label><input type="number" name="otoAlarmWasPrice" value="${escapeHtml(String(otoAlarmWasPrice))}" step="1" placeholder="1290"></div>
+                </div>
               </div>
             </div>
 
-            <div class="oto-group">
-              <h3 class="oto-label">UPS Battery Backup</h3>
-              <div class="form-row">
-                <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoUpsPrice" value="${escapeHtml(String(otoUpsPrice))}" step="1" placeholder="590"></div>
-                <div class="fg"><label>Was Price ($)</label><input type="number" name="otoUpsWasPrice" value="${escapeHtml(String(otoUpsWasPrice))}" step="1" placeholder="790"></div>
+            <div class="oto-toggle-card">
+              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-ups-fields" ${otoUpsPrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>UPS Battery Backup</strong><span class="oto-badge-onetime">ONE-TIME</span></label>
+              <div class="oto-toggle-fields" id="oto-ups-fields" ${otoUpsPrice ? '' : 'style="display:none;"'}>
+                <div class="form-row">
+                  <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoUpsPrice" value="${escapeHtml(String(otoUpsPrice))}" step="1" placeholder="590"></div>
+                  <div class="fg"><label>Was Price ($)</label><input type="number" name="otoUpsWasPrice" value="${escapeHtml(String(otoUpsWasPrice))}" step="1" placeholder="790"></div>
+                </div>
               </div>
             </div>
 
-            <div class="oto-group">
-              <h3 class="oto-label">GWS Care Plan <span style="color:#5a6a7a;font-weight:400;">— monthly subscription</span></h3>
-              <div class="fg"><label>Monthly Price ($)</label><input type="number" name="otoCareMonthlyPrice" value="${escapeHtml(String(otoCareMonthlyPrice))}" step="1" placeholder="49"></div>
+            <div class="oto-toggle-card">
+              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-bundle-fields" ${otoBundlePrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>Bundle Deal</strong><span style="color:#5a6a7a;font-weight:400;font-size:11px;margin-left:6px;">alarm + UPS discounted together</span></label>
+              <div class="oto-toggle-fields" id="oto-bundle-fields" ${otoBundlePrice ? '' : 'style="display:none;"'}>
+                <div class="fg"><label>Bundle Price ($)</label><input type="number" name="otoBundlePrice" value="${escapeHtml(String(otoBundlePrice))}" step="1" placeholder="e.g. 1490"></div>
+              </div>
+            </div>
+
+            <div style="font-size:12px;font-weight:700;color:#8899aa;text-transform:uppercase;letter-spacing:1.5px;margin:24px 0 10px;">Recurring</div>
+
+            <div class="oto-toggle-card">
+              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-care-fields" ${otoCareMonthlyPrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>After Install Support Package</strong><span class="oto-badge-recurring">MONTHLY</span></label>
+              <div class="oto-toggle-fields" id="oto-care-fields" ${otoCareMonthlyPrice ? '' : 'style="display:none;"'}>
+                <div class="fg"><label>Monthly Price ($)</label><input type="number" name="otoCareMonthlyPrice" value="${escapeHtml(String(otoCareMonthlyPrice))}" step="1" placeholder="49"></div>
+                <p class="card-hint" style="margin-top:4px;font-size:11px;">Includes: Annual on-site health check, remote troubleshooting, firmware updates, priority support &amp; 15% off future equipment.</p>
+              </div>
             </div>
           </div>
           <div class="step-nav">
@@ -2190,8 +2225,14 @@ function renderProposalForm(proposal, prefill) {
     }
     .cam-name:focus, .cam-desc:focus, .cam-price:focus { border-color:#00d4ff; outline:none; }
 
-    .pkg-card { background:#1a2332; border:2px solid #2a3a4a; border-radius:10px; padding:16px; margin-top:12px; }
-    .pkg-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .pkg-card { background:#1a2332; border:2px solid #2a3a4a; border-radius:10px; padding:16px; margin-top:12px; transition:opacity 0.2s; }
+    .pkg-card.dragging { opacity:0.4; }
+    .pkg-card.pkg-drag-over-above { border-top-color:#00d4ff; }
+    .pkg-card.pkg-drag-over-below { border-bottom-color:#00d4ff; }
+    .pkg-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px; }
+    .pkg-drag-handle { cursor:grab; color:#3a4a5a; font-size:16px; user-select:none; }
+    .pkg-drag-handle:hover { color:#8899aa; }
+    .pkg-drag-handle:active { cursor:grabbing; }
     .pkg-card .fg { margin-bottom:8px; }
     .pkg-card .fg label { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#5a6a7a; font-weight:700; margin-bottom:4px; display:block; }
     .pkg-card .fg input { width:100%; padding:9px 12px; background:#0f1419; border:2px solid #2a3a4a; border-radius:8px; color:#e0e6ed; font-size:14px; font-family:inherit; box-sizing:border-box; }
@@ -2231,9 +2272,13 @@ function renderProposalForm(proposal, prefill) {
     }
     .btn-preview:hover { background:rgba(0,212,255,0.1); }
 
-    .oto-group { border-bottom:1px solid #2a3a4a; padding-bottom:16px; margin-bottom:16px; }
-    .oto-group:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
-    .oto-label { font-size:15px; color:#e0e6ed; margin-bottom:10px; font-weight:600; }
+    .oto-toggle-card { border:1px solid #2a3a4a; border-radius:8px; padding:14px 16px; margin-bottom:10px; transition:border-color 0.2s; }
+    .oto-toggle-card:has(.oto-toggle-check:checked) { border-color:#00d4ff; }
+    .oto-toggle-header { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; color:#e0e6ed; }
+    .oto-toggle-check { width:16px; height:16px; accent-color:#00d4ff; cursor:pointer; }
+    .oto-toggle-fields { margin-top:12px; padding-top:12px; border-top:1px solid #1e2a3a; }
+    .oto-badge-onetime { font-size:9px; font-weight:700; color:#8899aa; background:#1e2a3a; padding:2px 8px; border-radius:10px; letter-spacing:1px; margin-left:auto; }
+    .oto-badge-recurring { font-size:9px; font-weight:700; color:#22c55e; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:10px; letter-spacing:1px; margin-left:auto; }
 
     .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:10px; margin-bottom:14px; }
     .photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:2px solid #2a3a4a; }
@@ -2254,6 +2299,17 @@ function renderProposalForm(proposal, prefill) {
   const customScripts = `<script>
     let currentStep = 1;
     let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
+
+    function toggleOtoFields(checkbox) {
+      const targetId = checkbox.dataset.target;
+      const fields = document.getElementById(targetId);
+      if (checkbox.checked) {
+        fields.style.display = '';
+      } else {
+        fields.style.display = 'none';
+        fields.querySelectorAll('input[type="number"]').forEach(inp => { inp.value = ''; });
+      }
+    }
 
     function goStep(n) {
       document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
@@ -2388,6 +2444,58 @@ function renderProposalForm(proposal, prefill) {
     // Init drag on all existing rows
     document.querySelectorAll('.list-row[draggable]').forEach(initDragRow);
 
+    // ── Package Card Drag & Drop ──
+    let dragPkg = null;
+
+    function initPkgDrag(card) {
+      card.addEventListener('dragstart', function(e) {
+        dragPkg = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', function() {
+        this.classList.remove('dragging');
+        document.querySelectorAll('.pkg-drag-over-above,.pkg-drag-over-below').forEach(el => {
+          el.classList.remove('pkg-drag-over-above','pkg-drag-over-below');
+        });
+        dragPkg = null;
+        renumberPackages();
+      });
+      card.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        if (!dragPkg || dragPkg === this) return;
+        e.dataTransfer.dropEffect = 'move';
+        const rect = this.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        this.classList.remove('pkg-drag-over-above','pkg-drag-over-below');
+        if (e.clientY < mid) this.classList.add('pkg-drag-over-above');
+        else this.classList.add('pkg-drag-over-below');
+      });
+      card.addEventListener('dragleave', function() {
+        this.classList.remove('pkg-drag-over-above','pkg-drag-over-below');
+      });
+      card.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (!dragPkg || dragPkg === this) return;
+        const rect = this.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) this.before(dragPkg);
+        else this.after(dragPkg);
+        this.classList.remove('pkg-drag-over-above','pkg-drag-over-below');
+        renumberPackages();
+      });
+    }
+
+    function renumberPackages() {
+      document.querySelectorAll('#additional-packages .pkg-card').forEach((card, i) => {
+        const label = card.querySelector('.pkg-card-header span[style]');
+        if (label) label.textContent = 'Package Option ' + (i + 2);
+      });
+    }
+
+    // Init drag on existing package cards
+    document.querySelectorAll('#additional-packages .pkg-card[draggable]').forEach(initPkgDrag);
+
     function addCameraRow() {
       const list = document.getElementById('camera-list');
       const row = document.createElement('div');
@@ -2403,8 +2511,10 @@ function renderProposalForm(proposal, prefill) {
       const idx = list.querySelectorAll('.pkg-card').length + 2;
       const div = document.createElement('div');
       div.className = 'pkg-card';
-      div.innerHTML = '<div class="pkg-card-header"><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div><div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>';
+      div.draggable = true;
+      div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div><div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>';
       list.appendChild(div);
+      initPkgDrag(div);
       div.querySelector('.pkg-name').focus();
     }
 
