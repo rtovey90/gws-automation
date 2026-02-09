@@ -565,8 +565,8 @@ exports.showTechAvailabilityForm = async (req, res) => {
       `);
     }
 
-    // Get all available techs
-    const techs = await airtableService.getAvailableTechs();
+    // Get all techs
+    const techs = await airtableService.getAllTechs();
 
     if (techs.length === 0) {
       return res.send(`
