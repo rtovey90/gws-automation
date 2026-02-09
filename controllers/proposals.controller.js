@@ -584,7 +584,7 @@ exports.showProposal = async (req, res) => {
       <div class="cap-card"><h4>AI Driven Technology</h4><p>Intuitive systems with simple remote access from your phone.</p></div>
       <div class="cap-card"><h4>Future-Proof Security</h4><p>Scalable solutions that can expand as your needs evolve.</p></div>
     </div>
-    <p class="why-intro">By choosing Great White Security, you gain a trusted partner with nearly two decades of expertise, a commitment to quality, and the confidence of working with a WA-based business that's here to support you long after installation.</p>
+    <p class="why-intro">By choosing Great White Security, you gain a trusted partner with over two decades of expertise, a commitment to quality, and the confidence of working with a WA-based business that's here to support you long after installation.</p>
     <div class="cred-row">
       <div class="cred-item"><img src="/proposal-assets/wa-police-badge.png" alt="WA Police Licensed"><div class="cred-label">WA Police Licensed #79960</div></div>
       <div class="cred-item"><img src="/proposal-assets/google-reviews.png" alt="Google Reviews 4.6 Stars"></div>
