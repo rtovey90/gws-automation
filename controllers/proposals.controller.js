@@ -2824,8 +2824,10 @@ function renderProposalForm(proposal, prefill) {
         : firstName;
       document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from Great White Security is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0413 346 978.\\n\\nCheers,\\nRicky';
 
-      // Update send button text
-      document.getElementById('sendModalBtn').textContent = 'Send to ' + clientName;
+      // Reset and update send button
+      const sendBtn = document.getElementById('sendModalBtn');
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send to ' + clientName;
 
       // Show modal
       document.getElementById('sendModal').style.display = 'flex';
