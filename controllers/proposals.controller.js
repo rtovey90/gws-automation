@@ -912,7 +912,7 @@ exports.showOTO = async (req, res) => {
         if (alarmPrice > 0) otoItems.push({ key: 'alarm', name: '24/7 Alarm Monitoring', desc: 'Professional monitoring station with instant emergency dispatch.', price: alarmPrice, wasPrice: alarmWasPrice, saving: alarmWasPrice > alarmPrice ? alarmWasPrice - alarmPrice : 0, monthly: false });
         if (upsPrice > 0) otoItems.push({ key: 'ups', name: 'UPS Battery Backup', desc: 'Keeps your system recording during power outages for hours.', price: upsPrice, wasPrice: upsWasPrice, saving: upsWasPrice > upsPrice ? upsWasPrice - upsPrice : 0, monthly: false });
       }
-      if (carePrice > 0) otoItems.push({ key: 'care', name: 'After Install Support Package', desc: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment while active. Min. 12 months.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
+      if (carePrice > 0) otoItems.push({ key: 'care', name: 'After Install Support Package', desc: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
     }
 
     const hasAnyOto = otoItems.length > 0;
@@ -1898,13 +1898,13 @@ function renderProposalForm(proposal, prefill) {
     if (f['OTO Alarm Price']) otoItems.push({ name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: f['OTO Alarm Price'], wasPrice: f['OTO Alarm Was Price'] || '', monthly: false });
     if (f['OTO UPS Price']) otoItems.push({ name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: f['OTO UPS Price'], wasPrice: f['OTO UPS Was Price'] || '', monthly: false });
     if (f['OTO Bundle Price']) otoItems.push({ name: 'Complete Protection Bundle', description: 'Alarm monitoring + UPS battery backup bundled together.', price: f['OTO Bundle Price'], wasPrice: '', monthly: false });
-    if (f['OTO Care Monthly Price']) otoItems.push({ name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment while active. Min. 12 months.', price: f['OTO Care Monthly Price'], wasPrice: '', monthly: true });
+    if (f['OTO Care Monthly Price']) otoItems.push({ name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: f['OTO Care Monthly Price'], wasPrice: '', monthly: true });
   } else if (!isEdit) {
     // Defaults for new proposals
     otoItems = [
       { name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: '', wasPrice: '', monthly: false },
       { name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: '', wasPrice: '', monthly: false },
-      { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment while active. Min. 12 months.', price: '', wasPrice: '', monthly: true },
+      { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '', wasPrice: '', monthly: true },
     ];
   } else {
     otoItems = [];
