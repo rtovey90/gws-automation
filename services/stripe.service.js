@@ -348,7 +348,7 @@ class StripeService {
               currency: 'aud',
               product_data: {
                 name: `After Install Support Package`,
-                description: description || 'Remote troubleshooting, annual on-site maintenance, priority support within 24hrs, firmware updates & 15% off future equipment. Min. 12 months.',
+                description: description || 'Remote troubleshooting, annual on-site maintenance, priority support within 24hrs, firmware updates & 15% off equipment while active. Min. 12 months.',
               },
               unit_amount: Math.round(amount * 100),
               recurring: { interval: 'month' },
