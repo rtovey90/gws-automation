@@ -118,7 +118,7 @@ exports.showProposal = async (req, res) => {
     const optionGroups = safeJsonParse(f['Option Groups']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
-    const coverImage = f['Cover Image URL'] || '/proposal-assets/proposal-cover-page.png';
+    const coverImage = f['Cover Image URL'] || '/proposal-assets/proposal-cover-page.jpg';
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
