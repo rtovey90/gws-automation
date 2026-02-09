@@ -1957,7 +1957,7 @@ function renderProposalForm(proposal, prefill) {
     'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
     'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.',
   ];
-  const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : (isEdit ? [] : defaultClarifications);
+  const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : defaultClarifications;
   const sitePhotoUrls = sitePhotoUrlsRaw.length > 0 ? sitePhotoUrlsRaw : [];
 
   // Build scope item rows
@@ -1988,12 +1988,14 @@ function renderProposalForm(proposal, prefill) {
   // Build clarification rows
   const clarificationRowsHtml = clarifications.map((c, i) => {
     const val = typeof c === 'string' ? c : (c.description || '');
-    return `<div class="list-row" data-list="clarification" draggable="true">
+    return `<div class="list-row clarification-row" data-list="clarification" draggable="true">
       <span class="drag-handle" title="Drag to reorder">&#9776;</span>
       <span class="row-num">${i + 1}</span>
-      <input type="text" class="list-input" value="${escapeHtml(val)}" placeholder="Enter clarification...">
-      <button type="button" class="row-insert" onclick="insertRowBelow(this,'clarification')" title="Add item below">+</button>
-      <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+      <textarea class="list-input clarification-input" rows="3" placeholder="Enter clarification...">${escapeHtml(val)}</textarea>
+      <div class="row-actions">
+        <button type="button" class="row-insert" onclick="insertRowBelow(this,'clarification')" title="Add item below">+</button>
+        <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -2238,6 +2240,10 @@ function renderProposalForm(proposal, prefill) {
       color:#e0e6ed; font-size:14px; font-family:inherit;
     }
     .list-input:focus { border-color:#00d4ff; outline:none; }
+    textarea.clarification-input { resize:vertical; min-height:60px; line-height:1.5; }
+    .clarification-row { align-items:flex-start; }
+    .clarification-row .drag-handle, .clarification-row .row-num { margin-top:10px; }
+    .clarification-row .row-actions { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
     .qty-input {
       width:60px; padding:9px 8px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; text-align:center; font-family:inherit;
@@ -2404,13 +2410,13 @@ function renderProposalForm(proposal, prefill) {
     }
 
     function makeClarificationRowHtml() {
-      return '<span class="drag-handle" title="Drag to reorder">&#9776;</span><span class="row-num"></span><input type="text" class="list-input" placeholder="Enter clarification..."><button type="button" class="row-insert" onclick="insertRowBelow(this,\\'clarification\\')" title="Add item below">+</button><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      return '<span class="drag-handle" title="Drag to reorder">&#9776;</span><span class="row-num"></span><textarea class="list-input clarification-input" rows="3" placeholder="Enter clarification..."></textarea><div class="row-actions"><button type="button" class="row-insert" onclick="insertRowBelow(this,\\'clarification\\')" title="Add item below">+</button><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button></div>';
     }
 
     function addClarificationRow() {
       const list = document.getElementById('clarification-list');
       const row = document.createElement('div');
-      row.className = 'list-row';
+      row.className = 'list-row clarification-row';
       row.dataset.list = 'clarification';
       row.draggable = true;
       row.innerHTML = makeClarificationRowHtml();
@@ -2423,7 +2429,7 @@ function renderProposalForm(proposal, prefill) {
     function insertRowBelow(btn, type) {
       const currentRow = btn.closest('.list-row');
       const row = document.createElement('div');
-      row.className = 'list-row';
+      row.className = type === 'clarification' ? 'list-row clarification-row' : 'list-row';
       row.dataset.list = type;
       row.draggable = true;
       if (type === 'scope') row.innerHTML = makeScopeRowHtml();
