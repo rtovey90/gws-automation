@@ -882,18 +882,40 @@ exports.showOTO = async (req, res) => {
     const f = proposal.fields;
     const clientName = f['Client Name'] || '';
     const firstName = getFirstNames(clientName);
-    const bundlePrice = f['OTO Bundle Price'] || 0;
-    const alarmPrice = f['OTO Alarm Price'] || 0;
-    const alarmWasPrice = f['OTO Alarm Was Price'] || 0;
-    const upsPrice = f['OTO UPS Price'] || 0;
-    const upsWasPrice = f['OTO UPS Was Price'] || 0;
-    const carePrice = f['OTO Care Monthly Price'] || 0;
 
-    const hasBundle = bundlePrice > 0;
-    const hasAlarm = alarmPrice > 0;
-    const hasUps = upsPrice > 0;
-    const hasCare = carePrice > 0;
-    const hasAnyOto = hasBundle || hasAlarm || hasUps || hasCare;
+    // Read OTO items from JSON field (with fallback to old fields)
+    let otoItems = safeJsonParse(f['OTO Items']);
+    if (otoItems.length > 0) {
+      // New format
+      otoItems = otoItems.filter(it => it.price > 0).map((it, i) => ({
+        key: String(i),
+        name: it.name,
+        desc: it.description || '',
+        price: it.price,
+        wasPrice: it.wasPrice || 0,
+        saving: (it.wasPrice && it.wasPrice > it.price) ? it.wasPrice - it.price : 0,
+        monthly: !!it.monthly,
+      }));
+    } else {
+      // Fallback to old fixed fields
+      const bundlePrice = f['OTO Bundle Price'] || 0;
+      const alarmPrice = f['OTO Alarm Price'] || 0;
+      const alarmWasPrice = f['OTO Alarm Was Price'] || 0;
+      const upsPrice = f['OTO UPS Price'] || 0;
+      const upsWasPrice = f['OTO UPS Was Price'] || 0;
+      const carePrice = f['OTO Care Monthly Price'] || 0;
+      otoItems = [];
+      if (bundlePrice > 0) {
+        const bundleWas = alarmPrice + upsPrice;
+        otoItems.push({ key: 'bundle', name: 'Complete Protection Bundle', desc: 'Alarm monitoring + UPS battery backup bundled together.', price: bundlePrice, wasPrice: bundleWas, saving: bundleWas > bundlePrice ? bundleWas - bundlePrice : 0, monthly: false });
+      } else {
+        if (alarmPrice > 0) otoItems.push({ key: 'alarm', name: '24/7 Alarm Monitoring', desc: 'Professional monitoring station with instant emergency dispatch.', price: alarmPrice, wasPrice: alarmWasPrice, saving: alarmWasPrice > alarmPrice ? alarmWasPrice - alarmPrice : 0, monthly: false });
+        if (upsPrice > 0) otoItems.push({ key: 'ups', name: 'UPS Battery Backup', desc: 'Keeps your system recording during power outages for hours.', price: upsPrice, wasPrice: upsWasPrice, saving: upsWasPrice > upsPrice ? upsWasPrice - upsPrice : 0, monthly: false });
+      }
+      if (carePrice > 0) otoItems.push({ key: 'care', name: 'After Install Support Package', desc: 'Annual on-site health check, remote troubleshooting, firmware updates, priority support & 15% off all future equipment. Cancel anytime.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
+    }
+
+    const hasAnyOto = otoItems.length > 0;
 
     if (!hasAnyOto) {
       return res.redirect(`/offers/${projectNumber}/thank-you`);
@@ -921,19 +943,6 @@ exports.showOTO = async (req, res) => {
         console.error('Could not retrieve session for card-on-file:', e.message);
       }
     }
-
-    const bundleSaving = (alarmPrice + upsPrice) > bundlePrice ? (alarmPrice + upsPrice) - bundlePrice : 0;
-    const bundleWas = alarmPrice + upsPrice;
-
-    // Build the list of available OTO items for the pre-checked model
-    const otoItems = [];
-    if (hasBundle) {
-      otoItems.push({ key: 'bundle', name: 'Complete Protection Bundle', desc: 'Alarm monitoring + UPS battery backup bundled together.', price: bundlePrice, wasPrice: bundleWas, saving: bundleSaving, monthly: false });
-    } else {
-      if (hasAlarm) otoItems.push({ key: 'alarm', name: '24/7 Alarm Monitoring', desc: 'Professional monitoring station with instant emergency dispatch.', price: alarmPrice, wasPrice: alarmWasPrice, saving: alarmWasPrice > alarmPrice ? alarmWasPrice - alarmPrice : 0, monthly: false });
-      if (hasUps) otoItems.push({ key: 'ups', name: 'UPS Battery Backup', desc: 'Keeps your system recording during power outages for hours.', price: upsPrice, wasPrice: upsWasPrice, saving: upsWasPrice > upsPrice ? upsWasPrice - upsPrice : 0, monthly: false });
-    }
-    if (hasCare) otoItems.push({ key: 'care', name: 'After Install Support Package', desc: 'Annual on-site health check, remote troubleshooting, firmware updates, priority support & 15% off all future equipment. Cancel anytime.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
 
     const otoItemsJson = JSON.stringify(otoItems);
 
@@ -1419,7 +1428,7 @@ exports.showOTOThankYou = async (req, res) => {
 exports.chargeOTODirect = async (req, res) => {
   try {
     const { projectNumber } = req.params;
-    const { items } = req.body; // e.g. ['bundle', 'care'] or ['alarm', 'ups', 'care']
+    const { items: selectedItems } = req.body;
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
 
     if (!proposal) {
@@ -1430,30 +1439,41 @@ exports.chargeOTODirect = async (req, res) => {
     const customerId = f['Stripe Customer ID'];
     const paymentMethodId = f['Stripe Payment Method ID'];
 
-    // Server-side price validation — never trust client
-    const priceMap = {
-      bundle: f['OTO Bundle Price'] || 0,
-      alarm: f['OTO Alarm Price'] || 0,
-      ups: f['OTO UPS Price'] || 0,
-      care: f['OTO Care Monthly Price'] || 0,
-    };
-    const nameMap = {
-      bundle: 'Complete Protection Bundle',
-      alarm: '24/7 Alarm Monitoring',
-      ups: 'UPS Battery Backup',
-      care: 'After Install Support Package',
-    };
+    // Read OTO items from JSON (with fallback to old fields)
+    const allItems = safeJsonParse(f['OTO Items']);
+    let validItems;
 
-    // Validate all requested items have prices
-    const validItems = (items || []).filter(key => priceMap[key] > 0);
+    if (allItems.length > 0) {
+      // New format: selectedItems are string indices like ["0", "1"]
+      validItems = (selectedItems || [])
+        .map(i => { const idx = Number(i); return !isNaN(idx) ? allItems[idx] : null; })
+        .filter(item => item && item.price > 0);
+    } else {
+      // Old format: selectedItems are keys like ['alarm', 'ups', 'care']
+      const priceMap = {
+        bundle: f['OTO Bundle Price'] || 0,
+        alarm: f['OTO Alarm Price'] || 0,
+        ups: f['OTO UPS Price'] || 0,
+        care: f['OTO Care Monthly Price'] || 0,
+      };
+      const nameMap = {
+        bundle: 'Complete Protection Bundle',
+        alarm: '24/7 Alarm Monitoring',
+        ups: 'UPS Battery Backup',
+        care: 'After Install Support Package',
+      };
+      validItems = (selectedItems || [])
+        .filter(key => priceMap[key] > 0)
+        .map(key => ({ name: nameMap[key], price: priceMap[key], monthly: key === 'care' }));
+    }
+
     if (validItems.length === 0) {
       return res.status(400).json({ error: 'No valid items selected' });
     }
 
-    // Separate one-time items from subscription (care)
-    const oneTimeItems = validItems.filter(k => k !== 'care');
-    const hasCare = validItems.includes('care');
-    const oneTimeTotal = oneTimeItems.reduce((sum, k) => sum + priceMap[k], 0);
+    const oneTimeItems = validItems.filter(it => !it.monthly);
+    const recurringItems = validItems.filter(it => it.monthly);
+    const oneTimeTotal = oneTimeItems.reduce((sum, it) => sum + it.price, 0);
 
     // If we have a saved card, charge directly
     if (customerId && paymentMethodId) {
@@ -1462,7 +1482,7 @@ exports.chargeOTODirect = async (req, res) => {
 
         // Charge one-time items as a single payment
         if (oneTimeTotal > 0) {
-          const description = oneTimeItems.map(k => nameMap[k]).join(' + ');
+          const description = oneTimeItems.map(it => it.name).join(' + ');
           const pi = await stripeService.chargeOffSession({
             customerId,
             paymentMethodId,
@@ -1470,7 +1490,7 @@ exports.chargeOTODirect = async (req, res) => {
             description: `${description} - Proposal #${projectNumber}`,
             metadata: {
               type: 'oto',
-              oto_items: oneTimeItems.join(','),
+              oto_items: oneTimeItems.map(it => it.name).join(','),
               project_number: projectNumber,
               proposal_id: proposal.id,
             },
@@ -1478,16 +1498,17 @@ exports.chargeOTODirect = async (req, res) => {
           results.push({ type: 'payment', status: pi.status });
         }
 
-        // Create subscription for care plan
-        if (hasCare) {
+        // Create subscriptions for recurring items
+        for (const item of recurringItems) {
           const sub = await stripeService.createOffSessionSubscription({
             customerId,
             paymentMethodId,
-            amount: priceMap.care,
-            productName: 'After Install Support Package',
+            amount: item.price,
+            productName: item.name,
             metadata: {
               type: 'oto',
-              oto_type: 'care',
+              oto_type: 'recurring',
+              product_name: item.name,
               project_number: projectNumber,
               proposal_id: proposal.id,
             },
@@ -1502,16 +1523,15 @@ exports.chargeOTODirect = async (req, res) => {
       }
     }
 
-    // Fallback: no saved card or off-session charge failed — create a Checkout Session
+    // Fallback: create a Checkout Session for the first item
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-
-    // For fallback, charge the first item via checkout (simplified)
     const firstItem = validItems[0];
     const session = await stripeService.createOTOCheckoutSession({
       projectNumber,
       proposalId: proposal.id,
-      otoType: firstItem,
-      amount: priceMap[firstItem],
+      otoType: firstItem.monthly ? 'care' : 'onetime',
+      amount: firstItem.price,
+      description: firstItem.name,
       successUrl: `${baseUrl}/offers/${projectNumber}/thank-you`,
       cancelUrl: `${baseUrl}/offers/${projectNumber}`,
     });
@@ -1816,13 +1836,25 @@ function buildProposalFields(body) {
   if (body.clarifications) fields['Clarifications'] = typeof body.clarifications === 'string' ? body.clarifications : JSON.stringify(body.clarifications);
   if (body.sitePhotoUrls) fields['Site Photo URLs'] = typeof body.sitePhotoUrls === 'string' ? body.sitePhotoUrls : JSON.stringify(body.sitePhotoUrls);
 
-  // OTO pricing
-  if (body.otoBundlePrice !== undefined) fields['OTO Bundle Price'] = Number(body.otoBundlePrice) || 0;
-  if (body.otoAlarmPrice !== undefined) fields['OTO Alarm Price'] = Number(body.otoAlarmPrice) || 0;
-  if (body.otoAlarmWasPrice !== undefined) fields['OTO Alarm Was Price'] = Number(body.otoAlarmWasPrice) || 0;
-  if (body.otoUpsPrice !== undefined) fields['OTO UPS Price'] = Number(body.otoUpsPrice) || 0;
-  if (body.otoUpsWasPrice !== undefined) fields['OTO UPS Was Price'] = Number(body.otoUpsWasPrice) || 0;
-  if (body.otoCareMonthlyPrice !== undefined) fields['OTO Care Monthly Price'] = Number(body.otoCareMonthlyPrice) || 0;
+  // OTO Items (new JSON format)
+  if (body.otoItems) fields['OTO Items'] = typeof body.otoItems === 'string' ? body.otoItems : JSON.stringify(body.otoItems);
+
+  // Legacy OTO pricing (keep for backward compat reads, cleared when using new format)
+  if (body.otoItems) {
+    fields['OTO Bundle Price'] = 0;
+    fields['OTO Alarm Price'] = 0;
+    fields['OTO Alarm Was Price'] = 0;
+    fields['OTO UPS Price'] = 0;
+    fields['OTO UPS Was Price'] = 0;
+    fields['OTO Care Monthly Price'] = 0;
+  } else {
+    if (body.otoBundlePrice !== undefined) fields['OTO Bundle Price'] = Number(body.otoBundlePrice) || 0;
+    if (body.otoAlarmPrice !== undefined) fields['OTO Alarm Price'] = Number(body.otoAlarmPrice) || 0;
+    if (body.otoAlarmWasPrice !== undefined) fields['OTO Alarm Was Price'] = Number(body.otoAlarmWasPrice) || 0;
+    if (body.otoUpsPrice !== undefined) fields['OTO UPS Price'] = Number(body.otoUpsPrice) || 0;
+    if (body.otoUpsWasPrice !== undefined) fields['OTO UPS Was Price'] = Number(body.otoUpsWasPrice) || 0;
+    if (body.otoCareMonthlyPrice !== undefined) fields['OTO Care Monthly Price'] = Number(body.otoCareMonthlyPrice) || 0;
+  }
 
   return fields;
 }
@@ -1855,12 +1887,30 @@ function renderProposalForm(proposal, prefill) {
   const clarificationsRaw = safeJsonParse(f['Clarifications']);
   const sitePhotoUrlsRaw = safeJsonParse(f['Site Photo URLs']);
 
-  const otoBundlePrice = f['OTO Bundle Price'] || '';
-  const otoAlarmPrice = f['OTO Alarm Price'] || '';
-  const otoAlarmWasPrice = f['OTO Alarm Was Price'] || '';
-  const otoUpsPrice = f['OTO UPS Price'] || '';
-  const otoUpsWasPrice = f['OTO UPS Was Price'] || '';
-  const otoCareMonthlyPrice = f['OTO Care Monthly Price'] || '';
+  // OTO Items — new JSON format with fallback from old fields
+  const otoItemsRaw = safeJsonParse(f['OTO Items']);
+  let otoItems;
+  if (otoItemsRaw.length > 0) {
+    otoItems = otoItemsRaw;
+  } else if (isEdit && (f['OTO Alarm Price'] || f['OTO UPS Price'] || f['OTO Bundle Price'] || f['OTO Care Monthly Price'])) {
+    // Backward compat: convert old fixed fields to new format
+    otoItems = [];
+    if (f['OTO Alarm Price']) otoItems.push({ name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: f['OTO Alarm Price'], wasPrice: f['OTO Alarm Was Price'] || '', monthly: false });
+    if (f['OTO UPS Price']) otoItems.push({ name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: f['OTO UPS Price'], wasPrice: f['OTO UPS Was Price'] || '', monthly: false });
+    if (f['OTO Bundle Price']) otoItems.push({ name: 'Complete Protection Bundle', description: 'Alarm monitoring + UPS battery backup bundled together.', price: f['OTO Bundle Price'], wasPrice: '', monthly: false });
+    if (f['OTO Care Monthly Price']) otoItems.push({ name: 'After Install Support Package', description: 'Annual on-site health check, remote troubleshooting, firmware updates, priority support & 15% off all future equipment.', price: f['OTO Care Monthly Price'], wasPrice: '', monthly: true });
+  } else if (!isEdit) {
+    // Defaults for new proposals
+    otoItems = [
+      { name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: '', wasPrice: '', monthly: false },
+      { name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: '', wasPrice: '', monthly: false },
+      { name: 'After Install Support Package', description: 'Annual on-site health check, remote troubleshooting, firmware updates, priority support & 15% off all future equipment.', price: '', wasPrice: '', monthly: true },
+    ];
+  } else {
+    otoItems = [];
+  }
+  const otoOneTime = otoItems.filter(it => !it.monthly);
+  const otoRecurring = otoItems.filter(it => it.monthly);
 
   const formAction = isEdit ? `/api/admin/proposals/${proposal.id}` : '/api/admin/proposals';
   const formMethod = isEdit ? 'PUT' : 'POST';
@@ -1964,6 +2014,23 @@ function renderProposalForm(proposal, prefill) {
       <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
       <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>
       <div class="fg"><label>Stripe Payment Link</label><input type="url" class="pkg-stripe" value="${escapeHtml(pkg.stripeLink || '')}" placeholder="https://buy.stripe.com/..." style="color:#22c55e;"></div>
+    </div>
+  `).join('');
+
+  // Build OTO item cards
+  const otoOneTimeHtml = otoOneTime.map(item => `
+    <div class="pkg-card" data-oto-type="onetime" draggable="true">
+      <div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">One-Time Item</span><span class="oto-badge-onetime">ONE-TIME</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove">&times;</button></div>
+      <div class="fg-row"><div class="fg"><label>Name</label><input type="text" class="oto-item-name" value="${escapeHtml(item.name || '')}" placeholder="e.g. 24/7 Alarm Monitoring"></div><div class="fg" style="max-width:120px;"><label>Price ($)</label><input type="number" class="oto-item-price" value="${item.price || ''}" placeholder="990" step="1"></div><div class="fg" style="max-width:120px;"><label>Was ($)</label><input type="number" class="oto-item-was" value="${item.wasPrice || ''}" placeholder="" step="1"></div></div>
+      <div class="fg"><label>Description</label><input type="text" class="oto-item-desc" value="${escapeHtml(item.description || '')}" placeholder="What does this include?"></div>
+    </div>
+  `).join('');
+
+  const otoRecurringHtml = otoRecurring.map(item => `
+    <div class="pkg-card" data-oto-type="recurring" draggable="true">
+      <div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#22c55e;font-weight:700;">Recurring Item</span><span class="oto-badge-recurring">MONTHLY</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove">&times;</button></div>
+      <div class="fg-row"><div class="fg"><label>Name</label><input type="text" class="oto-item-name" value="${escapeHtml(item.name || '')}" placeholder="e.g. After Install Support Package"></div><div class="fg" style="max-width:120px;"><label>Monthly ($)</label><input type="number" class="oto-item-price" value="${item.price || ''}" placeholder="97" step="1"></div></div>
+      <div class="fg"><label>Description</label><input type="text" class="oto-item-desc" value="${escapeHtml(item.description || '')}" placeholder="What does this include?"></div>
     </div>
   `).join('');
 
@@ -2071,46 +2138,15 @@ function renderProposalForm(proposal, prefill) {
         <div class="step" id="step-4" style="display:none;">
           <div class="card">
             <h2 class="card-title">Post-Payment Upsells (OTO)</h2>
-            <p class="card-hint">These appear after the customer pays. Toggle items on/off. All prices inc. GST. Leave value blank or toggle off to hide from customer.</p>
+            <p class="card-hint">These appear after the customer pays. Add, edit or remove items. All prices inc. GST.</p>
 
             <div style="font-size:12px;font-weight:700;color:#8899aa;text-transform:uppercase;letter-spacing:1.5px;margin:20px 0 10px;">One-Time Add-Ons</div>
-
-            <div class="oto-toggle-card">
-              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-alarm-fields" ${otoAlarmPrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>24/7 Alarm Monitoring</strong><span class="oto-badge-onetime">ONE-TIME</span></label>
-              <div class="oto-toggle-fields" id="oto-alarm-fields" ${otoAlarmPrice ? '' : 'style="display:none;"'}>
-                <div class="form-row">
-                  <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoAlarmPrice" value="${escapeHtml(String(otoAlarmPrice))}" step="1" placeholder="990"></div>
-                  <div class="fg"><label>Was Price ($) <span style="color:#5a6a7a;font-weight:400;">strikethrough</span></label><input type="number" name="otoAlarmWasPrice" value="${escapeHtml(String(otoAlarmWasPrice))}" step="1" placeholder="1290"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="oto-toggle-card">
-              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-ups-fields" ${otoUpsPrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>UPS Battery Backup</strong><span class="oto-badge-onetime">ONE-TIME</span></label>
-              <div class="oto-toggle-fields" id="oto-ups-fields" ${otoUpsPrice ? '' : 'style="display:none;"'}>
-                <div class="form-row">
-                  <div class="fg"><label>Offer Price ($)</label><input type="number" name="otoUpsPrice" value="${escapeHtml(String(otoUpsPrice))}" step="1" placeholder="590"></div>
-                  <div class="fg"><label>Was Price ($)</label><input type="number" name="otoUpsWasPrice" value="${escapeHtml(String(otoUpsWasPrice))}" step="1" placeholder="790"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="oto-toggle-card">
-              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-bundle-fields" ${otoBundlePrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>Bundle Deal</strong><span style="color:#5a6a7a;font-weight:400;font-size:11px;margin-left:6px;">alarm + UPS discounted together</span></label>
-              <div class="oto-toggle-fields" id="oto-bundle-fields" ${otoBundlePrice ? '' : 'style="display:none;"'}>
-                <div class="fg"><label>Bundle Price ($)</label><input type="number" name="otoBundlePrice" value="${escapeHtml(String(otoBundlePrice))}" step="1" placeholder="e.g. 1490"></div>
-              </div>
-            </div>
+            <div id="oto-onetime-list">${otoOneTimeHtml}</div>
+            <button type="button" class="btn-add" onclick="addOtoItem('onetime')">+ Add One-Time Item</button>
 
             <div style="font-size:12px;font-weight:700;color:#8899aa;text-transform:uppercase;letter-spacing:1.5px;margin:24px 0 10px;">Recurring</div>
-
-            <div class="oto-toggle-card">
-              <label class="oto-toggle-header"><input type="checkbox" class="oto-toggle-check" data-target="oto-care-fields" ${otoCareMonthlyPrice ? 'checked' : ''} onchange="toggleOtoFields(this)"><strong>After Install Support Package</strong><span class="oto-badge-recurring">MONTHLY</span></label>
-              <div class="oto-toggle-fields" id="oto-care-fields" ${otoCareMonthlyPrice ? '' : 'style="display:none;"'}>
-                <div class="fg"><label>Monthly Price ($)</label><input type="number" name="otoCareMonthlyPrice" value="${escapeHtml(String(otoCareMonthlyPrice))}" step="1" placeholder="49"></div>
-                <p class="card-hint" style="margin-top:4px;font-size:11px;">Includes: Annual on-site health check, remote troubleshooting, firmware updates, priority support &amp; 15% off future equipment.</p>
-              </div>
-            </div>
+            <div id="oto-recurring-list">${otoRecurringHtml}</div>
+            <button type="button" class="btn-add" onclick="addOtoItem('recurring')">+ Add Recurring Item</button>
           </div>
           <div class="step-nav">
             <button type="button" class="btn-back" onclick="goStep(3)">&larr; Back</button>
@@ -2272,11 +2308,6 @@ function renderProposalForm(proposal, prefill) {
     }
     .btn-preview:hover { background:rgba(0,212,255,0.1); }
 
-    .oto-toggle-card { border:1px solid #2a3a4a; border-radius:8px; padding:14px 16px; margin-bottom:10px; transition:border-color 0.2s; }
-    .oto-toggle-card:has(.oto-toggle-check:checked) { border-color:#00d4ff; }
-    .oto-toggle-header { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; color:#e0e6ed; }
-    .oto-toggle-check { width:16px; height:16px; accent-color:#00d4ff; cursor:pointer; }
-    .oto-toggle-fields { margin-top:12px; padding-top:12px; border-top:1px solid #1e2a3a; }
     .oto-badge-onetime { font-size:9px; font-weight:700; color:#8899aa; background:#1e2a3a; padding:2px 8px; border-radius:10px; letter-spacing:1px; margin-left:auto; }
     .oto-badge-recurring { font-size:9px; font-weight:700; color:#22c55e; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:10px; letter-spacing:1px; margin-left:auto; }
 
@@ -2300,15 +2331,22 @@ function renderProposalForm(proposal, prefill) {
     let currentStep = 1;
     let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
 
-    function toggleOtoFields(checkbox) {
-      const targetId = checkbox.dataset.target;
-      const fields = document.getElementById(targetId);
-      if (checkbox.checked) {
-        fields.style.display = '';
-      } else {
-        fields.style.display = 'none';
-        fields.querySelectorAll('input[type="number"]').forEach(inp => { inp.value = ''; });
-      }
+    function addOtoItem(type) {
+      const list = document.getElementById('oto-' + type + '-list');
+      const div = document.createElement('div');
+      div.className = 'pkg-card';
+      div.dataset.otoType = type;
+      div.draggable = true;
+      const isRec = type === 'recurring';
+      const badge = isRec ? '<span class="oto-badge-recurring">MONTHLY</span>' : '<span class="oto-badge-onetime">ONE-TIME</span>';
+      const color = isRec ? '#22c55e' : '#00d4ff';
+      const label = isRec ? 'Recurring Item' : 'One-Time Item';
+      const priceLabel = isRec ? 'Monthly ($)' : 'Price ($)';
+      const wasCol = isRec ? '' : '<div class="fg" style="max-width:120px;"><label>Was ($)</label><input type="number" class="oto-item-was" placeholder="" step="1"></div>';
+      div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:' + color + ';font-weight:700;">' + label + '</span>' + badge + '<button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove">&times;</button></div><div class="fg-row"><div class="fg"><label>Name</label><input type="text" class="oto-item-name" placeholder="Item name"></div><div class="fg" style="max-width:120px;"><label>' + priceLabel + '</label><input type="number" class="oto-item-price" placeholder="0" step="1"></div>' + wasCol + '</div><div class="fg"><label>Description</label><input type="text" class="oto-item-desc" placeholder="What does this include?"></div>';
+      list.appendChild(div);
+      initPkgDrag(div);
+      div.querySelector('.oto-item-name').focus();
     }
 
     function goStep(n) {
@@ -2493,8 +2531,10 @@ function renderProposalForm(proposal, prefill) {
       });
     }
 
-    // Init drag on existing package cards
+    // Init drag on existing package and OTO cards
     document.querySelectorAll('#additional-packages .pkg-card[draggable]').forEach(initPkgDrag);
+    document.querySelectorAll('#oto-onetime-list .pkg-card[draggable]').forEach(initPkgDrag);
+    document.querySelectorAll('#oto-recurring-list .pkg-card[draggable]').forEach(initPkgDrag);
 
     function addCameraRow() {
       const list = document.getElementById('camera-list');
@@ -2572,6 +2612,23 @@ function renderProposalForm(proposal, prefill) {
         if (name) cameras.push({ name, description: desc, price });
       });
       data.cameraOptions = JSON.stringify(cameras);
+
+      // Collect OTO items
+      const otoItems = [];
+      document.querySelectorAll('#oto-onetime-list .pkg-card').forEach(card => {
+        const name = card.querySelector('.oto-item-name').value.trim();
+        const desc = card.querySelector('.oto-item-desc').value.trim();
+        const price = parseFloat(card.querySelector('.oto-item-price').value) || 0;
+        const wasPrice = parseFloat(card.querySelector('.oto-item-was')?.value) || 0;
+        if (name) otoItems.push({ name, description: desc, price, wasPrice, monthly: false });
+      });
+      document.querySelectorAll('#oto-recurring-list .pkg-card').forEach(card => {
+        const name = card.querySelector('.oto-item-name').value.trim();
+        const desc = card.querySelector('.oto-item-desc').value.trim();
+        const price = parseFloat(card.querySelector('.oto-item-price').value) || 0;
+        if (name) otoItems.push({ name, description: desc, price, wasPrice: 0, monthly: true });
+      });
+      data.otoItems = JSON.stringify(otoItems);
 
       // Photos
       data.sitePhotoUrls = JSON.stringify(uploadedPhotoUrls);
