@@ -1,77 +1,26 @@
 const airtableService = require('../services/airtable.service');
 
-// In-memory storage for tech availability codes
-// Structure: { code: { engagementId, techId, created: timestamp } }
-const techAvailabilityCodes = new Map();
-
 /**
- * Generate random 6-character code
- */
-function generateRandomCode() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-/**
- * Generate short code and store mapping
+ * Generate code by encoding IDs directly into the URL (stateless, survives deploys)
  */
 function generateShortCode(engagementId, techId) {
-  // Generate unique code
-  let code;
-  do {
-    code = generateRandomCode();
-  } while (techAvailabilityCodes.has(code));
-
-  // Store mapping
-  techAvailabilityCodes.set(code, {
-    engagementId,
-    techId,
-    created: Date.now()
-  });
-
+  const code = Buffer.from(JSON.stringify({ e: engagementId, t: techId })).toString('base64url');
   console.log(`📝 Generated code ${code} for engagement ${engagementId}, tech ${techId}`);
-
   return code;
 }
 
 /**
- * Get engagement and tech IDs from code
+ * Decode engagement and tech IDs from code
  */
 function decodeShortCode(code) {
-  const data = techAvailabilityCodes.get(code);
-  if (!data) return null;
-
-  return {
-    engagementId: data.engagementId,
-    techId: data.techId
-  };
-}
-
-/**
- * Clean up old codes (older than 30 days)
- */
-function cleanupOldCodes() {
-  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-  let cleaned = 0;
-
-  for (const [code, data] of techAvailabilityCodes.entries()) {
-    if (data.created < thirtyDaysAgo) {
-      techAvailabilityCodes.delete(code);
-      cleaned++;
-    }
-  }
-
-  if (cleaned > 0) {
-    console.log(`🧹 Cleaned up ${cleaned} old tech availability codes`);
+  try {
+    const data = JSON.parse(Buffer.from(code, 'base64url').toString());
+    if (!data.e || !data.t) return null;
+    return { engagementId: data.e, techId: data.t };
+  } catch {
+    return null;
   }
 }
-
-// Run cleanup daily
-setInterval(cleanupOldCodes, 24 * 60 * 60 * 1000);
 
 /**
  * Tech responds YES via short link
