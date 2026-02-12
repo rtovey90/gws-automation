@@ -529,9 +529,15 @@ exports.showProposal = async (req, res) => {
   }
 
   @media print {
-    @page { margin: 0; }
-    body { background: #fff; margin: 0; }
-    .page, .cover-page { box-shadow: none; margin: 0; page-break-after: always; }
+    @page { size: A4; margin: 0; }
+    body { background: #fff; margin: 0; padding: 0; }
+    .page, .cover-page {
+      width: 210mm; height: 297mm;
+      box-shadow: none; margin: 0;
+      page-break-after: always;
+      page-break-inside: avoid;
+      overflow: hidden;
+    }
     .upgrade-card { cursor: default; }
     .pdf-btn { display: none !important; }
     .cta-section { display: none !important; }
