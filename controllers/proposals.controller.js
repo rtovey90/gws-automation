@@ -529,11 +529,12 @@ exports.showProposal = async (req, res) => {
   }
 
   @media print {
-    body { background: #fff; }
+    @page { margin: 0; }
+    body { background: #fff; margin: 0; }
     .page, .cover-page { box-shadow: none; margin: 0; page-break-after: always; }
     .upgrade-card { cursor: default; }
-    .pdf-btn { display: none; }
-    .cta-section { display: none; }
+    .pdf-btn { display: none !important; }
+    .cta-section { display: none !important; }
   }
 </style>
 </head>
