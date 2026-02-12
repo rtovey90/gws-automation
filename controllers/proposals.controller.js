@@ -529,20 +529,11 @@ exports.showProposal = async (req, res) => {
   }
 
   @media print {
-    @page { size: A4; margin: 0; }
-    body { background: #fff; margin: 0; padding: 0; }
-    .page, .cover-page {
-      width: 210mm; height: 297mm;
-      box-shadow: none; margin: 0;
-      page-break-after: always;
-      page-break-inside: avoid;
-      overflow: hidden;
-    }
-    .upgrade-card { cursor: default; }
     .pdf-btn { display: none !important; }
-    .cta-section { display: none !important; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -788,10 +779,50 @@ ${sitePhotoPages}
   fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
 </script>
 
-<button class="pdf-btn" onclick="window.print()" title="Download PDF" style="position:fixed;top:20px;right:20px;z-index:9999;background:var(--navy);color:var(--cyan);border:2px solid var(--cyan);padding:10px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.2s ease;" onmouseover="this.style.background='var(--cyan)';this.style.color='var(--navy)'" onmouseout="this.style.background='var(--navy)';this.style.color='var(--cyan)'">
+<button class="pdf-btn" onclick="downloadPDF()" title="Download PDF" style="position:fixed;top:20px;right:20px;z-index:9999;background:var(--navy);color:var(--cyan);border:2px solid var(--cyan);padding:10px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.2s ease;" onmouseover="this.style.background='var(--cyan)';this.style.color='var(--navy)'" onmouseout="this.style.background='var(--navy)';this.style.color='var(--cyan)'">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
   Download PDF
 </button>
+<script>
+async function downloadPDF() {
+  const btn = document.querySelector('.pdf-btn');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating...';
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pages = document.querySelectorAll('.cover-page, .page');
+    const pdfW = 210, pdfH = 297;
+
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      const canvas = await html2canvas(page, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        width: page.offsetWidth,
+        height: page.offsetHeight
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+    }
+
+    pdf.save('Great White Security — Proposal #' + PROJECT_NUMBER + '.pdf');
+  } catch (err) {
+    console.error('PDF generation failed:', err);
+    alert('PDF generation failed. Please try again.');
+  }
+
+  btn.innerHTML = origText;
+  btn.disabled = false;
+  btn.style.opacity = '1';
+}
+</script>
 
 </body>
 </html>`;
