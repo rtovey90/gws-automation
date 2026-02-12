@@ -111,6 +111,7 @@ exports.showProposal = async (req, res) => {
     const f = proposal.fields;
     const clientName = f['Client Name'] || '';
     const clientAddress = f['Client Address'] || '';
+    const propertyType = f['Property Type'] || 'residential';
     const letterNote = f['Letter Note'] || '';
     const scopeItems = safeJsonParse(f['Scope Items']);
     const deliverables = safeJsonParse(f['Deliverables']);
@@ -198,9 +199,16 @@ exports.showProposal = async (req, res) => {
 </div>`).join('');
 
     // Letter note
+    const isCommercial = propertyType === 'commercial';
     const letterContent = letterNote
       ? `<p>${escapeHtml(letterNote)}</p>`
-      : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
+      : isCommercial
+        ? `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your staff, visitors and assets.</p>
+    <p>With our proposed system/s, you can enjoy peace of mind knowing your premises are protected 24/7 whether on-site or after hours.</p>
+    <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
+    <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
+    <p>Alternatively, please accept the proposal below, and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`
+        : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
     <p>With our proposed system/s, you can enjoy peace of mind knowing you're protected 24/7 while home or away.</p>
     <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
     <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
@@ -572,7 +580,9 @@ exports.showProposal = async (req, res) => {
   <div class="pg-body">
     <div class="sec-title">Why Choose Us?</div>
     <div class="sec-title-accent"></div>
-    <p class="why-intro">Great White Security is built on over 21 years of proven experience securing homes and businesses across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial and residential properties giving business owners &amp; home owners peace of mind that their staff, customers, family and assets are safe.</p>
+    <p class="why-intro">${isCommercial
+      ? 'Great White Security is built on over 21 years of proven experience securing businesses and commercial properties across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial premises giving business owners and facility managers peace of mind that their staff, visitors and assets are safe.'
+      : 'Great White Security is built on over 21 years of proven experience securing homes and businesses across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial and residential properties giving business owners &amp; home owners peace of mind that their staff, customers, family and assets are safe.'}</p>
     <p class="why-intro">Our team is WA Police licensed and committed to seamless, professional installations. We pride ourselves on leaving every site secure, tidy, and set up for long-term protection.</p>
     <div class="why-highlight">
       <p>As a <strong>product-agnostic security installation business</strong>, we're not tied to any single brand. Instead, we partner with trusted local suppliers to provide solutions tailored to each client's needs.</p>
@@ -1851,6 +1861,7 @@ function buildProposalFields(body) {
   if (body.date) fields['Proposal Date'] = body.date;
   if (body.clientName) fields['Client Name'] = body.clientName;
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
+  if (body.propertyType) fields['Property Type'] = body.propertyType;
   if (body.letterNote !== undefined) fields['Letter Note'] = body.letterNote;
   if (body.packageName) fields['Package Name'] = body.packageName;
   if (body.packageDescription !== undefined) fields['Package Description'] = body.packageDescription;
@@ -1902,6 +1913,7 @@ function renderProposalForm(proposal, prefill) {
   const clientAddress = f['Client Address'] || pf.clientAddress || '';
   const clientPhone = pf.clientPhone || '';
   const clientEmail = pf.clientEmail || '';
+  const propertyType = f['Property Type'] || 'residential';
   const letterNote = f['Letter Note'] || '';
   const packageName = f['Package Name'] || '';
   const packageDesc = f['Package Description'] || '';
@@ -2103,6 +2115,14 @@ function renderProposalForm(proposal, prefill) {
             <div class="form-row">
               <div class="fg"><label>Phone</label><input type="text" id="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678"></div>
               <div class="fg"><label>Email</label><input type="text" id="clientEmail" value="${escapeHtml(clientEmail)}" placeholder="john@example.com"></div>
+            </div>
+            <div class="fg">
+              <label>Property Type</label>
+              <input type="hidden" name="propertyType" id="propertyTypeInput" value="${escapeHtml(propertyType)}">
+              <div style="display:flex;gap:0;margin-top:4px;">
+                <button type="button" id="btn-residential" onclick="setPropertyType('residential')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${propertyType === 'residential' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Residential</button>
+                <button type="button" id="btn-commercial" onclick="setPropertyType('commercial')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${propertyType === 'commercial' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Commercial</button>
+              </div>
             </div>
             <div class="fg">
               <label>Custom Letter Note <span style="color:#5a6a7a;font-weight:400;">(leave blank for default)</span></label>
@@ -2446,6 +2466,19 @@ function renderProposalForm(proposal, prefill) {
       list.appendChild(div);
       initPkgDrag(div);
       div.querySelector('.oto-item-name').focus();
+    }
+
+    function setPropertyType(type) {
+      document.getElementById('propertyTypeInput').value = type;
+      const btnR = document.getElementById('btn-residential');
+      const btnC = document.getElementById('btn-commercial');
+      if (type === 'commercial') {
+        btnC.style.background = '#78e4ff'; btnC.style.color = '#0a0e27'; btnC.style.borderColor = '#78e4ff';
+        btnR.style.background = '#1a2236'; btnR.style.color = '#8a9ab5'; btnR.style.borderColor = '#3a4a5c';
+      } else {
+        btnR.style.background = '#78e4ff'; btnR.style.color = '#0a0e27'; btnR.style.borderColor = '#78e4ff';
+        btnC.style.background = '#1a2236'; btnC.style.color = '#8a9ab5'; btnC.style.borderColor = '#3a4a5c';
+      }
     }
 
     function goStep(n) {
