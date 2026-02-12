@@ -532,6 +532,8 @@ exports.showProposal = async (req, res) => {
     body { background: #fff; }
     .page, .cover-page { box-shadow: none; margin: 0; page-break-after: always; }
     .upgrade-card { cursor: default; }
+    .pdf-btn { display: none; }
+    .cta-section { display: none; }
   }
 </style>
 </head>
@@ -778,6 +780,11 @@ ${sitePhotoPages}
   // Track view
   fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
 </script>
+
+<button class="pdf-btn" onclick="window.print()" title="Download PDF" style="position:fixed;top:20px;right:20px;z-index:9999;background:var(--navy);color:var(--cyan);border:2px solid var(--cyan);padding:10px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.2s ease;" onmouseover="this.style.background='var(--cyan)';this.style.color='var(--navy)'" onmouseout="this.style.background='var(--navy)';this.style.color='var(--cyan)'">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  Download PDF
+</button>
 
 </body>
 </html>`;
