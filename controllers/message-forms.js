@@ -2370,10 +2370,14 @@ exports.sendCompletionForm = async (req, res) => {
       status: 'Sent',
     });
 
-    // Mark as sent in Airtable
-    await airtableService.updateEngagement(leadId, {
-      'Completion Form Sent': true,
-    });
+    // Mark as sent in Airtable (non-blocking — field may not exist yet)
+    try {
+      await airtableService.updateEngagement(leadId, {
+        'Completion Form Sent': true,
+      });
+    } catch (updateErr) {
+      console.warn('⚠️ Could not update Completion Form Sent field:', updateErr.message);
+    }
 
     console.log(`✓ Completion form sent to ${techName}`);
 

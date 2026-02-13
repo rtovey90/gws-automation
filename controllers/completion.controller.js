@@ -510,9 +510,6 @@ exports.completeJob = async (req, res) => {
       'Status': 'Completed ✨',
     };
 
-    if (timeArrived) updates['Time Arrived'] = timeArrived;
-    if (timeDeparted) updates['Time Left'] = timeDeparted;
-
     // Add photos if any were uploaded
     if (photoAttachments.length > 0) {
       // Get existing photos
@@ -522,6 +519,18 @@ exports.completeJob = async (req, res) => {
     }
 
     await airtableService.updateEngagement(engagementId, updates);
+
+    // Save time fields separately (non-blocking — fields may not exist yet)
+    if (timeArrived || timeDeparted) {
+      try {
+        const timeUpdates = {};
+        if (timeArrived) timeUpdates['Time Arrived'] = timeArrived;
+        if (timeDeparted) timeUpdates['Time Left'] = timeDeparted;
+        await airtableService.updateEngagement(engagementId, timeUpdates);
+      } catch (timeErr) {
+        console.warn('⚠️ Could not update time fields:', timeErr.message);
+      }
+    }
 
     console.log(`✓ Job marked as completed`);
 
