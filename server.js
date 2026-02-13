@@ -171,6 +171,8 @@ app.get('/s/:leadId', scheduleController.showScheduleForm);
 app.post('/api/schedule-job', scheduleController.scheduleJob);
 
 // Completion routes
+app.get('/send-completion-form/:leadId', messageFormsController.showSendCompletionForm);
+app.post('/api/send-completion-form', messageFormsController.sendCompletionForm);
 app.get('/c/:leadId', completionController.showCompletionForm);
 app.post('/api/complete-job', completionController.uploadMiddleware, completionController.completeJob);
 

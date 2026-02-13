@@ -163,6 +163,7 @@ exports.showCompletionForm = async (req, res) => {
           }
           input[type="text"],
           input[type="password"],
+          input[type="time"],
           textarea {
             width: 100%;
             padding: 12px;
@@ -282,6 +283,18 @@ exports.showCompletionForm = async (req, res) => {
 
           <form id="completionForm" enctype="multipart/form-data">
             <input type="hidden" name="leadId" value="${engagementId}">
+
+            <div class="section-title">🕐 Time On Site</div>
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+              <div style="flex: 1;">
+                <label for="timeArrived">Time Arrived:</label>
+                <input type="time" name="timeArrived" id="timeArrived" required>
+              </div>
+              <div style="flex: 1;">
+                <label for="timeDeparted">Time Left:</label>
+                <input type="time" name="timeDeparted" id="timeDeparted" required>
+              </div>
+            </div>
 
             <label for="jobNotes">📝 Job Notes:</label>
             <textarea name="jobNotes" id="jobNotes" placeholder="Describe the work completed, parts used, etc." required></textarea>
@@ -411,7 +424,9 @@ exports.completeJob = async (req, res) => {
       jobNotes,
       issueResolved,
       nextSteps,
-      upgradeOpportunities
+      upgradeOpportunities,
+      timeArrived,
+      timeDeparted
     } = req.body;
     const files = req.files;
     const engagementId = leadId; // Extract to engagementId variable
@@ -467,7 +482,10 @@ exports.completeJob = async (req, res) => {
     }
 
     // Build comprehensive completion notes
-    let completionNotes = `COMPLETED: ${new Date().toLocaleDateString()}\n\n${jobNotes}`;
+    let completionNotes = `COMPLETED: ${new Date().toLocaleDateString()}`;
+    if (timeArrived) completionNotes += `\nTime Arrived: ${timeArrived}`;
+    if (timeDeparted) completionNotes += `\nTime Left: ${timeDeparted}`;
+    completionNotes += `\n\n${jobNotes}`;
 
     if (nvrLogin) completionNotes += `\n\nNVR Login: ${nvrLogin}`;
     if (nvrPassword) completionNotes += `\nNVR Password: ${nvrPassword}`;
@@ -491,6 +509,9 @@ exports.completeJob = async (req, res) => {
       'Client Notes': completionNotes,
       'Status': 'Completed ✨',
     };
+
+    if (timeArrived) updates['Time Arrived'] = timeArrived;
+    if (timeDeparted) updates['Time Left'] = timeDeparted;
 
     // Add photos if any were uploaded
     if (photoAttachments.length > 0) {

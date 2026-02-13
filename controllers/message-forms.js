@@ -1855,4 +1855,536 @@ exports.generateMessageFormLink = async (req, res) => {
   }
 };
 
+/**
+ * Show send completion form (admin page opened from Airtable button)
+ * GET /send-completion-form/:leadId
+ */
+exports.showSendCompletionForm = async (req, res) => {
+  try {
+    const engagementId = req.params.leadId;
+
+    console.log(`📋 Opening send completion form for engagement: ${engagementId}`);
+
+    // Get engagement details
+    const lead = await airtableService.getEngagement(engagementId);
+
+    if (!lead) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body>
+          <h1>❌ Engagement not found</h1>
+        </body>
+        </html>
+      `);
+    }
+
+    // Get all techs
+    const techs = await airtableService.getAllTechs();
+
+    if (techs.length === 0) {
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>No Available Techs</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+            }
+            .warning { color: #ff9800; font-size: 24px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="warning">⚠️ No Available Techs</h1>
+          <p>There are no techs marked as "Available" in the Techs table.</p>
+        </body>
+        </html>
+      `);
+    }
+
+    const clientName = lead.fields['First Name (from Customer)'] || 'Client';
+    const clientAddress = lead.fields['Address (from Customer)'] || 'TBD';
+    const alreadySent = lead.fields['Completion Form Sent'] || false;
+    const completionLink = `${process.env.BASE_URL}/c/${engagementId}`;
+
+    // Try to find the assigned tech
+    const assignedTechName = lead.fields['Assigned Tech'] || lead.fields['Tech Name'] || null;
+
+    // Default message template
+    const defaultMessage = `Hey {{TECH_NAME}}, here's the completion form for the ${clientName} job at ${clientAddress}.
+
+Please fill it in once you're done on site:
+{{LINK}}
+
+Thanks,
+Ricky (Great White Security)`;
+
+    // Build tech radio list HTML — auto-select assigned tech if found
+    const techListHTML = techs.map(tech => {
+      const displayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
+      const phone = tech.fields.Phone || 'No phone';
+      const isAssigned = assignedTechName && displayName.toLowerCase().includes(assignedTechName.toString().toLowerCase());
+      return `
+        <div class="tech-item">
+          <input type="radio" id="tech-${tech.id}" name="selectedTech" value="${tech.id}" ${isAssigned ? 'checked' : ''} data-name="${displayName}" data-phone="${phone}">
+          <label for="tech-${tech.id}">
+            <strong>${displayName}</strong>
+            <span class="tech-phone">${phone}</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Send Completion Form - ${clientName}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: #4CAF50;
+            color: white;
+            padding: 25px;
+            text-align: center;
+          }
+          .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+          }
+          .header .subtitle {
+            opacity: 0.9;
+            font-size: 16px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .section {
+            margin-bottom: 30px;
+          }
+          .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .lead-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+          }
+          .lead-info p {
+            margin: 5px 0;
+            color: #555;
+          }
+          .lead-info strong {
+            color: #333;
+          }
+          .already-sent {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #155724;
+          }
+          .tech-selection {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #fafafa;
+          }
+          .tech-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s;
+          }
+          .tech-item:hover {
+            border-color: #4CAF50;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.1);
+          }
+          .tech-item input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+          }
+          .tech-item label {
+            flex: 1;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .tech-phone {
+            color: #666;
+            font-size: 14px;
+          }
+          label.message-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 15px;
+          }
+          textarea {
+            width: 100%;
+            min-height: 250px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s;
+          }
+          textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+          }
+          .help-text {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 6px;
+            border-left: 3px solid #ffc107;
+          }
+          .preview-box {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 150px;
+          }
+          .preview-content {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+          }
+          .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+          }
+          button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .btn-send {
+            background: #4CAF50;
+            color: white;
+          }
+          .btn-send:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+          }
+          .btn-send:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+          }
+          .btn-cancel {
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #ddd;
+          }
+          .btn-cancel:hover {
+            background: #e9ecef;
+          }
+          .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+          }
+          .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Send Completion Form</h1>
+            <div class="subtitle">Send completion form link to tech via SMS</div>
+          </div>
+
+          <div class="content">
+            <div class="lead-info">
+              <p><strong>Client:</strong> ${clientName}</p>
+              <p><strong>Address:</strong> ${clientAddress}</p>
+            </div>
+
+            ${alreadySent ? '<div class="already-sent">✅ Completion form has already been sent for this job.</div>' : ''}
+
+            <form id="completionSendForm">
+              <!-- Tech Selection -->
+              <div class="section">
+                <div class="section-title">🔧 Select Tech to Send To</div>
+                <div class="tech-selection">
+                  ${techListHTML}
+                </div>
+              </div>
+
+              <!-- Message Template -->
+              <div class="section">
+                <label class="message-label" for="message">📝 Message Template (edit as needed):</label>
+                <textarea id="message" name="message" required>${defaultMessage}</textarea>
+                <div class="help-text">
+                  💡 Use {{TECH_NAME}} and {{LINK}} — they'll be replaced when sending
+                </div>
+              </div>
+
+              <!-- Message Preview -->
+              <div class="section">
+                <div class="section-title" id="previewTitle">👁️ Preview</div>
+                <div class="preview-box" id="previewBox">
+                  <div class="preview-content" id="previewContent"></div>
+                </div>
+              </div>
+
+              <div class="buttons">
+                <button type="button" class="btn-cancel" onclick="window.close()">
+                  Cancel
+                </button>
+                <button type="submit" class="btn-send" id="sendBtn">
+                  📤 Send Completion Form
+                </button>
+              </div>
+            </form>
+
+            <div class="loading" id="loading">
+              <div class="spinner"></div>
+              <p>Sending message...</p>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          const BASE_URL = '${process.env.BASE_URL}';
+          const engagementId = '${engagementId}';
+          const completionLink = '${completionLink}';
+
+          const radios = document.querySelectorAll('input[name="selectedTech"]');
+          const form = document.getElementById('completionSendForm');
+          const sendBtn = document.getElementById('sendBtn');
+          const loading = document.getElementById('loading');
+          const messageTextarea = document.getElementById('message');
+          const previewContent = document.getElementById('previewContent');
+          const previewTitle = document.getElementById('previewTitle');
+
+          function updatePreview() {
+            const selected = document.querySelector('input[name="selectedTech"]:checked');
+            if (!selected) {
+              previewTitle.textContent = '👁️ Preview';
+              previewContent.innerHTML = '<em style="color: #999;">Select a tech to see preview</em>';
+              return;
+            }
+
+            const techFullName = selected.dataset.name;
+            const techName = techFullName.split(' ')[0];
+            previewTitle.textContent = '👁️ Preview (what ' + techFullName + ' will receive):';
+
+            const preview = messageTextarea.value
+              .replace(/{{TECH_NAME}}/g, techName)
+              .replace(/{{LINK}}/g, completionLink);
+
+            previewContent.textContent = preview;
+          }
+
+          radios.forEach(r => r.addEventListener('change', updatePreview));
+          messageTextarea.addEventListener('input', updatePreview);
+          updatePreview();
+
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const selected = document.querySelector('input[name="selectedTech"]:checked');
+            if (!selected) {
+              alert('Please select a tech');
+              return;
+            }
+
+            sendBtn.disabled = true;
+            form.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+              const response = await fetch('/api/send-completion-form', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  leadId: engagementId,
+                  techId: selected.value,
+                  techName: selected.dataset.name,
+                  techPhone: selected.dataset.phone,
+                  messageTemplate: messageTextarea.value
+                }),
+              });
+
+              const result = await response.json();
+
+              if (response.ok) {
+                document.querySelector('.container').innerHTML = \`
+                  <div class="header" style="background: #4CAF50;">
+                    <h1>✅ Message Sent!</h1>
+                  </div>
+                  <div class="content" style="text-align: center; padding: 50px;">
+                    <p style="font-size: 18px; margin-bottom: 20px;">
+                      Completion form sent to \${selected.dataset.name}
+                    </p>
+                    <button onclick="window.close()" class="btn-send">Close Window</button>
+                  </div>
+                \`;
+              } else {
+                throw new Error(result.error || 'Failed to send message');
+              }
+            } catch (error) {
+              alert('Error sending message: ' + error.message);
+              sendBtn.disabled = false;
+              form.style.display = 'block';
+              loading.style.display = 'none';
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error showing send completion form:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Error</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body>
+        <h1>❌ Error</h1>
+        <p>${error.message}</p>
+      </body>
+      </html>
+    `);
+  }
+};
+
+/**
+ * Send completion form SMS to selected tech
+ * POST /api/send-completion-form
+ */
+exports.sendCompletionForm = async (req, res) => {
+  try {
+    const { leadId, techId, techName, techPhone, messageTemplate } = req.body;
+
+    if (!leadId || !techId || !techPhone || !messageTemplate) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(`📤 Sending completion form to ${techName} for engagement: ${leadId}`);
+
+    const completionLink = `${process.env.BASE_URL}/c/${leadId}`;
+    const firstName = techName.split(' ')[0];
+
+    // Replace placeholders
+    const message = messageTemplate
+      .replace(/{{TECH_NAME}}/g, firstName)
+      .replace(/{{LINK}}/g, completionLink);
+
+    // Send SMS
+    await twilioService.sendSMS(
+      techPhone,
+      message,
+      { leadId, techId, type: 'completion_form' }
+    );
+
+    // Log message
+    await airtableService.logMessage({
+      engagementId: leadId,
+      direction: 'Outbound',
+      type: 'SMS',
+      to: techPhone,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      content: message,
+      status: 'Sent',
+    });
+
+    // Mark as sent in Airtable
+    await airtableService.updateEngagement(leadId, {
+      'Completion Form Sent': true,
+    });
+
+    console.log(`✓ Completion form sent to ${techName}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Completion form sent successfully',
+    });
+  } catch (error) {
+    console.error('Error sending completion form:', error);
+    res.status(500).json({ error: 'Failed to send completion form' });
+  }
+};
+
 module.exports = exports;
