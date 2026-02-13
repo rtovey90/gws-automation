@@ -697,6 +697,26 @@ class AirtableService {
     }
   }
 
+  /**
+   * Get the most recent outbound message linked to a tech (to find which engagement they're responding to)
+   */
+  async getRecentOutboundMessageForTech(techId) {
+    try {
+      const records = await tables.messages
+        .select({
+          filterByFormula: `AND({Related Tech} = '${techId}', {Direction} = 'Outbound')`,
+          sort: [{ field: 'Created', direction: 'desc' }],
+          maxRecords: 1,
+        })
+        .firstPage();
+
+      return records.length > 0 ? records[0] : null;
+    } catch (error) {
+      console.error('Error getting recent message for tech:', error);
+      return null;
+    }
+  }
+
   // ============ TEMPLATES ============
 
   /**

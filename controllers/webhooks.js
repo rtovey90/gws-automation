@@ -542,13 +542,44 @@ exports.handleTwilioSMS = async (req, res) => {
       try {
         const tech = await airtableService.getTechByPhone(clientPhone);
         if (tech) {
-          console.log(`📋 Tech ${tech.fields.Name} responded: ${bodyLower.toUpperCase()}`);
+          const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown Tech';
+          console.log(`📋 Tech ${techName} responded: ${bodyLower.toUpperCase()}`);
 
-          // Find the most recent lead with availability requested
-          // For now, we'll notify admin - they can manually link it
+          // Find which engagement this tech was sent an availability check for
+          const recentMessage = await airtableService.getRecentOutboundMessageForTech(tech.id);
+          const engagementId = recentMessage?.fields?.['Related Lead']?.[0];
+
+          if (engagementId) {
+            // Update engagement exactly like the link-click handler does
+            const engagement = await airtableService.getEngagement(engagementId);
+            if (engagement) {
+              const currentResponses = engagement.fields['Tech Availability Responses'] || '';
+              const updatedResponses = currentResponses
+                ? `${currentResponses}\n${techName} - ${bodyLower.toUpperCase()} (${new Date().toLocaleString()})`
+                : `${techName} - ${bodyLower.toUpperCase()} (${new Date().toLocaleString()})`;
+
+              const updateFields = {
+                'Tech Availability Responses': updatedResponses,
+                'Status': 'Tech Availability Check',
+              };
+
+              if (bodyLower === 'yes') {
+                const currentAvailableTechs = engagement.fields['Available Techs'] || [];
+                updateFields['Available Techs'] = [...currentAvailableTechs, tech.id];
+              } else {
+                const currentAvailableTechs = engagement.fields['Available Techs'] || [];
+                updateFields['Available Techs'] = currentAvailableTechs.filter(id => id !== tech.id);
+              }
+
+              await airtableService.updateEngagement(engagementId, updateFields);
+              console.log(`✓ Recorded ${bodyLower.toUpperCase()} response from ${techName} for engagement ${engagementId}`);
+            }
+          }
+
+          // Notify admin
           await twilioService.sendSMS(
             process.env.ADMIN_PHONE,
-            `📋 ${tech.fields.Name} replied ${bodyLower.toUpperCase()} to availability check.\n\nNote: They replied via SMS instead of clicking the link. Check which lead this is for and update manually.`,
+            `📋 ${techName} replied ${bodyLower.toUpperCase()} to availability check.${engagementId ? '' : '\n\nNote: Could not find which engagement this is for — check manually.'}`,
             { from: clientPhone }
           );
 
