@@ -209,12 +209,15 @@ app.post('/api/proposals/:projectNumber/oto-charge', proposalsController.chargeO
 app.get('/admin/proposals', requireAuth, proposalsController.listProposals);
 app.get('/admin/proposals/new', requireAuth, proposalsController.showCreateForm);
 app.get('/admin/proposals/new/:engagementId', requireAuth, proposalsController.showCreateFormForEngagement);
+app.get('/admin/proposals/clone/:proposalId', requireAuth, proposalsController.showCloneForm);
 app.get('/admin/proposals/edit/:proposalId', requireAuth, proposalsController.showEditForm);
 app.post('/api/admin/proposals', requireAuth, proposalsController.createProposal);
 app.put('/api/admin/proposals/:proposalId', requireAuth, proposalsController.updateProposal);
 app.post('/api/admin/proposals/upload-photos', requireAuth, proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
 app.post('/api/admin/proposals/:proposalId/send', requireAuth, proposalsController.sendProposal);
 app.post('/api/admin/proposals/:proposalId/preview-checkout', requireAuth, proposalsController.previewCheckout);
+app.get('/api/admin/customers', requireAuth, proposalsController.listCustomers);
+app.get('/api/admin/customers/:customerId/engagements', requireAuth, proposalsController.getCustomerEngagements);
 
 // Tech availability short link routes (must come before /:code catch-all)
 app.get('/ty/:code', techAvailabilityShortController.techYes);

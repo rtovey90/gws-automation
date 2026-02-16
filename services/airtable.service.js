@@ -886,6 +886,22 @@ class AirtableService {
   }
 
   /**
+   * Get engagements for a specific customer
+   */
+  async getEngagementsByCustomer(customerId) {
+    try {
+      const allEngagements = await this.getAllEngagements();
+      return allEngagements.filter(e => {
+        const customerIds = e.fields.Customer;
+        return customerIds && customerIds.includes(customerId);
+      });
+    } catch (error) {
+      console.error('Error getting engagements by customer:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all proposals (cached 60s)
    */
   async getAllProposals() {

@@ -1638,6 +1638,7 @@ exports.listProposals = async (req, res) => {
         <td><span style="background:${color};color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${escapeHtml(status)}</span></td>
         <td>${f['Base Price'] ? formatCurrency(f['Base Price']) : '-'}</td>
         <td>${escapeHtml(f['Proposal Date'] || '')}</td>
+        <td><a href="/admin/proposals/clone/${p.id}" onclick="event.stopPropagation();" style="color:#ff9800;text-decoration:none;font-size:12px;font-weight:600;">Clone</a></td>
       </tr>`;
     }).join('');
 
@@ -1657,10 +1658,11 @@ exports.listProposals = async (req, res) => {
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Status</th>
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Price</th>
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Date</th>
+                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;"></th>
               </tr>
             </thead>
             <tbody>
-              ${rows || '<tr><td colspan="6" style="padding:40px;text-align:center;color:#5a6a7a;">No proposals yet. Click "+ New Proposal" to create one.</td></tr>'}
+              ${rows || '<tr><td colspan="7" style="padding:40px;text-align:center;color:#5a6a7a;">No proposals yet. Click "+ New Proposal" to create one.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -1749,6 +1751,63 @@ exports.showEditForm = async (req, res) => {
   } catch (error) {
     console.error('Error showing edit form:', error);
     res.status(500).send('Error loading form');
+  }
+};
+
+// ─── ADMIN: Clone Form ───────────────────────────────────────
+
+exports.showCloneForm = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+    const sourceProposal = await airtableService.getProposal(proposalId);
+
+    if (!sourceProposal) {
+      return res.status(404).send('Source proposal not found');
+    }
+
+    const customers = await airtableService.getAllCustomers();
+    res.send(renderProposalForm(null, null, { cloneSource: sourceProposal, customers }));
+  } catch (error) {
+    console.error('Error showing clone form:', error);
+    res.status(500).send('Error loading clone form');
+  }
+};
+
+// ─── ADMIN: Customer API (for clone selector) ───────────────
+
+exports.listCustomers = async (req, res) => {
+  try {
+    const customers = await airtableService.getAllCustomers();
+    const list = customers.map(c => ({
+      id: c.id,
+      firstName: c.fields['First Name'] || '',
+      lastName: c.fields['Last Name'] || '',
+      address: c.fields['Address'] || '',
+      phone: c.fields['Mobile Phone'] || c.fields['Phone'] || '',
+      email: c.fields['Email'] || '',
+    }));
+    res.json(list);
+  } catch (error) {
+    console.error('Error listing customers:', error);
+    res.status(500).json({ error: 'Failed to load customers' });
+  }
+};
+
+exports.getCustomerEngagements = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const engagements = await airtableService.getEngagementsByCustomer(customerId);
+    const list = engagements.map(e => ({
+      id: e.id,
+      proposalNumber: e.fields['Proposal Number'] ? String(e.fields['Proposal Number']).padStart(6, '0') : '',
+      status: e.fields['Status'] || '',
+      systemType: e.fields['System Type'] || [],
+      leadType: e.fields['Lead Type'] || '',
+    }));
+    res.json(list);
+  } catch (error) {
+    console.error('Error getting customer engagements:', error);
+    res.status(500).json({ error: 'Failed to load engagements' });
   }
 };
 
@@ -1947,45 +2006,53 @@ function buildProposalFields(body) {
 
 // ─── Helper: Render Proposal Admin Form ──────────────────────
 
-function renderProposalForm(proposal, prefill) {
+function renderProposalForm(proposal, prefill, cloneOpts) {
   const isEdit = !!proposal;
   const f = proposal ? proposal.fields : {};
   const pf = prefill || {};
+  const clone = cloneOpts || {};
+  const isClone = !!clone.cloneSource;
+  const cf = isClone ? clone.cloneSource.fields : {};
+  const customers = clone.customers || [];
 
+  // For clone: work content comes from cf, client fields stay empty
   const projectNumber = f['Project Number'] || pf.projectNumber || '';
   const date = f['Proposal Date'] || new Date().toISOString().split('T')[0];
   const clientName = f['Client Name'] || pf.clientName || '';
   const clientAddress = f['Client Address'] || pf.clientAddress || '';
   const clientPhone = pf.clientPhone || '';
   const clientEmail = pf.clientEmail || '';
-  const propertyType = f['Property Type'] || 'residential';
+  const propertyType = f['Property Type'] || (isClone ? (cf['Property Type'] || 'residential') : 'residential');
   const letterNote = f['Letter Note'] || '';
-  const packageName = f['Package Name'] || '';
-  const packageDesc = f['Package Description'] || '';
-  const basePrice = f['Base Price'] || '';
-  const coverImageUrl = f['Cover Image URL'] || '';
+  const packageName = f['Package Name'] || (isClone ? (cf['Package Name'] || '') : '');
+  const packageDesc = f['Package Description'] || (isClone ? (cf['Package Description'] || '') : '');
+  const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : '');
+  const coverImageUrl = f['Cover Image URL'] || (isClone ? (cf['Cover Image URL'] || '') : '');
+
+  // For clone mode, use source proposal's JSON fields as the data source
+  const srcFields = isClone ? cf : f;
 
   // Parse JSON fields into arrays for the UI
-  const scopeItemsRaw = safeJsonParse(f['Scope Items']);
-  const deliverablesRaw = safeJsonParse(f['Deliverables']);
-  const cameraOptionsRaw = safeJsonParse(f['Camera Options']);
-  const optionGroupsRaw = safeJsonParse(f['Option Groups']);
-  const clarificationsRaw = safeJsonParse(f['Clarifications']);
-  const sitePhotoUrlsRaw = safeJsonParse(f['Site Photo URLs']);
+  const scopeItemsRaw = safeJsonParse(srcFields['Scope Items']);
+  const deliverablesRaw = safeJsonParse(srcFields['Deliverables']);
+  const cameraOptionsRaw = safeJsonParse(srcFields['Camera Options']);
+  const optionGroupsRaw = safeJsonParse(srcFields['Option Groups']);
+  const clarificationsRaw = safeJsonParse(srcFields['Clarifications']);
+  const sitePhotoUrlsRaw = isClone ? [] : safeJsonParse(f['Site Photo URLs']); // Clear photos for clones
 
   // OTO Items — new JSON format with fallback from old fields
-  const otoItemsRaw = safeJsonParse(f['OTO Items']);
+  const otoItemsRaw = safeJsonParse(srcFields['OTO Items']);
   let otoItems;
   if (otoItemsRaw.length > 0) {
     otoItems = otoItemsRaw;
-  } else if (isEdit && (f['OTO Alarm Price'] || f['OTO UPS Price'] || f['OTO Bundle Price'] || f['OTO Care Monthly Price'])) {
+  } else if ((isEdit || isClone) && (srcFields['OTO Alarm Price'] || srcFields['OTO UPS Price'] || srcFields['OTO Bundle Price'] || srcFields['OTO Care Monthly Price'])) {
     // Backward compat: convert old fixed fields to new format
     otoItems = [];
-    if (f['OTO Alarm Price']) otoItems.push({ name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: f['OTO Alarm Price'], wasPrice: f['OTO Alarm Was Price'] || '', monthly: false });
-    if (f['OTO UPS Price']) otoItems.push({ name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: f['OTO UPS Price'], wasPrice: f['OTO UPS Was Price'] || '', monthly: false });
-    if (f['OTO Bundle Price']) otoItems.push({ name: 'Complete Protection Bundle', description: 'Alarm monitoring + UPS battery backup bundled together.', price: f['OTO Bundle Price'], wasPrice: '', monthly: false });
-    if (f['OTO Care Monthly Price']) otoItems.push({ name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: f['OTO Care Monthly Price'], wasPrice: '', monthly: true });
-  } else if (!isEdit) {
+    if (srcFields['OTO Alarm Price']) otoItems.push({ name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: srcFields['OTO Alarm Price'], wasPrice: srcFields['OTO Alarm Was Price'] || '', monthly: false });
+    if (srcFields['OTO UPS Price']) otoItems.push({ name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: srcFields['OTO UPS Price'], wasPrice: srcFields['OTO UPS Was Price'] || '', monthly: false });
+    if (srcFields['OTO Bundle Price']) otoItems.push({ name: 'Complete Protection Bundle', description: 'Alarm monitoring + UPS battery backup bundled together.', price: srcFields['OTO Bundle Price'], wasPrice: '', monthly: false });
+    if (srcFields['OTO Care Monthly Price']) otoItems.push({ name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: srcFields['OTO Care Monthly Price'], wasPrice: '', monthly: true });
+  } else if (!isEdit && !isClone) {
     // Defaults for new proposals
     otoItems = [
       { name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: '', wasPrice: '', monthly: false },
@@ -2012,7 +2079,7 @@ function renderProposalForm(proposal, prefill) {
     'Setup Customer Phone App & Full Demonstration',
     'Clean Up Site After Installation',
   ];
-  const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : (isEdit ? [] : defaultScope);
+  const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : ((isEdit || isClone) ? [] : defaultScope);
   const defaultDeliverables = [
     { qty: '2', description: 'Dahua 8MP Dual Light CCTV Turret Cameras' },
     { qty: '2', description: 'Dahua CCTV Camera Mounting Brackets' },
@@ -2028,7 +2095,7 @@ function renderProposalForm(proposal, prefill) {
     { qty: '\u2014', description: '12 Month Warranty on Installation & Manufacturer Equipment Warranty' },
     { qty: '\u2014', description: 'Smartphone App (No Subscription Costs)' },
   ];
-  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : (isEdit ? [] : defaultDeliverables);
+  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : ((isEdit || isClone) ? [] : defaultDeliverables);
   const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
   const optionGroups = optionGroupsRaw.length > 0 ? optionGroupsRaw : [];
 
@@ -2129,9 +2196,15 @@ function renderProposalForm(proposal, prefill) {
   const bodyHtml = `
     <div style="padding:24px;max-width:800px;margin:0 auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <h1 style="font-size:22px;color:#e0e6ed;">${isEdit ? 'Edit' : 'New'} Proposal</h1>
-        <a href="/admin/proposals" style="color:#5a6a7a;text-decoration:none;font-size:13px;">&larr; All Proposals</a>
+        <h1 style="font-size:22px;color:#e0e6ed;">${isClone ? 'Clone' : (isEdit ? 'Edit' : 'New')} Proposal</h1>
+        <div style="display:flex;gap:12px;align-items:center;">
+          ${isEdit ? `<a href="/admin/proposals/clone/${proposal.id}" style="color:#ff9800;text-decoration:none;font-size:13px;font-weight:600;">Clone as New</a>` : ''}
+          <a href="/admin/proposals" style="color:#5a6a7a;text-decoration:none;font-size:13px;">&larr; All Proposals</a>
+        </div>
       </div>
+      ${isClone ? `<div style="background:#1a2a1a;border:1px solid #2d6a2d;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#8cc88c;">
+        Cloned from <strong style="color:#4caf50;">${escapeHtml(cf['Client Name'] || 'Unknown')}</strong>${cf['Project Number'] ? ' (Project #' + escapeHtml(cf['Project Number']) + ')' : ''} &mdash; scope, deliverables, pricing & upsells carried over. Select a customer below.
+      </div>` : ''}
       ${clientName ? `<p style="color:#00d4ff;font-size:15px;margin-bottom:20px;">for <strong>${escapeHtml(clientName)}</strong>${clientAddress ? ' &mdash; ' + escapeHtml(clientAddress) : ''}</p>` : ''}
 
       <!-- STEP INDICATORS -->
@@ -2149,6 +2222,22 @@ function renderProposalForm(proposal, prefill) {
         <div class="step" id="step-1">
           <div class="card">
             <h2 class="card-title">Client Details</h2>
+            ${isClone ? `
+            <div class="fg" id="customer-selector-wrap">
+              <label>Select Customer</label>
+              <div style="position:relative;">
+                <input type="text" id="customerSearch" placeholder="Type to search customers..." autocomplete="off" style="padding-right:36px;">
+                <span id="customerSearchClear" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:#5a6a7a;font-size:18px;display:none;" onclick="clearCustomerSearch()">&times;</span>
+              </div>
+              <div id="customerDropdown" style="display:none;position:relative;z-index:100;max-height:200px;overflow-y:auto;background:#1a2332;border:2px solid #00d4ff;border-top:none;border-radius:0 0 8px 8px;margin-top:-2px;"></div>
+            </div>
+            <div class="fg" id="engagement-selector-wrap" style="display:none;">
+              <label>Link to Engagement</label>
+              <select id="engagementSelect" style="width:100%;padding:10px 14px;background:#1a2332;border:2px solid #2a3a4a;border-radius:8px;color:#e0e6ed;font-size:14px;font-family:inherit;">
+                <option value="">-- Select engagement --</option>
+              </select>
+            </div>
+            ` : ''}
             <div class="form-row">
               <div class="fg"><label>Project Number</label><input type="text" name="projectNumber" value="${escapeHtml(projectNumber)}" placeholder="e.g. 003256"></div>
               <div class="fg"><label>Date</label><input type="date" name="date" value="${escapeHtml(date)}"></div>
@@ -2482,6 +2571,9 @@ function renderProposalForm(proposal, prefill) {
       padding:4px 10px; cursor:pointer; margin-left:10px; white-space:nowrap;
     }
     .send-pkg-row .btn-preview-checkout:hover { border-color:#00d4ff; color:#00d4ff; }
+
+    #customerDropdown { scrollbar-width:thin; scrollbar-color:#2a3a4a #1a2332; }
+    #engagementSelect option { padding:8px; }
 
     @media (max-width:768px) {
       .form-row { grid-template-columns:1fr; }
@@ -3012,6 +3104,126 @@ function renderProposalForm(proposal, prefill) {
       }
       this.value = '';
     });
+
+    // ── Customer Selector (clone mode) ──
+    ${isClone ? `
+    const allCustomers = ${JSON.stringify(customers.map(c => ({
+      id: c.id,
+      firstName: c.fields['First Name'] || '',
+      lastName: c.fields['Last Name'] || '',
+      name: [c.fields['First Name'], c.fields['Last Name']].filter(Boolean).join(' '),
+      address: c.fields['Address'] || '',
+      phone: c.fields['Mobile Phone'] || c.fields['Phone'] || '',
+      email: c.fields['Email'] || '',
+    })))};
+
+    const searchInput = document.getElementById('customerSearch');
+    const dropdown = document.getElementById('customerDropdown');
+    const clearBtn = document.getElementById('customerSearchClear');
+    let selectedCustomerId = null;
+
+    searchInput.addEventListener('input', function() {
+      const q = this.value.toLowerCase().trim();
+      clearBtn.style.display = q ? 'block' : 'none';
+      if (!q) { dropdown.style.display = 'none'; return; }
+      const matches = allCustomers.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        c.address.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q)
+      ).slice(0, 15);
+      if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding:10px 14px;color:#5a6a7a;font-size:13px;">No matches</div>';
+      } else {
+        dropdown.innerHTML = matches.map(c =>
+          '<div class="cust-option" data-id="' + c.id + '" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #2a3a4a;transition:background .15s;">' +
+          '<div style="color:#e0e6ed;font-weight:600;font-size:14px;">' + escapeForJs(c.name) + '</div>' +
+          (c.address ? '<div style="color:#5a6a7a;font-size:12px;">' + escapeForJs(c.address) + '</div>' : '') +
+          '</div>'
+        ).join('');
+        dropdown.querySelectorAll('.cust-option').forEach(opt => {
+          opt.addEventListener('mouseenter', function() { this.style.background = '#1e2a3a'; });
+          opt.addEventListener('mouseleave', function() { this.style.background = 'none'; });
+          opt.addEventListener('click', function() { selectCustomer(this.dataset.id); });
+        });
+      }
+      dropdown.style.display = 'block';
+    });
+
+    searchInput.addEventListener('focus', function() {
+      if (this.value.trim()) this.dispatchEvent(new Event('input'));
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#customer-selector-wrap')) dropdown.style.display = 'none';
+    });
+
+    function escapeForJs(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function clearCustomerSearch() {
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      dropdown.style.display = 'none';
+    }
+
+    function selectCustomer(customerId) {
+      const cust = allCustomers.find(c => c.id === customerId);
+      if (!cust) return;
+      selectedCustomerId = customerId;
+
+      // Fill client fields
+      document.querySelector('[name="clientName"]').value = cust.name;
+      document.querySelector('[name="clientAddress"]').value = cust.address;
+      document.getElementById('clientPhone').value = cust.phone;
+      document.getElementById('clientEmail').value = cust.email;
+
+      // Update search display
+      searchInput.value = cust.name;
+      clearBtn.style.display = 'block';
+      dropdown.style.display = 'none';
+
+      // Fetch engagements
+      loadEngagements(customerId);
+    }
+
+    async function loadEngagements(customerId) {
+      const wrap = document.getElementById('engagement-selector-wrap');
+      const sel = document.getElementById('engagementSelect');
+      wrap.style.display = 'block';
+      sel.innerHTML = '<option value="">Loading...</option>';
+
+      try {
+        const resp = await fetch('/api/admin/customers/' + customerId + '/engagements');
+        const engagements = await resp.json();
+        sel.innerHTML = '<option value="">-- Select engagement --</option>';
+        engagements.forEach(e => {
+          const label = (e.proposalNumber ? '#' + e.proposalNumber + ' ' : '') +
+            (e.status || '') +
+            (e.systemType && e.systemType.length ? ' (' + e.systemType.join(', ') + ')' : '');
+          const opt = document.createElement('option');
+          opt.value = e.id;
+          opt.dataset.proposalNumber = e.proposalNumber || '';
+          opt.textContent = label || e.id;
+          sel.appendChild(opt);
+        });
+        if (engagements.length === 0) {
+          sel.innerHTML = '<option value="">No engagements found</option>';
+        }
+      } catch (err) {
+        sel.innerHTML = '<option value="">Error loading engagements</option>';
+      }
+    }
+
+    document.getElementById('engagementSelect')?.addEventListener('change', function() {
+      const selected = this.options[this.selectedIndex];
+      if (selected && selected.value) {
+        document.querySelector('[name="engagementId"]').value = selected.value;
+        const pn = selected.dataset.proposalNumber;
+        if (pn) document.querySelector('[name="projectNumber"]').value = pn;
+      } else {
+        document.querySelector('[name="engagementId"]').value = '';
+      }
+    });
+    ` : ''}
   </script>`;
 
   return wrapInLayout(
