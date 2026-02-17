@@ -216,6 +216,7 @@ app.put('/api/admin/proposals/:proposalId', requireAuth, proposalsController.upd
 app.post('/api/admin/proposals/upload-photos', requireAuth, proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
 app.post('/api/admin/proposals/:proposalId/send', requireAuth, proposalsController.sendProposal);
 app.post('/api/admin/proposals/:proposalId/preview-checkout', requireAuth, proposalsController.previewCheckout);
+app.post('/api/admin/proposals/:proposalId/toggle-pause', requireAuth, proposalsController.togglePause);
 app.get('/api/admin/customers', requireAuth, proposalsController.listCustomers);
 app.get('/api/admin/customers/:customerId/engagements', requireAuth, proposalsController.getCustomerEngagements);
 

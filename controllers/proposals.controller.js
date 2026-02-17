@@ -109,6 +109,7 @@ exports.showProposal = async (req, res) => {
     }
 
     const f = proposal.fields;
+    const proposalPaused = !!f['Paused'];
     const clientName = f['Client Name'] || '';
     const clientAddress = f['Client Address'] || '';
     const propertyType = f['Property Type'] || 'residential';
@@ -715,12 +716,17 @@ ${sitePhotoPages}
     </div>
   </div>
   <div class="cta-section">
+    ${proposalPaused ? `
+    <button class="cta-button" disabled style="opacity:0.5;cursor:not-allowed;">Proposal Unavailable</button>
+    <div class="cta-sub" style="color:var(--red);font-weight:600;">This proposal is currently being updated. Please contact us at 0413 346 978 if you have any questions.</div>
+    ` : `
     <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Secure My Booking \u2192</button>
     <div class="cta-sub">
       By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-of-service/" target="_blank">Terms &amp; Conditions</a>
       and the Clarifications &amp; Exclusions outlined in this proposal.<br>
       Pricing includes GST. Quotation valid for 30 days.
     </div>
+    `}
   </div>
   ${pgFooter}
 </div>
@@ -927,6 +933,10 @@ exports.createProposalCheckout = async (req, res) => {
 
     if (!proposal) {
       return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    if (proposal.fields['Paused']) {
+      return res.status(403).json({ error: 'This proposal is currently unavailable. Please contact us at 0413 346 978.' });
     }
 
     const f = proposal.fields;
@@ -1705,6 +1715,7 @@ exports.listProposals = async (req, res) => {
     const rows = proposals.map(p => {
       const f = p.fields;
       const status = f['Status'] || 'Draft';
+      const paused = !!f['Paused'];
       const statusColors = {
         Draft: '#6c757d',
         Sent: '#2196f3',
@@ -1721,6 +1732,9 @@ exports.listProposals = async (req, res) => {
         <td><span style="background:${color};color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${escapeHtml(status)}</span></td>
         <td>${f['Base Price'] ? formatCurrency(f['Base Price']) : '-'}</td>
         <td>${escapeHtml(f['Proposal Date'] || '')}</td>
+        <td>
+          <button onclick="event.stopPropagation(); togglePause('${p.id}', this)" style="background:${paused ? '#e05252' : '#4caf50'};color:white;border:none;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;min-width:60px;">${paused ? 'Paused' : 'Live'}</button>
+        </td>
         <td><a href="/admin/proposals/clone/${p.id}" onclick="event.stopPropagation();" style="color:#ff9800;text-decoration:none;font-size:12px;font-weight:600;">Clone</a></td>
       </tr>`;
     }).join('');
@@ -1741,11 +1755,12 @@ exports.listProposals = async (req, res) => {
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Status</th>
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Price</th>
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Date</th>
+                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Link</th>
                 <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;"></th>
               </tr>
             </thead>
             <tbody>
-              ${rows || '<tr><td colspan="7" style="padding:40px;text-align:center;color:#5a6a7a;">No proposals yet. Click "+ New Proposal" to create one.</td></tr>'}
+              ${rows || '<tr><td colspan="8" style="padding:40px;text-align:center;color:#5a6a7a;">No proposals yet. Click "+ New Proposal" to create one.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -1756,7 +1771,22 @@ exports.listProposals = async (req, res) => {
       td { padding: 14px 12px; border-bottom: 1px solid #2a3a4a; font-size: 14px; }
     `;
 
-    res.send(wrapInLayout('Proposals', bodyHtml, 'proposals', { customStyles }));
+    const toggleScript = `<script>
+      async function togglePause(id, btn) {
+        const isPaused = btn.textContent.trim() === 'Live';
+        btn.textContent = '...';
+        try {
+          const res = await fetch('/api/admin/proposals/' + id + '/toggle-pause', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paused: isPaused }) });
+          const data = await res.json();
+          if (data.ok) {
+            btn.textContent = data.paused ? 'Paused' : 'Live';
+            btn.style.background = data.paused ? '#e05252' : '#4caf50';
+          } else { btn.textContent = 'Error'; }
+        } catch { btn.textContent = 'Error'; }
+      }
+    </script>`;
+
+    res.send(wrapInLayout('Proposals', bodyHtml + toggleScript, 'proposals', { customStyles }));
   } catch (error) {
     console.error('Error listing proposals:', error);
     res.status(500).send('Error loading proposals');
@@ -1853,6 +1883,20 @@ exports.showCloneForm = async (req, res) => {
   } catch (error) {
     console.error('Error showing clone form:', error);
     res.status(500).send('Error loading clone form');
+  }
+};
+
+// ─── ADMIN: Toggle Pause ─────────────────────────────────────
+
+exports.togglePause = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+    const paused = !!req.body.paused;
+    await airtableService.updateProposal(proposalId, { Paused: paused });
+    res.json({ ok: true, paused });
+  } catch (error) {
+    console.error('Error toggling pause:', error);
+    res.status(500).json({ error: 'Failed to toggle pause' });
   }
 };
 
