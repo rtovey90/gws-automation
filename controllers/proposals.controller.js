@@ -123,6 +123,12 @@ exports.showProposal = async (req, res) => {
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
+    const discountName = f['Discount Name'] || '';
+    const discountType = f['Discount Type'] || '';
+    const discountValue = f['Discount Value'] || 0;
+    const discountExpires = f['Discount Expires'] || '';
+    const discountExpired = discountExpires ? new Date(discountExpires + 'T23:59:59') < new Date() : false;
+    const discountActive = !!(discountType && discountValue > 0 && !discountExpired);
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = getFirstNames(clientName);
     const logoPath = '/proposal-assets/gws-logo.png';
@@ -512,6 +518,23 @@ exports.showProposal = async (req, res) => {
     font-size: 11px; background: rgba(244,251,255,0.8); border-right: 2px solid var(--cyan);
   }
 
+  /* ===== DISCOUNT ===== */
+  .discount-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .discount-badge {
+    display: inline-block; background: #e05252; color: #fff;
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .discount-original {
+    font-size: 16px; color: var(--gray-400); text-decoration: line-through;
+  }
+  .discount-expiry {
+    font-size: 11px; color: #e05252; font-weight: 600; width: 100%; margin-top: 2px;
+  }
+
   /* ===== RESPONSIVE ===== */
   @media (max-width: 820px) {
     .page, .cover-page { width: 100%; min-height: auto; margin: 0; box-shadow: none; }
@@ -679,7 +702,14 @@ ${sitePhotoPages}
 
     <div class="total-bar">
       <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
-      <div>
+      <div style="text-align:right;">
+        <div id="discountDisplay" style="display:none;">
+          <div class="discount-row">
+            <span class="discount-original" id="originalPrice"></span>
+            <span class="discount-badge" id="discountBadge"></span>
+          </div>
+          <div class="discount-expiry" id="discountExpiry"></div>
+        </div>
         <div class="total-bar-amount" id="totalAmount">${formatCurrency(basePrice)}</div>
       </div>
     </div>
@@ -710,14 +740,45 @@ ${sitePhotoPages}
   let selectedBasePrice = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   let upgradeTotal = 0;
+  const DISCOUNT_TYPE = '${escapeHtml(discountType)}';
+  const DISCOUNT_VALUE = ${Number(discountValue) || 0};
+  const DISCOUNT_NAME = '${escapeHtml(discountName)}';
+  const DISCOUNT_EXPIRED = ${discountExpired};
+  const DISCOUNT_EXPIRES = '${escapeHtml(discountExpires)}';
 
   function getTotal() {
     return selectedBasePrice + upgradeTotal;
   }
 
+  function applyDiscount(total) {
+    if (!DISCOUNT_TYPE || DISCOUNT_VALUE <= 0 || DISCOUNT_EXPIRED) return 0;
+    if (DISCOUNT_TYPE === 'percentage') return Math.round(total * DISCOUNT_VALUE / 100);
+    if (DISCOUNT_TYPE === 'fixed') return Math.min(DISCOUNT_VALUE, total);
+    return 0;
+  }
+
   function updateTotalDisplay() {
-    const total = getTotal();
-    document.getElementById('totalAmount').textContent = '$' + total.toLocaleString('en-AU');
+    const subtotal = getTotal();
+    const discountAmt = applyDiscount(subtotal);
+    const finalTotal = Math.max(subtotal - discountAmt, 0);
+    const discountEl = document.getElementById('discountDisplay');
+    if (discountAmt > 0) {
+      discountEl.style.display = 'block';
+      document.getElementById('originalPrice').textContent = '$' + subtotal.toLocaleString('en-AU');
+      const label = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
+      document.getElementById('discountBadge').textContent = label;
+      const expiryEl = document.getElementById('discountExpiry');
+      if (DISCOUNT_EXPIRES) {
+        const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
+        expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+        expiryEl.style.display = 'block';
+      } else {
+        expiryEl.style.display = 'none';
+      }
+    } else {
+      discountEl.style.display = 'none';
+    }
+    document.getElementById('totalAmount').textContent = '$' + finalTotal.toLocaleString('en-AU');
     document.getElementById('acceptBtn').textContent = 'Accept Proposal & Secure My Booking \u2192';
   }
 
@@ -874,6 +935,14 @@ exports.createProposalCheckout = async (req, res) => {
     const optionGroups = safeJsonParse(f['Option Groups']);
     const cameraOptions = safeJsonParse(f['Camera Options']);
 
+    // Read discount fields
+    const discountType = f['Discount Type'] || '';
+    const discountValue = f['Discount Value'] || 0;
+    const discountName = f['Discount Name'] || '';
+    const discountExpires = f['Discount Expires'] || '';
+    const discountExpired = discountExpires ? new Date(discountExpires + 'T23:59:59') < new Date() : false;
+    const discountActive = !!(discountType && discountValue > 0 && !discountExpired);
+
     // Determine which package was selected (server-side price lookup)
     let selectedPrice = basePrice;
     let selectedName = packageName;
@@ -902,6 +971,20 @@ exports.createProposalCheckout = async (req, res) => {
       }
     }
 
+    // Apply discount server-side
+    let discountAmount = 0;
+    let checkoutDesc = selectedName;
+    if (discountActive) {
+      if (discountType === 'percentage') {
+        discountAmount = Math.round(total * discountValue / 100);
+      } else if (discountType === 'fixed') {
+        discountAmount = Math.min(discountValue, total);
+      }
+      total = Math.max(total - discountAmount, 0);
+      const label = discountName || (discountType === 'percentage' ? `${discountValue}% off` : `$${discountValue} off`);
+      checkoutDesc = `${selectedName} (${label}: -$${discountAmount.toLocaleString('en-AU')})`;
+    }
+
     if (total <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
@@ -912,7 +995,7 @@ exports.createProposalCheckout = async (req, res) => {
       proposalId: proposal.id,
       amount: total,
       customerName: f['Client Name'] || 'Customer',
-      description: selectedName,
+      description: checkoutDesc,
       successUrl: `${baseUrl}/offers/${projectNumber}?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/proposals/${projectNumber}`,
     });
@@ -1970,6 +2053,10 @@ function buildProposalFields(body) {
   if (body.packageName) fields['Package Name'] = body.packageName;
   if (body.packageDescription !== undefined) fields['Package Description'] = body.packageDescription;
   if (body.basePrice !== undefined) fields['Base Price'] = Number(body.basePrice) || 0;
+  if (body.discountName !== undefined) fields['Discount Name'] = body.discountName || '';
+  if (body.discountType !== undefined) fields['Discount Type'] = body.discountType || null;
+  if (body.discountValue !== undefined) fields['Discount Value'] = Number(body.discountValue) || 0;
+  if (body.discountExpires !== undefined) fields['Discount Expires'] = body.discountExpires || null;
   if (body.coverImageUrl) fields['Cover Image URL'] = body.coverImageUrl;
   if (body.status) fields['Status'] = body.status;
 
@@ -2027,6 +2114,10 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const packageName = f['Package Name'] || (isClone ? (cf['Package Name'] || '') : '');
   const packageDesc = f['Package Description'] || (isClone ? (cf['Package Description'] || '') : '');
   const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : '');
+  const discountName = f['Discount Name'] || (isClone ? (cf['Discount Name'] || '') : '');
+  const discountType = f['Discount Type'] || (isClone ? (cf['Discount Type'] || '') : '');
+  const discountValue = f['Discount Value'] || (isClone ? (cf['Discount Value'] || '') : '');
+  const discountExpires = f['Discount Expires'] || (isClone ? (cf['Discount Expires'] || '') : '');
   const coverImageUrl = f['Cover Image URL'] || (isClone ? (cf['Cover Image URL'] || '') : '');
 
   // For clone mode, use source proposal's JSON fields as the data source
@@ -2310,6 +2401,23 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             <p class="card-hint">Add options the customer can add to their package.</p>
             <div id="camera-list">${cameraRowsHtml}</div>
             <button type="button" class="btn-add" onclick="addCameraRow()">+ Add Upgrade Option</button>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Discount <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(optional \u2014 shown on customer proposal)</span></h2>
+            <div class="form-row">
+              <div class="fg"><label>Discount Name</label><input type="text" name="discountName" value="${escapeHtml(discountName)}" placeholder="e.g. Early Bird Special"></div>
+              <div class="fg"><label>Type</label>
+                <select name="discountType" style="width:100%;padding:10px 12px;border:1px solid #d0d8e0;border-radius:8px;font-size:14px;font-family:inherit;">
+                  <option value=""${!discountType ? ' selected' : ''}>None</option>
+                  <option value="percentage"${discountType === 'percentage' ? ' selected' : ''}>Percentage (%)</option>
+                  <option value="fixed"${discountType === 'fixed' ? ' selected' : ''}>Fixed Amount ($)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="fg"><label>Value</label><input type="number" name="discountValue" value="${escapeHtml(String(discountValue))}" step="1" min="0" placeholder="e.g. 10"></div>
+              <div class="fg"><label>Valid Until</label><input type="date" name="discountExpires" value="${escapeHtml(discountExpires)}"></div>
+            </div>
           </div>
           <div class="step-nav">
             <button type="button" class="btn-back" onclick="goStep(2)">&larr; Back</button>
