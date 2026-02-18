@@ -2297,12 +2297,16 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     </div>`;
   }).join('');
 
-  // Build additional package cards for admin form
-  const additionalPkgHtml = optionGroups.map((pkg, i) => `
+  // Build ALL package cards for admin form (Package 1 = base package, 2+ = additional)
+  const allPackages = [
+    { name: packageName, description: packageDesc, price: basePrice },
+    ...optionGroups
+  ];
+  const additionalPkgHtml = allPackages.map((pkg, i) => `
     <div class="pkg-card" data-idx="${i}" draggable="true">
-      <div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ${i + 2}</span><button type="button" class="row-remove" onclick="this.closest('.pkg-card').remove()" title="Remove package">&times;</button></div>
-      <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
-      <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>
+      <div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package ${i + 1}</span><button type="button" class="row-remove" onclick="removePackage(this)" title="Remove package">&times;</button></div>
+      <div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="${escapeHtml(pkg.name || '')}" placeholder="e.g. Complete 4-Camera CCTV Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="${pkg.price || ''}" placeholder="Price" step="1"></div></div>
+      <div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="${escapeHtml(pkg.description || '')}" placeholder="Supply & install security system with NVR"></div>
     </div>
   `).join('');
 
@@ -2430,14 +2434,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
         <!-- STEP 3: PRICING -->
         <div class="step" id="step-3" style="display:none;">
-          <div class="card">
-            <h2 class="card-title">Package & Pricing</h2>
-            <div class="form-row">
-              <div class="fg"><label>Package Name</label><input type="text" name="packageName" value="${escapeHtml(packageName)}" placeholder="e.g. Complete 4-Camera CCTV Package"></div>
-              <div class="fg"><label>Total Price (inc. GST)</label><input type="number" name="basePrice" value="${escapeHtml(String(basePrice))}" step="1" placeholder="4990" style="font-size:20px;font-weight:700;"></div>
-            </div>
-            <div class="fg"><label>Short Description</label><input type="text" name="packageDescription" value="${escapeHtml(packageDesc)}" placeholder="Supply & install 4-camera AI security system with NVR"></div>
-          </div>
+          <h2 class="card-title" style="margin-bottom:12px;">Package & Pricing</h2>
           <div id="additional-packages">${additionalPkgHtml}</div>
           <button type="button" class="btn-add" style="margin-top:12px;" onclick="addPackageOption()">+ Add Package Option</button>
           <div class="card" style="margin-top:16px;">
@@ -2948,7 +2945,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     function renumberPackages() {
       document.querySelectorAll('#additional-packages .pkg-card').forEach((card, i) => {
         const label = card.querySelector('.pkg-card-header span[style]');
-        if (label) label.textContent = 'Package Option ' + (i + 2);
+        if (label) label.textContent = 'Package ' + (i + 1);
       });
     }
 
@@ -2969,14 +2966,24 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     function addPackageOption() {
       const list = document.getElementById('additional-packages');
-      const idx = list.querySelectorAll('.pkg-card').length + 2;
+      const idx = list.querySelectorAll('.pkg-card').length + 1;
       const div = document.createElement('div');
       div.className = 'pkg-card';
       div.draggable = true;
-      div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package Option ' + idx + '</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>';
+      div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package ' + idx + '</span><button type="button" class="row-remove" onclick="removePackage(this)" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" placeholder="e.g. Ajax Alarm Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" placeholder="e.g. Wireless alarm with Ajax hub + sensors"></div>';
       list.appendChild(div);
       initPkgDrag(div);
       div.querySelector('.pkg-name').focus();
+    }
+
+    function removePackage(btn) {
+      const list = document.getElementById('additional-packages');
+      if (list.querySelectorAll('.pkg-card').length <= 1) {
+        alert('You need at least one package.');
+        return;
+      }
+      btn.closest('.pkg-card').remove();
+      renumberPackages();
     }
 
     function removePhoto(btn, url) {
@@ -3013,13 +3020,20 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       });
       data.clarifications = JSON.stringify(clarifications);
 
-      // Collect additional package options
+      // Collect all packages — first card is base package, rest are option groups
+      const allCards = document.querySelectorAll('#additional-packages .pkg-card');
       const addlPkgs = [];
-      document.querySelectorAll('#additional-packages .pkg-card').forEach(card => {
+      allCards.forEach((card, i) => {
         const name = card.querySelector('.pkg-name').value.trim();
         const desc = card.querySelector('.pkg-desc').value.trim();
         const price = parseFloat(card.querySelector('.pkg-price').value) || 0;
-        if (name) addlPkgs.push({ name, description: desc, price });
+        if (i === 0) {
+          data.packageName = name;
+          data.basePrice = price;
+          data.packageDescription = desc;
+        } else {
+          if (name) addlPkgs.push({ name, description: desc, price });
+        }
       });
       data.optionGroups = JSON.stringify(addlPkgs);
 
@@ -3094,9 +3108,6 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     function getPackagesFromForm() {
       const packages = [];
-      const mainName = document.querySelector('[name="packageName"]').value.trim();
-      const mainPrice = parseFloat(document.querySelector('[name="basePrice"]').value) || 0;
-      if (mainName) packages.push({ name: mainName, price: mainPrice });
       document.querySelectorAll('#additional-packages .pkg-card').forEach(card => {
         const name = card.querySelector('.pkg-name').value.trim();
         const price = parseFloat(card.querySelector('.pkg-price').value) || 0;
