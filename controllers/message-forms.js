@@ -2225,7 +2225,7 @@ Ricky (Great White Security)`;
         <script>
           const BASE_URL = '${process.env.BASE_URL}';
           const engagementId = '${engagementId}';
-          const completionLink = '${completionLink}';
+          const baseCompletionLink = '${completionLink}';
 
           const radios = document.querySelectorAll('input[name="selectedTech"]');
           const form = document.getElementById('completionSendForm');
@@ -2245,6 +2245,7 @@ Ricky (Great White Security)`;
 
             const techFullName = selected.dataset.name;
             const techName = techFullName.split(' ')[0];
+            const completionLink = baseCompletionLink + '?tech=' + encodeURIComponent(techFullName);
             previewTitle.textContent = '👁️ Preview (what ' + techFullName + ' will receive):';
 
             const preview = messageTextarea.value
@@ -2344,7 +2345,7 @@ exports.sendCompletionForm = async (req, res) => {
 
     console.log(`📤 Sending completion form to ${techName} for engagement: ${leadId}`);
 
-    const completionLink = `${process.env.BASE_URL}/c/${leadId}`;
+    const completionLink = `${process.env.BASE_URL}/c/${leadId}?tech=${encodeURIComponent(techName)}`;
     const firstName = techName.split(' ')[0];
 
     // Replace placeholders

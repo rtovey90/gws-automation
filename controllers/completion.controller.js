@@ -62,6 +62,7 @@ const upload = multer({
 exports.showCompletionForm = async (req, res) => {
   try {
     const engagementId = req.params.leadId;
+    const techFromUrl = req.query.tech || '';
 
     console.log(`✅ Opening completion form for engagement: ${engagementId}`);
 
@@ -337,10 +338,9 @@ exports.showCompletionForm = async (req, res) => {
             <input type="hidden" name="leadId" value="${engagementId}">
             <input type="hidden" name="visitNumber" value="${visitNumber}">
 
-            <label for="techName">👤 Your Name:</label>
-            <input type="text" name="techName" id="techName" placeholder="e.g. Lee Clowting" required>
-
-            <div class="section-title">🕐 Time On Site</div>
+            <div class="section-title">👤 Tech 1</div>
+            <label for="techName">Name:</label>
+            <input type="text" name="techName" id="techName" placeholder="e.g. Lee Clowting" value="${techFromUrl}" required>
             <div style="display: flex; gap: 20px; margin-bottom: 20px;">
               <div style="flex: 1;">
                 <label for="timeArrived">Time Arrived:</label>
@@ -349,6 +349,26 @@ exports.showCompletionForm = async (req, res) => {
               <div style="flex: 1;">
                 <label for="timeDeparted">Time Left:</label>
                 <input type="time" name="timeDeparted" id="timeDeparted" required>
+              </div>
+            </div>
+
+            <div class="section-title">👤 Tech 2 <span style="font-weight: 400; font-size: 14px; color: #999;">(optional)</span></div>
+            <label for="tech2Name">Name:</label>
+            <input type="text" name="tech2Name" id="tech2Name" placeholder="Leave blank if solo">
+            <div style="margin-bottom: 12px;">
+              <label style="display: inline; font-weight: normal; font-size: 14px; cursor: pointer;">
+                <input type="checkbox" id="sameTime" style="width: auto; margin-right: 6px;">
+                Same time as Tech 1
+              </label>
+            </div>
+            <div id="tech2TimeFields" style="display: flex; gap: 20px; margin-bottom: 20px;">
+              <div style="flex: 1;">
+                <label for="tech2TimeArrived">Time Arrived:</label>
+                <input type="time" name="tech2TimeArrived" id="tech2TimeArrived">
+              </div>
+              <div style="flex: 1;">
+                <label for="tech2TimeLeft">Time Left:</label>
+                <input type="time" name="tech2TimeLeft" id="tech2TimeLeft">
               </div>
             </div>
 
@@ -401,6 +421,19 @@ exports.showCompletionForm = async (req, res) => {
         </div>
 
         <script>
+          // Same time as Tech 1 checkbox
+          const sameTimeCheckbox = document.getElementById('sameTime');
+          const tech2TimeFields = document.getElementById('tech2TimeFields');
+          sameTimeCheckbox.addEventListener('change', () => {
+            if (sameTimeCheckbox.checked) {
+              tech2TimeFields.style.display = 'none';
+              document.getElementById('tech2TimeArrived').value = '';
+              document.getElementById('tech2TimeLeft').value = '';
+            } else {
+              tech2TimeFields.style.display = 'flex';
+            }
+          });
+
           // Show/hide next steps field based on issue resolved selection
           const resolvedYes = document.getElementById('resolvedYes');
           const resolvedNo = document.getElementById('resolvedNo');
@@ -421,6 +454,12 @@ exports.showCompletionForm = async (req, res) => {
             e.preventDefault();
 
             const formData = new FormData(e.target);
+
+            // If "Same time as Tech 1" is checked, copy Tech 1 times to Tech 2
+            if (sameTimeCheckbox.checked && document.getElementById('tech2Name').value.trim()) {
+              formData.set('tech2TimeArrived', document.getElementById('timeArrived').value);
+              formData.set('tech2TimeLeft', document.getElementById('timeDeparted').value);
+            }
 
             // Disable button and show loading
             const btn = e.target.querySelector('.btn');
@@ -490,6 +529,9 @@ exports.completeJob = async (req, res) => {
       timeArrived,
       timeDeparted,
       techName,
+      tech2Name,
+      tech2TimeArrived,
+      tech2TimeLeft,
       visitNumber,
     } = req.body;
     const files = req.files;
@@ -566,6 +608,11 @@ exports.completeJob = async (req, res) => {
     if (installerCode) siteVisitFields['Installer Code'] = installerCode;
     if (masterCode) siteVisitFields['Master Code'] = masterCode;
     if (photoAttachments.length > 0) siteVisitFields['Photos'] = photoAttachments;
+    if (tech2Name) {
+      siteVisitFields['Tech 2 Name'] = tech2Name;
+      if (tech2TimeArrived) siteVisitFields['Tech 2 Time Arrived'] = tech2TimeArrived;
+      if (tech2TimeLeft) siteVisitFields['Tech 2 Time Left'] = tech2TimeLeft;
+    }
 
     try {
       await airtableService.createSiteVisit(siteVisitFields);
@@ -577,9 +624,15 @@ exports.completeJob = async (req, res) => {
     // 2. Build visit block to APPEND to engagement Client Notes
     const separator = `── VISIT ${vNum} — ${dateStr} ──────────────`;
     let visitBlock = separator;
-    if (techName) visitBlock += `\nTech: ${techName}`;
+    if (techName) visitBlock += `\nTech 1: ${techName}`;
     if (timeArrived && timeDeparted) {
-      visitBlock += `\nTime on site: ${timeArrived} – ${timeDeparted}`;
+      visitBlock += ` (${timeArrived} – ${timeDeparted})`;
+    }
+    if (tech2Name) {
+      visitBlock += `\nTech 2: ${tech2Name}`;
+      if (tech2TimeArrived && tech2TimeLeft) {
+        visitBlock += ` (${tech2TimeArrived} – ${tech2TimeLeft})`;
+      }
     }
     visitBlock += `\n\n${jobNotes}`;
     visitBlock += `\n\nIssue Resolved: ${issueResolved || 'Yes'}`;

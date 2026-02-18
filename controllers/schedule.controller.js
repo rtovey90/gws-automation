@@ -327,7 +327,7 @@ exports.scheduleJob = async (req, res) => {
     console.log(wasAlreadyScheduled ? `✓ Engagement re-scheduled successfully (no SMS sent)` : `✓ Engagement scheduled successfully`);
 
     // Create completion form URL (no short link needed - direct URL)
-    const completionUrl = `${process.env.BASE_URL}/c/${engagementId}`;
+    let completionUrl = `${process.env.BASE_URL}/c/${engagementId}`;
 
     console.log(`🔗 Completion URL: ${completionUrl}`);
 
@@ -336,7 +336,11 @@ exports.scheduleJob = async (req, res) => {
       const techId = assignedTechIds[0];
       const tech = await airtableService.getTech(techId);
       const techFirstName = tech.fields['First Name'] || 'there';
+      const techFullName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || techFirstName;
       const techPhone = tech.fields.Phone;
+
+      // Add tech name to completion URL
+      completionUrl = `${process.env.BASE_URL}/c/${engagementId}?tech=${encodeURIComponent(techFullName)}`;
 
       if (techPhone) {
         // Send SMS to tech with completion link
