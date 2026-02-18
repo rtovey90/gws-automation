@@ -885,6 +885,53 @@ class AirtableService {
     }
   }
 
+  // ============ SITE VISITS ============
+
+  /**
+   * Create a site visit record
+   */
+  async createSiteVisit(data) {
+    try {
+      const records = await tables.siteVisits.create([{ fields: data }]);
+      console.log('✓ Site visit created:', records[0].id);
+      return records[0];
+    } catch (error) {
+      console.error('Error creating site visit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all site visits for an engagement, sorted by date descending
+   */
+  async getSiteVisitsByEngagement(engagementId) {
+    try {
+      const records = await tables.siteVisits
+        .select({
+          filterByFormula: `RECORD_ID({Engagement}) = '${engagementId}'`,
+          sort: [{ field: 'Visit Date', direction: 'desc' }],
+        })
+        .all();
+      return records;
+    } catch (error) {
+      // If table doesn't exist yet or filter fails, try linked record approach
+      try {
+        const records = await tables.siteVisits
+          .select({
+            sort: [{ field: 'Visit Date', direction: 'desc' }],
+          })
+          .all();
+        return records.filter(r => {
+          const linked = r.fields.Engagement;
+          return linked && linked.includes(engagementId);
+        });
+      } catch (fallbackError) {
+        console.error('Error getting site visits:', fallbackError);
+        return [];
+      }
+    }
+  }
+
   /**
    * Get engagements for a specific customer
    */

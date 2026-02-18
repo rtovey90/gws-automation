@@ -101,6 +101,56 @@ exports.showCompletionForm = async (req, res) => {
     const clientAddress = (customer && customer.fields.Address) || lead.fields['Address (from Customer)'] || '';
     const scope = lead.fields['Job Scope'] || lead.fields['Client intake info'] || '';
 
+    // Fetch previous site visits
+    let previousVisits = [];
+    try {
+      previousVisits = await airtableService.getSiteVisitsByEngagement(engagementId);
+    } catch (e) {
+      console.warn('Could not fetch site visits:', e.message);
+    }
+
+    // Pre-fill access codes from most recent visit
+    const lastVisit = previousVisits.length > 0 ? previousVisits[0] : null;
+    const prefillNvrLogin = (lastVisit && lastVisit.fields['NVR Login']) || '';
+    const prefillNvrPassword = (lastVisit && lastVisit.fields['NVR Password']) || '';
+    const prefillInstallerCode = (lastVisit && lastVisit.fields['Installer Code']) || '';
+    const prefillMasterCode = (lastVisit && lastVisit.fields['Master Code']) || '';
+
+    // Build previous visits HTML
+    let previousVisitsHtml = '';
+    if (previousVisits.length > 0) {
+      const visitRows = previousVisits.map((v, i) => {
+        const f = v.fields;
+        const visitDate = f['Visit Date'] ? new Date(f['Visit Date']).toLocaleDateString('en-AU') : 'Unknown date';
+        const timeRange = (f['Time Arrived'] && f['Time Left']) ? `${f['Time Arrived']} – ${f['Time Left']}` : '';
+        const resolved = f['Issue Resolved'] || '';
+        const resolvedIcon = resolved === 'Yes' ? '✅' : '❌';
+        const techName = f['Tech Name'] || '';
+        const notes = f['Job Notes'] || '';
+        const truncatedNotes = notes.length > 120 ? notes.substring(0, 120) + '...' : notes;
+        return `
+          <div style="padding: 12px 0; ${i < previousVisits.length - 1 ? 'border-bottom: 1px solid #e0e0e0;' : ''}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <strong>Visit ${previousVisits.length - i}${visitDate ? ' — ' + visitDate : ''}</strong>
+              <span>${resolvedIcon} ${resolved}</span>
+            </div>
+            ${techName ? `<div style="color: #888; font-size: 13px;">Tech: ${techName}${timeRange ? ' | ' + timeRange : ''}</div>` : ''}
+            ${truncatedNotes ? `<div style="color: #555; font-size: 14px; margin-top: 4px;">${truncatedNotes}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      previousVisitsHtml = `
+        <div class="section-title">📋 Previous Visits (${previousVisits.length})</div>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px 16px; margin-bottom: 30px;">
+          ${visitRows}
+        </div>
+      `;
+    }
+
+    const visitNumber = previousVisits.length + 1;
+    const submitLabel = visitNumber === 1 ? 'Submit Visit Notes' : `Submit Visit ${visitNumber} Notes`;
+
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -261,8 +311,10 @@ exports.showCompletionForm = async (req, res) => {
       </head>
       <body>
         <div class="container">
-          <h1>✅ Complete Job</h1>
-          <p class="subtitle">Upload photos and add any notes about the completed work.</p>
+          <h1>✅ Visit ${visitNumber} — ${clientName}</h1>
+          <p class="subtitle">Upload photos and add notes about the work done on this visit.</p>
+
+          ${previousVisitsHtml}
 
           <div class="job-details">
             <div class="detail-row">
@@ -283,6 +335,10 @@ exports.showCompletionForm = async (req, res) => {
 
           <form id="completionForm" enctype="multipart/form-data">
             <input type="hidden" name="leadId" value="${engagementId}">
+            <input type="hidden" name="visitNumber" value="${visitNumber}">
+
+            <label for="techName">👤 Your Name:</label>
+            <input type="text" name="techName" id="techName" placeholder="e.g. Lee Clowting" required>
 
             <div class="section-title">🕐 Time On Site</div>
             <div style="display: flex; gap: 20px; margin-bottom: 20px;">
@@ -322,16 +378,16 @@ exports.showCompletionForm = async (req, res) => {
             <div class="section-title">🔑 Access Codes (if used)</div>
 
             <label for="nvrLogin">NVR Login:</label>
-            <input type="text" name="nvrLogin" id="nvrLogin" placeholder="Username">
+            <input type="text" name="nvrLogin" id="nvrLogin" placeholder="Username" value="${prefillNvrLogin}">
 
             <label for="nvrPassword">NVR Password:</label>
-            <input type="password" name="nvrPassword" id="nvrPassword" placeholder="Password">
+            <input type="text" name="nvrPassword" id="nvrPassword" placeholder="Password" value="${prefillNvrPassword}">
 
             <label for="installerCode">Installer Code:</label>
-            <input type="text" name="installerCode" id="installerCode" placeholder="Installer code">
+            <input type="text" name="installerCode" id="installerCode" placeholder="Installer code" value="${prefillInstallerCode}">
 
             <label for="masterCode">Master Code:</label>
-            <input type="text" name="masterCode" id="masterCode" placeholder="Master code">
+            <input type="text" name="masterCode" id="masterCode" placeholder="Master code" value="${prefillMasterCode}">
 
             <label for="photos">📷 Please upload photos of site equipment:</label>
             <div class="file-input-wrapper">
@@ -339,7 +395,7 @@ exports.showCompletionForm = async (req, res) => {
               <div class="file-note">You can select multiple photos</div>
             </div>
 
-            <button type="submit" class="btn">Mark as Complete</button>
+            <button type="submit" class="btn">${submitLabel}</button>
             <div class="loading" id="loading">Uploading...</div>
           </form>
         </div>
@@ -380,11 +436,17 @@ exports.showCompletionForm = async (req, res) => {
               const result = await response.json();
 
               if (result.success) {
+                const resolved = formData.get('issueResolved') === 'Yes';
+                const icon = resolved ? '✅' : '🔄';
+                const heading = resolved ? 'Job Completed!' : 'Visit Logged!';
+                const subtext = resolved
+                  ? 'Your notes and photos have been submitted.'
+                  : 'Return visit required — notes saved.';
                 document.querySelector('.container').innerHTML = \`
                   <div style="text-align: center; padding: 40px 0;">
-                    <div style="font-size: 72px; margin-bottom: 20px;">✅</div>
-                    <h1 style="color: #28a745; margin-bottom: 20px;">Job Completed!</h1>
-                    <p style="color: #666; font-size: 18px;">Your notes and photos have been submitted.</p>
+                    <div style="font-size: 72px; margin-bottom: 20px;">\${icon}</div>
+                    <h1 style="color: \${resolved ? '#28a745' : '#e67e22'}; margin-bottom: 20px;">\${heading}</h1>
+                    <p style="color: #666; font-size: 18px;">\${subtext}</p>
                     <p style="color: #999; margin-top: 20px;">You can close this window.</p>
                   </div>
                 \`;
@@ -426,7 +488,9 @@ exports.completeJob = async (req, res) => {
       nextSteps,
       upgradeOpportunities,
       timeArrived,
-      timeDeparted
+      timeDeparted,
+      techName,
+      visitNumber,
     } = req.body;
     const files = req.files;
     const engagementId = leadId; // Extract to engagementId variable
@@ -435,7 +499,11 @@ exports.completeJob = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log(`✅ Completing job for engagement ${engagementId}`);
+    const vNum = parseInt(visitNumber, 10) || 1;
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('en-AU');
+
+    console.log(`✅ Logging visit ${vNum} for engagement ${engagementId}`);
     console.log(`📝 Job Notes: ${jobNotes}`);
     console.log(`✅ Issue Resolved: ${issueResolved}`);
     console.log(`📷 Photos: ${files ? files.length : 0}`);
@@ -481,46 +549,71 @@ exports.completeJob = async (req, res) => {
       }
     }
 
-    // Build comprehensive completion notes
-    let completionNotes = `COMPLETED: ${new Date().toLocaleDateString()}`;
-    if (timeArrived) completionNotes += `\nTime Arrived: ${timeArrived}`;
-    if (timeDeparted) completionNotes += `\nTime Left: ${timeDeparted}`;
-    completionNotes += `\n\n${jobNotes}`;
+    // 1. Create Site Visit record
+    const siteVisitFields = {
+      'Engagement': [engagementId],
+      'Visit Date': today.toISOString().split('T')[0],
+      'Job Notes': jobNotes,
+      'Issue Resolved': issueResolved || 'Yes',
+    };
+    if (techName) siteVisitFields['Tech Name'] = techName;
+    if (timeArrived) siteVisitFields['Time Arrived'] = timeArrived;
+    if (timeDeparted) siteVisitFields['Time Left'] = timeDeparted;
+    if (nextSteps) siteVisitFields['Next Steps'] = nextSteps;
+    if (upgradeOpportunities) siteVisitFields['Upgrade Opportunities'] = upgradeOpportunities;
+    if (nvrLogin) siteVisitFields['NVR Login'] = nvrLogin;
+    if (nvrPassword) siteVisitFields['NVR Password'] = nvrPassword;
+    if (installerCode) siteVisitFields['Installer Code'] = installerCode;
+    if (masterCode) siteVisitFields['Master Code'] = masterCode;
+    if (photoAttachments.length > 0) siteVisitFields['Photos'] = photoAttachments;
 
-    if (nvrLogin) completionNotes += `\n\nNVR Login: ${nvrLogin}`;
-    if (nvrPassword) completionNotes += `\nNVR Password: ${nvrPassword}`;
-    if (installerCode) completionNotes += `\nInstaller Code: ${installerCode}`;
-    if (masterCode) completionNotes += `\nMaster Code: ${masterCode}`;
-    if (issueResolved) completionNotes += `\n\nIssue Resolved: ${issueResolved}`;
-    if (nextSteps) completionNotes += `\nNext Steps: ${nextSteps}`;
-    if (upgradeOpportunities) completionNotes += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
+    try {
+      await airtableService.createSiteVisit(siteVisitFields);
+    } catch (siteVisitErr) {
+      console.error('⚠️ Could not create site visit record:', siteVisitErr.message);
+      // Continue — still update engagement even if site visit table isn't set up yet
+    }
 
-    // Add note about photos
+    // 2. Build visit block to APPEND to engagement Client Notes
+    const separator = `── VISIT ${vNum} — ${dateStr} ──────────────`;
+    let visitBlock = separator;
+    if (techName) visitBlock += `\nTech: ${techName}`;
+    if (timeArrived && timeDeparted) {
+      visitBlock += `\nTime on site: ${timeArrived} – ${timeDeparted}`;
+    }
+    visitBlock += `\n\n${jobNotes}`;
+    visitBlock += `\n\nIssue Resolved: ${issueResolved || 'Yes'}`;
+    if (nextSteps) visitBlock += `\nNext Steps: ${nextSteps}`;
+    if (upgradeOpportunities) visitBlock += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
     if (photoAttachments.length > 0) {
-      completionNotes += `\n\n📷 ${photoAttachments.length} photo(s) uploaded`;
+      visitBlock += `\n\n📷 ${photoAttachments.length} photo(s) uploaded`;
     }
     if (skippedFiles.length > 0) {
-      completionNotes += `\n⚠️ Skipped files (too large): ${skippedFiles.join(', ')}`;
+      visitBlock += `\n⚠️ Skipped files (too large): ${skippedFiles.join(', ')}`;
     }
 
-    // Update engagement with completion info
-    // Append to Client Notes (persistent notes field) instead of non-existent Tech Notes
+    // 3. Update engagement record
+    const engagement = await airtableService.getEngagement(engagementId);
+    const existingNotes = engagement.fields['Client Notes'] || '';
+    const appendedNotes = existingNotes
+      ? existingNotes + '\n\n' + visitBlock
+      : visitBlock;
+
+    const resolved = issueResolved === 'Yes';
     const updates = {
-      'Client Notes': completionNotes,
-      'Status': 'Completed ✨',
+      'Client Notes': appendedNotes,
+      'Status': resolved ? 'Completed ✨' : 'Return Visit Required',
     };
 
-    // Add photos if any were uploaded
+    // Merge photos into engagement (all job photos browsable)
     if (photoAttachments.length > 0) {
-      // Get existing photos
-      const engagement = await airtableService.getEngagement(engagementId);
       const existingPhotos = engagement.fields.Photos || [];
       updates.Photos = [...existingPhotos, ...photoAttachments];
     }
 
     await airtableService.updateEngagement(engagementId, updates);
 
-    // Save time fields separately (non-blocking — fields may not exist yet)
+    // Update time fields on engagement (most recent visit times)
     if (timeArrived || timeDeparted) {
       try {
         const timeUpdates = {};
@@ -532,7 +625,7 @@ exports.completeJob = async (req, res) => {
       }
     }
 
-    console.log(`✓ Job marked as completed`);
+    console.log(`✓ Visit ${vNum} logged for engagement ${engagementId}`);
 
     res.status(200).json({ success: true });
   } catch (error) {
