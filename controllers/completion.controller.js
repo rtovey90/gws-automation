@@ -149,7 +149,13 @@ exports.showCompletionForm = async (req, res) => {
       `;
     }
 
-    const visitNumber = previousVisits.length + 1;
+    // Count visits: Site Visits table records + any pre-existing visit blocks in Client Notes
+    const existingNotes = engagement.fields['Client Notes'] || '';
+    const legacyVisitCount = (existingNotes.match(/── VISIT \d+/g) || []).length;
+    // If there's Client Notes content but no visit markers, that's a legacy completion (count as 1)
+    const hasLegacyCompletion = existingNotes.trim().length > 0 && legacyVisitCount === 0;
+    const priorVisits = Math.max(previousVisits.length, legacyVisitCount, hasLegacyCompletion ? 1 : 0);
+    const visitNumber = priorVisits + 1;
     const submitLabel = visitNumber === 1 ? 'Submit Visit Notes' : `Submit Visit ${visitNumber} Notes`;
 
     res.send(`
