@@ -2146,6 +2146,150 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const cf = isClone ? clone.cloneSource.fields : {};
   const customers = clone.customers || [];
 
+  // ── Job Type Templates ──────────────────────────────────
+  const commonClarifications = [
+    'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
+    'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.',
+    'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
+    'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
+    'Quotation valid for 30 days.',
+    'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
+  ];
+  const cctvOnlyClarifications = [
+    'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 \u2013 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
+    'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
+  ];
+  const commonTailDeliverables = [
+    { qty: '\u2014', description: 'Cat 6 Cable & Patch Leads' },
+    { qty: '\u2014', description: 'Conduit, Ducting, Installation Materials and Sundries' },
+    { qty: '\u2014', description: 'Installation & Programming by Licensed Security Technician/s' },
+    { qty: '\u2014', description: '12 Month Warranty on Installation & Manufacturer Equipment Warranty' },
+    { qty: '\u2014', description: 'Smartphone App (No Subscription Costs)' },
+  ];
+  const jobTypeTemplates = {
+    cctv: {
+      scope: [
+        'Conduct Discovery Meeting to Determine Specific Security Needs',
+        'Collaborate with Vendors to Design Tailored Security Solution',
+        'Procure Parts & Materials from Local Suppliers',
+        '',
+        '',
+        'Program, Test & Commission System',
+        'Setup Customer Phone App & Full Demonstration',
+        'Clean Up Site After Installation',
+      ],
+      deliverables: [
+        { qty: '4', description: 'Dahua 8MP TIOC PRO Active Deterrent Turret Cameras' },
+        { qty: '4', description: 'Dahua Camera Junction Boxes' },
+        { qty: '1', description: 'Dahua 8 Channel NVR (Network Video Recorder) with AI' },
+        { qty: '1', description: '4TB Surveillance Hard Drive' },
+        ...commonTailDeliverables,
+      ],
+      packages: [
+        { name: 'Dahua 5MP Wizsense \u2014 Minimum Package', description: '', price: 3997 },
+        { name: 'Dahua 8MP/4K \u2014 Recommended Package', description: '', price: 5997 },
+        { name: 'Dahua 8MP TIOC PRO Active Deterrent \u2014 VIP Package', description: '', price: 7997 },
+      ],
+      upgrades: [
+        { name: 'Power Surge UPS (Supplied & Installed)', description: '', price: 197 },
+        { name: 'Clarity CCTV Monitor 22 Inch', description: '', price: 247 },
+        { name: 'Additional Camera (Supplied & Installed)', description: '', price: 497 },
+      ],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'Professional Monitoring (Includes Video Verification)', description: 'Professional monitoring station with instant emergency dispatch.', price: '47', wasPrice: '', monthly: true },
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '57', wasPrice: '', monthly: true },
+      ],
+      clarifications: [...commonClarifications, ...cctvOnlyClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
+    },
+    alarm: {
+      scope: [
+        'Create Alarm Designs (Minimum & Perimeter)',
+        'Procure Parts & Materials from Local Suppliers',
+        'Install Motion Detectors',
+        'Install External Siren/Strobe',
+        'Install Internal Siren',
+        'Install Hub & Connect to Router',
+        'Install Keypad',
+        'Install Door/Window Sensor (if Perimeter)',
+        'Program, Test & Commission System',
+        'Setup Customer Phone App & Full Demonstration',
+        'Clean Up Site After Installation',
+      ],
+      deliverables: [
+        { qty: '1', description: 'Ajax Hub (with Battery Backup)' },
+        { qty: '3', description: 'Ajax Pet Friendly Motion Detectors' },
+        { qty: '1', description: 'Ajax External Siren/Strobe' },
+        { qty: '1', description: 'Ajax Internal Siren' },
+        { qty: '1', description: 'Ajax Sim Card' },
+        { qty: '1', description: 'Cat 6 Patch Lead' },
+        ...commonTailDeliverables,
+      ],
+      packages: [
+        { name: 'Minimum Protection Ajax Alarm', description: '', price: 2497 },
+        { name: 'Recommended Protection (Perimeter)', description: '', price: 3497 },
+      ],
+      upgrades: [
+        { name: 'Remote Keyfob', description: '', price: 67 },
+        { name: 'Heat/Smoke Detector', description: '', price: 197 },
+      ],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '27', wasPrice: '', monthly: true },
+        { name: 'Professional Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: '47', wasPrice: '', monthly: true },
+      ],
+      clarifications: [...commonClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
+    },
+    combined: {
+      scope: [
+        'Conduct Discovery Meeting to Determine Specific Security Needs',
+        'Collaborate with Vendors to Design Tailored Security Solution',
+        'Procure Parts & Materials from Local Suppliers',
+        '',
+        '',
+        'Install Ajax Hub & Connect to Router',
+        'Install Motion Detectors',
+        'Install External Siren/Strobe',
+        'Install Internal Siren',
+        'Install Keypad',
+        'Install Door/Window Sensors',
+        'Program, Test & Commission System',
+        'Setup Customer Phone App & Full Demonstration',
+        'Clean Up Site After Installation',
+      ],
+      deliverables: [
+        { qty: '4', description: 'Dahua 8MP TIOC PRO Active Deterrent Turret Cameras' },
+        { qty: '4', description: 'Dahua Camera Junction Boxes' },
+        { qty: '1', description: 'Dahua 8 Channel NVR (Network Video Recorder) with AI' },
+        { qty: '1', description: '4TB Surveillance Hard Drive' },
+        { qty: '1', description: 'Ajax Hub (with Battery Backup)' },
+        { qty: '3', description: 'Ajax Pet Friendly Motion Detectors' },
+        { qty: '1', description: 'Ajax External Siren/Strobe' },
+        { qty: '1', description: 'Ajax Internal Siren' },
+        { qty: '1', description: 'Ajax Sim Card' },
+        { qty: '1', description: 'Cat 6 Patch Lead' },
+        ...commonTailDeliverables,
+      ],
+      packages: [
+        { name: '', description: '', price: '' },
+      ],
+      upgrades: [
+        { name: 'Power Surge UPS (Supplied & Installed)', description: '', price: 197 },
+        { name: 'Clarity CCTV Monitor 22 Inch', description: '', price: 247 },
+        { name: 'Additional Camera (Supplied & Installed)', description: '', price: 497 },
+        { name: 'Remote Keyfob', description: '', price: 67 },
+        { name: 'Heat/Smoke Detector', description: '', price: 197 },
+      ],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'Professional Monitoring (Includes Video Verification)', description: 'Professional monitoring station with instant emergency dispatch.', price: '47', wasPrice: '', monthly: true },
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '57', wasPrice: '', monthly: true },
+      ],
+      clarifications: [...commonClarifications, ...cctvOnlyClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
+    },
+  };
+  const defaultTemplate = jobTypeTemplates.cctv;
+
   // For clone: work content comes from cf, client fields stay empty
   const projectNumber = f['Project Number'] || pf.projectNumber || '';
   const date = f['Proposal Date'] || new Date().toISOString().split('T')[0];
@@ -2155,9 +2299,9 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const clientEmail = pf.clientEmail || '';
   const propertyType = f['Property Type'] || (isClone ? (cf['Property Type'] || 'residential') : 'residential');
   const letterNote = f['Letter Note'] || '';
-  const packageName = f['Package Name'] || (isClone ? (cf['Package Name'] || '') : '');
-  const packageDesc = f['Package Description'] || (isClone ? (cf['Package Description'] || '') : '');
-  const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : '');
+  const packageName = f['Package Name'] || (isClone ? (cf['Package Name'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].name : ''));
+  const packageDesc = f['Package Description'] || (isClone ? (cf['Package Description'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].description : ''));
+  const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].price : ''));
   const discountName = f['Discount Name'] || (isClone ? (cf['Discount Name'] || '') : '');
   const discountType = f['Discount Type'] || (isClone ? (cf['Discount Type'] || '') : '');
   const discountValue = f['Discount Value'] || (isClone ? (cf['Discount Value'] || '') : '');
@@ -2188,12 +2332,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     if (srcFields['OTO Bundle Price']) otoItems.push({ name: 'Complete Protection Bundle', description: 'Alarm monitoring + UPS battery backup bundled together.', price: srcFields['OTO Bundle Price'], wasPrice: '', monthly: false });
     if (srcFields['OTO Care Monthly Price']) otoItems.push({ name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: srcFields['OTO Care Monthly Price'], wasPrice: '', monthly: true });
   } else if (!isEdit && !isClone) {
-    // Defaults for new proposals
-    otoItems = [
-      { name: '24/7 Alarm Monitoring', description: 'Professional monitoring station with instant emergency dispatch.', price: '', wasPrice: '', monthly: false },
-      { name: 'UPS Battery Backup', description: 'Keeps your system recording during power outages for hours.', price: '', wasPrice: '', monthly: false },
-      { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '', wasPrice: '', monthly: true },
-    ];
+    // Defaults for new proposals from template
+    otoItems = [...defaultTemplate.otoOneTime, ...defaultTemplate.otoRecurring];
   } else {
     otoItems = [];
   }
@@ -2203,49 +2343,12 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const formAction = isEdit ? `/api/admin/proposals/${proposal.id}` : '/api/admin/proposals';
   const formMethod = isEdit ? 'PUT' : 'POST';
 
-  // Default scope items for new proposals
-  const defaultScope = [
-    'Conduct Discovery Meeting to Determine Specific Security Needs',
-    'Collaborate with Vendors to Design Tailored Security Solution',
-    'Procure Parts & Materials from Local Suppliers',
-    '',
-    '',
-    'Program, Test & Commission System',
-    'Setup Customer Phone App & Full Demonstration',
-    'Clean Up Site After Installation',
-  ];
-  const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : ((isEdit || isClone) ? [] : defaultScope);
-  const defaultDeliverables = [
-    { qty: '2', description: 'Dahua 8MP Dual Light CCTV Turret Cameras' },
-    { qty: '2', description: 'Dahua CCTV Camera Mounting Brackets' },
-    { qty: '1', description: '8 Channel NVR (Network Video Recorder) & Hard Drive (With AI) \u2013 4 TB HDD' },
-    { qty: '1', description: 'SD Card \u2014 Approx. 30 Days Recording' },
-    { qty: '1', description: 'Aiphone WL-11 Wireless, Battery Powered Video Doorbell (External Station, Internal Monitor & Charging Stand)' },
-    { qty: '2', description: 'Wi-Fi Extenders' },
-    { qty: '1', description: 'Surge Protector UPS' },
-    { qty: '\u2014', description: 'Batteries for Aiphone Doorbell' },
-    { qty: '\u2014', description: 'Cat 6 Cable & Patch Leads' },
-    { qty: '\u2014', description: 'Conduit, Ducting, Installation Materials and Sundries' },
-    { qty: '\u2014', description: 'Installation & Programming by Licensed Security Technician/s' },
-    { qty: '\u2014', description: '12 Month Warranty on Installation & Manufacturer Equipment Warranty' },
-    { qty: '\u2014', description: 'Smartphone App (No Subscription Costs)' },
-  ];
-  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : ((isEdit || isClone) ? [] : defaultDeliverables);
-  const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : [];
-  const optionGroups = optionGroupsRaw.length > 0 ? optionGroupsRaw : [];
-
-  const defaultClarifications = [
-    'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
-    'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.',
-    'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
-    'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
-    'Quotation valid for 30 days.',
-    'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
-    'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 \u2013 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
-    'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
-    'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.',
-  ];
-  const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : defaultClarifications;
+  // Use CCTV template as default for new proposals
+  const scopeItems = scopeItemsRaw.length > 0 ? scopeItemsRaw : ((isEdit || isClone) ? [] : defaultTemplate.scope);
+  const deliverables = deliverablesRaw.length > 0 ? deliverablesRaw : ((isEdit || isClone) ? [] : defaultTemplate.deliverables);
+  const cameraOptions = cameraOptionsRaw.length > 0 ? cameraOptionsRaw : ((isEdit || isClone) ? [] : defaultTemplate.upgrades);
+  const optionGroups = optionGroupsRaw.length > 0 ? optionGroupsRaw : ((isEdit || isClone) ? [] : defaultTemplate.packages.slice(1));
+  const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : defaultTemplate.clarifications;
   const sitePhotoUrls = sitePhotoUrlsRaw.length > 0 ? sitePhotoUrlsRaw : [];
 
   // Build scope item rows
@@ -2397,6 +2500,14 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
                 <button type="button" id="btn-commercial" onclick="setPropertyType('commercial')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${propertyType === 'commercial' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Commercial</button>
               </div>
             </div>
+            ${!isEdit && !isClone ? `<div class="fg">
+              <label>Job Type</label>
+              <div style="display:flex;gap:0;margin-top:4px;">
+                <button type="button" id="btn-jt-cctv" onclick="setJobType('cctv')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#78e4ff;color:#0a0e27;border-color:#78e4ff;">CCTV</button>
+                <button type="button" id="btn-jt-alarm" onclick="setJobType('alarm')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm</button>
+                <button type="button" id="btn-jt-combined" onclick="setJobType('combined')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm & CCTV</button>
+              </div>
+            </div>` : ''}
             <div class="fg">
               <label>Custom Letter Note <span style="color:#5a6a7a;font-weight:400;">(leave blank for default)</span></label>
               <textarea name="letterNote" rows="3" placeholder="Optional: custom intro paragraph for this client">${escapeHtml(letterNote)}</textarea>
@@ -2735,6 +2846,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const customScripts = `<script>
     let currentStep = 1;
     let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
+    window.JOB_TYPE_TEMPLATES = ${JSON.stringify(jobTypeTemplates)};
 
     function addOtoItem(type) {
       const list = document.getElementById('oto-' + type + '-list');
@@ -2765,6 +2877,129 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         btnR.style.background = '#78e4ff'; btnR.style.color = '#0a0e27'; btnR.style.borderColor = '#78e4ff';
         btnC.style.background = '#1a2236'; btnC.style.color = '#8a9ab5'; btnC.style.borderColor = '#3a4a5c';
       }
+    }
+
+    function setJobType(type) {
+      const tpl = window.JOB_TYPE_TEMPLATES[type];
+      if (!tpl) return;
+
+      // Update button highlights
+      ['cctv','alarm','combined'].forEach(t => {
+        const btn = document.getElementById('btn-jt-' + t);
+        if (!btn) return;
+        if (t === type) {
+          btn.style.background = '#78e4ff'; btn.style.color = '#0a0e27'; btn.style.borderColor = '#78e4ff';
+        } else {
+          btn.style.background = '#1a2236'; btn.style.color = '#8a9ab5'; btn.style.borderColor = '#3a4a5c';
+        }
+      });
+
+      // Rebuild scope
+      const scopeList = document.getElementById('scope-list');
+      scopeList.innerHTML = '';
+      tpl.scope.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.dataset.list = 'scope';
+        row.draggable = true;
+        row.innerHTML = makeScopeRowHtml();
+        row.querySelector('.list-input').value = item || '';
+        scopeList.appendChild(row);
+        initDragRow(row);
+      });
+      renumberScope();
+
+      // Rebuild deliverables
+      const delList = document.getElementById('deliverable-list');
+      delList.innerHTML = '';
+      tpl.deliverables.forEach(d => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.dataset.list = 'deliverable';
+        row.draggable = true;
+        row.innerHTML = makeDeliverableRowHtml();
+        row.querySelector('.qty-input').value = d.qty || '';
+        row.querySelector('.list-input').value = d.description || '';
+        delList.appendChild(row);
+        initDragRow(row);
+      });
+
+      // Rebuild packages
+      const pkgList = document.getElementById('additional-packages');
+      pkgList.innerHTML = '';
+      tpl.packages.forEach((pkg, i) => {
+        const div = document.createElement('div');
+        div.className = 'pkg-card';
+        div.draggable = true;
+        div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">Package ' + (i + 1) + '</span><button type="button" class="row-remove" onclick="removePackage(this)" title="Remove package">&times;</button></div><div class="fg-row"><div class="fg"><label>Package Name</label><input type="text" class="pkg-name" value="" placeholder="e.g. Complete 4-Camera CCTV Package"></div><div class="fg" style="max-width:150px;"><label>Total Price (Inc. GST)</label><input type="number" class="pkg-price" value="" placeholder="Price" step="1"></div></div><div class="fg"><label>Short Description</label><input type="text" class="pkg-desc" value="" placeholder="Supply & install security system with NVR"></div>';
+        div.querySelector('.pkg-name').value = pkg.name || '';
+        div.querySelector('.pkg-price').value = pkg.price || '';
+        div.querySelector('.pkg-desc').value = pkg.description || '';
+        pkgList.appendChild(div);
+        initPkgDrag(div);
+      });
+
+      // Rebuild upgrades
+      const camList = document.getElementById('camera-list');
+      camList.innerHTML = '';
+      tpl.upgrades.forEach(opt => {
+        const row = document.createElement('div');
+        row.className = 'list-row camera-row';
+        row.dataset.list = 'camera';
+        row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+        row.querySelector('.cam-name').value = opt.name || '';
+        row.querySelector('.cam-desc').value = opt.description || '';
+        row.querySelector('.cam-price').value = opt.price || '';
+        camList.appendChild(row);
+      });
+
+      // Rebuild OTO one-time
+      const otoOTList = document.getElementById('oto-onetime-list');
+      otoOTList.innerHTML = '';
+      (tpl.otoOneTime || []).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'pkg-card';
+        div.dataset.otoType = 'onetime';
+        div.draggable = true;
+        div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#00d4ff;font-weight:700;">One-Time Item</span><span class="oto-badge-onetime">ONE-TIME</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove">&times;</button></div><div class="fg-row"><div class="fg"><label>Name</label><input type="text" class="oto-item-name" placeholder="Item name"></div><div class="fg" style="max-width:120px;"><label>Price ($)</label><input type="number" class="oto-item-price" placeholder="0" step="1"></div><div class="fg" style="max-width:120px;"><label>Was ($)</label><input type="number" class="oto-item-was" placeholder="" step="1"></div></div><div class="fg"><label>Description</label><input type="text" class="oto-item-desc" placeholder="What does this include?"></div>';
+        div.querySelector('.oto-item-name').value = item.name || '';
+        div.querySelector('.oto-item-price').value = item.price || '';
+        if (div.querySelector('.oto-item-was')) div.querySelector('.oto-item-was').value = item.wasPrice || '';
+        div.querySelector('.oto-item-desc').value = item.description || '';
+        otoOTList.appendChild(div);
+        initPkgDrag(div);
+      });
+
+      // Rebuild OTO recurring
+      const otoRecList = document.getElementById('oto-recurring-list');
+      otoRecList.innerHTML = '';
+      (tpl.otoRecurring || []).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'pkg-card';
+        div.dataset.otoType = 'recurring';
+        div.draggable = true;
+        div.innerHTML = '<div class="pkg-card-header"><span class="pkg-drag-handle" title="Drag to reorder">&#9776;</span><span style="color:#22c55e;font-weight:700;">Recurring Item</span><span class="oto-badge-recurring">MONTHLY</span><button type="button" class="row-remove" onclick="this.closest(\\'.pkg-card\\').remove()" title="Remove">&times;</button></div><div class="fg-row"><div class="fg"><label>Name</label><input type="text" class="oto-item-name" placeholder="e.g. After Install Support Package"></div><div class="fg" style="max-width:120px;"><label>Monthly ($)</label><input type="number" class="oto-item-price" placeholder="97" step="1"></div></div><div class="fg"><label>Description</label><input type="text" class="oto-item-desc" placeholder="What does this include?"></div>';
+        div.querySelector('.oto-item-name').value = item.name || '';
+        div.querySelector('.oto-item-price').value = item.price || '';
+        div.querySelector('.oto-item-desc').value = item.description || '';
+        otoRecList.appendChild(div);
+        initPkgDrag(div);
+      });
+
+      // Rebuild clarifications
+      const clarList = document.getElementById('clarification-list');
+      clarList.innerHTML = '';
+      tpl.clarifications.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'list-row clarification-row';
+        row.dataset.list = 'clarification';
+        row.draggable = true;
+        row.innerHTML = makeClarificationRowHtml();
+        row.querySelector('.list-input').value = c || '';
+        clarList.appendChild(row);
+        initDragRow(row);
+      });
+      renumberScope();
     }
 
     function goStep(n) {
