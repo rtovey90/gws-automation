@@ -13,6 +13,31 @@ const twilioService = require('../services/twilio.service');
  */
 async function createCustomerAndEngagement(data) {
   try {
+    // Skip lead creation for internal/known numbers
+    if (data.phone) {
+      const normalized = normalizePhone(data.phone);
+      const adminPhone = normalizePhone(process.env.ADMIN_PHONE);
+      const twilioPhone = normalizePhone(process.env.TWILIO_PHONE_NUMBER);
+
+      // Never create leads for admin or Twilio number
+      if (normalized === adminPhone || normalized === twilioPhone) {
+        console.log(`⛔ Skipping lead creation — internal number: ${data.phone}`);
+        return null;
+      }
+
+      // Never create leads for known techs
+      try {
+        const tech = await airtableService.getTechByPhone(normalized);
+        if (tech) {
+          const techName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || 'Tech';
+          console.log(`⛔ Skipping lead creation — known tech: ${techName} (${data.phone})`);
+          return null;
+        }
+      } catch (err) {
+        console.error('Error checking tech phone:', err);
+      }
+    }
+
     // Extract first and last names if we have a full name
     let firstName = data.name || '';
     let lastName = '';
@@ -182,7 +207,13 @@ exports.handleFormspree = async (req, res) => {
     };
 
     // Create customer and engagement
-    const { customer, engagement } = await createCustomerAndEngagement(leadData);
+    const result = await createCustomerAndEngagement(leadData);
+
+    if (!result) {
+      return res.status(200).json({ success: true, skipped: true, reason: 'Internal/known number' });
+    }
+
+    const { customer, engagement } = result;
 
     console.log(`✓ Customer & Engagement created: ${engagement.id} - ${leadData.name}`);
 
@@ -416,7 +447,28 @@ exports.handleEmailTranscript = async (req, res) => {
       console.log('Lead data being created:', JSON.stringify(leadData, null, 2));
 
       // Create customer and engagement
-      const { customer, engagement } = await createCustomerAndEngagement(leadData);
+      const result = await createCustomerAndEngagement(leadData);
+
+      if (!result) {
+        // Still log the call even though we skipped lead creation
+        try {
+          const direction = callDirection || 'Inbound';
+          const ourNumber = process.env.TWILIO_PHONE_NUMBER || '+61485001498';
+          await airtableService.logMessage({
+            direction: direction,
+            type: 'Call',
+            from: direction === 'Inbound' ? phone : ourNumber,
+            to: direction === 'Inbound' ? ourNumber : phone,
+            content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
+            status: 'Received',
+          });
+        } catch (logError) {
+          console.error('Error logging skipped call:', logError);
+        }
+        return res.status(200).json({ success: true, skipped: true, reason: 'Internal/known number' });
+      }
+
+      const { customer, engagement } = result;
 
       console.log(`✓ Customer & Engagement created from call: ${engagement.id} - ${leadData.name}`);
 
