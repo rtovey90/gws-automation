@@ -327,6 +327,11 @@ class AirtableService {
         fields['Project Value'] = engagementData.projectValue;
       }
 
+      // Mark as actual lead if specified
+      if (engagementData.actualLead) {
+        fields['Actual Lead'] = true;
+      }
+
       const records = await tables.engagements.create([{ fields }]);
       console.log('✓ Engagement created:', records[0].id);
       return records[0];

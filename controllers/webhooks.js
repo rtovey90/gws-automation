@@ -133,6 +133,7 @@ async function createCustomerAndEngagement(data) {
       business: data.business || 'Great White Security',
       serviceCallAmount: data.serviceCallAmount,
       projectValue: data.projectValue,
+      actualLead: true, // Form/Call submissions are real leads
     });
 
     return { customer, engagement };

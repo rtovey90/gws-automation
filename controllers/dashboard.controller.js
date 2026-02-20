@@ -31,12 +31,13 @@ exports.showDashboard = async (req, res) => {
     }
 
     // ── KPI Cards ──
-    const totalLeads = engagements.length;
+    const actualLeads = engagements.filter(e => e.fields['Actual Lead']);
+    const totalLeads = actualLeads.length;
 
     const paidStatuses = ['Initial Parts Ordered', 'Completed ✨', 'Positive Review Received', 'Negative Review Received'];
     let totalRevenue = 0;
     let convertedCount = 0;
-    engagements.forEach(e => {
+    actualLeads.forEach(e => {
       const f = e.fields;
       const sca = parseFloat(f['Service Call Amount']) || 0;
       const pv = parseFloat(f['Project Value']) || 0;
@@ -61,7 +62,7 @@ exports.showDashboard = async (req, res) => {
     const leadStatuses = ['New Lead', 'Lead Contacted', 'Site Visit Scheduled', 'Photos Requested', 'Quote Sent', 'Initial Parts Ordered', 'Completed ✨', 'Positive Review Received', 'Negative Review Received', 'Lost'];
     const leadPipeline = {};
     leadStatuses.forEach(s => { leadPipeline[s] = 0; });
-    engagements.forEach(e => {
+    actualLeads.forEach(e => {
       const s = e.fields.Status;
       if (s in leadPipeline) leadPipeline[s]++;
     });
@@ -84,7 +85,7 @@ exports.showDashboard = async (req, res) => {
 
     // ── Lead Sources ──
     const leadSources = {};
-    engagements.forEach(e => {
+    actualLeads.forEach(e => {
       const source = e.fields[' Source'] || 'Unknown';
       leadSources[source] = (leadSources[source] || 0) + 1;
     });
@@ -170,7 +171,7 @@ exports.showDashboard = async (req, res) => {
     const quotedOrBeyond = ['Quote Sent', 'Initial Parts Ordered', 'Completed ✨', 'Positive Review Received', 'Negative Review Received'];
     const closedStatuses = ['Initial Parts Ordered', 'Completed ✨', 'Positive Review Received', 'Negative Review Received'];
 
-    engagements.forEach(e => {
+    actualLeads.forEach(e => {
       const f = e.fields;
       const created = new Date(e._rawJson?.createdTime || Date.now());
       const quoteAmount = parseFloat(f['Quote Amount']) || 0;
@@ -185,7 +186,6 @@ exports.showDashboard = async (req, res) => {
       if (created >= startOfYear) periods.push('year');
 
       periods.forEach(p => {
-        // Every engagement is a lead
         salesActivity.leads[p]++;
 
         // Quoted or beyond = a quote went out
@@ -366,13 +366,13 @@ exports.showDashboard = async (req, res) => {
     };
     const conversionFunnel = funnelStages.map(stage => {
       const validStatuses = stageThresholds[stage];
-      const count = engagements.filter(e => validStatuses.includes(e.fields.Status)).length;
+      const count = actualLeads.filter(e => validStatuses.includes(e.fields.Status)).length;
       return { stage, count };
     });
     const maxFunnelCount = Math.max(...conversionFunnel.map(f => f.count), 1);
 
     // ── NEW: Recent Leads List (top 15 with source + lead type) ──
-    const recentLeadsList = engagements
+    const recentLeadsList = actualLeads
       .map(e => ({
         name: e.fields['Customer Name'] || e.fields['First Name'] || 'New Lead',
         status: e.fields.Status || 'Unknown',
