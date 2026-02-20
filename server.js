@@ -28,6 +28,7 @@ const dashboardController = require('./controllers/dashboard.controller');
 const estimatorController = require('./controllers/estimator.controller');
 const estimatorApiController = require('./controllers/estimator-api.controller');
 const proposalsController = require('./controllers/proposals.controller');
+const previewController = require('./controllers/preview.controller');
 const { startScheduledJobChecker } = require('./jobs/scheduled-jobs');
 
 const app = express();
@@ -187,6 +188,13 @@ app.post('/api/create-test-contact', requireAuth, messagesController.createTestC
 app.get('/api/create-engagement', engagementsController.createEngagement);
 // Dashboard route
 app.get('/dashboard', requireAuth, dashboardController.showDashboard);
+
+// Design preview routes (dummy data, no Airtable writes)
+app.get('/preview/accept-job', requireAuth, previewController.acceptJob);
+app.get('/preview/job-taken', requireAuth, previewController.jobAlreadyTaken);
+app.get('/preview/availability-yes', requireAuth, previewController.availabilityYes);
+app.get('/preview/availability-no', requireAuth, previewController.availabilityNo);
+app.get('/preview/job-update', requireAuth, previewController.jobUpdate);
 
 // Estimator routes
 app.get('/estimator', requireAuth, estimatorController.showEstimator);
