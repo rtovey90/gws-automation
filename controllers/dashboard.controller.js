@@ -1040,7 +1040,7 @@ exports.showDashboard = async (req, res) => {
         </div>
       </div>`;
 
-    const lastUpdated = now.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' });
+    const lastUpdated = now.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Australia/Perth' });
 
     const dashboardStyles = `
     .header { background:#0f1419; padding:20px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:1px solid #2a3a4a; }

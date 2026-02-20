@@ -821,7 +821,7 @@ exports.getConversationMessages = async (req, res) => {
         isOutbound,
         messageType,
         timestamp: timestamp.toISOString(),
-        timeStr: timestamp.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Australia/Perth' }),
+        timeStr: timestamp.toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Australia/Perth' }),
       };
     });
 
@@ -1146,7 +1146,9 @@ exports.showConversation = async (req, res) => {
             const isOutbound = fields.Direction === 'Outbound';
             const messageType = (fields.Type || 'SMS').toLowerCase();
             const timestamp = getTimestamp(msg);
-            const timeStr = timestamp.toLocaleTimeString('en-AU', {
+            const timeStr = timestamp.toLocaleString('en-AU', {
+              day: 'numeric',
+              month: 'short',
               hour: 'numeric',
               minute: '2-digit',
               hour12: true,
@@ -1392,7 +1394,9 @@ Ricky (Great White Security)\`
               if (response.ok) {
                 // Add message to UI
                 const now = new Date();
-                const timeStr = now.toLocaleTimeString('en-AU', {
+                const timeStr = now.toLocaleString('en-AU', {
+                  day: 'numeric',
+                  month: 'short',
                   hour: 'numeric',
                   minute: '2-digit',
                   hour12: true
