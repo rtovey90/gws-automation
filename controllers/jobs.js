@@ -177,7 +177,6 @@ exports.acceptJob = async (req, res) => {
             <p><strong>Client:</strong> ${job.fields['Client Name'] ? job.fields['Client Name'][0] : 'N/A'}</p>
             <p><strong>Address:</strong> ${job.fields['Client Address']}</p>
             <p><strong>Scope:</strong> ${job.fields['Scope of Work']}</p>
-            <p><strong>Pay:</strong> $${job.fields['Quoted Price']}</p>
           </div>
 
           <p style="color: #666;">You'll receive another SMS once payment is received with client contact details.</p>
