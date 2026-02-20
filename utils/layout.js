@@ -11,7 +11,6 @@ function wrapInLayout(title, bodyHtml, activePage, options = {}) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-    { id: 'engagements', label: 'Engagements', href: '/engagements' },
     { id: 'messages', label: 'Messages', href: '/messages' },
     { id: 'estimator', label: 'Estimator', href: '/estimator' },
     { id: 'proposals', label: 'Proposals', href: '/admin/proposals' },
@@ -33,8 +32,10 @@ function wrapInLayout(title, bodyHtml, activePage, options = {}) {
     body { background:#1a2332; color:#e0e6ed; font-family:Arial,Helvetica,sans-serif; }
 
     .app-nav { background:#0f1419; border-bottom:1px solid #2a3a4a; display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; position:sticky; top:0; z-index:1000; }
-    .nav-brand { font-size:18px; font-weight:bold; color:#fff; letter-spacing:0.5px; }
-    .nav-brand span { color:#00d4ff; }
+    .nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .nav-brand img { height:32px; width:32px; object-fit:contain; }
+    .nav-brand-text { font-size:16px; font-weight:bold; color:#fff; letter-spacing:0.5px; }
+    .nav-brand-text span { color:#00d4ff; }
     .nav-links { display:flex; align-items:center; gap:0; }
     .nav-link { color:#8899aa; text-decoration:none; font-size:14px; font-weight:600; padding:14px 18px; border-bottom:2px solid transparent; transition:color .2s, border-color .2s; }
     .nav-link:hover { color:#e0e6ed; }
@@ -60,7 +61,7 @@ function wrapInLayout(title, bodyHtml, activePage, options = {}) {
 </head>
 <body>
   <nav class="app-nav">
-    <div class="nav-brand"><span>GWS</span> Hub</div>
+    <a href="/dashboard" class="nav-brand"><img src="/gws-logo.webp" alt="GWS"><span class="nav-brand-text"><span>GWS</span> Hub</span></a>
     <button class="nav-hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
     <div class="nav-links">
       ${navLinks}

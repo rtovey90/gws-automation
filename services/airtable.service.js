@@ -668,6 +668,13 @@ class AirtableService {
         fields['Related Tech'] = [messageData.techId];
       }
 
+      // Set Read status: outbound messages are auto-read, inbound are unread
+      if (messageData.direction === 'Inbound') {
+        fields.Read = false;
+      } else {
+        fields.Read = true;
+      }
+
       const records = await tables.messages.create([{ fields }]);
       return records[0];
     } catch (error) {
@@ -694,6 +701,26 @@ class AirtableService {
     } catch (error) {
       console.error('Error getting all messages:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Mark messages as read in Airtable (batch update in groups of 10)
+   */
+  async markMessagesAsRead(messageIds) {
+    if (!messageIds || messageIds.length === 0) return;
+    clearCache('messages');
+    try {
+      // Airtable batch update limit is 10 records at a time
+      for (let i = 0; i < messageIds.length; i += 10) {
+        const batch = messageIds.slice(i, i + 10);
+        await tables.messages.update(
+          batch.map(id => ({ id, fields: { Read: true } }))
+        );
+      }
+      console.log(`✓ Marked ${messageIds.length} message(s) as read`);
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
     }
   }
 

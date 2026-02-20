@@ -22,7 +22,7 @@ const scheduleController = require('./controllers/schedule.controller');
 const completionController = require('./controllers/completion.controller');
 const messagesController = require('./controllers/messages.controller');
 const engagementsController = require('./controllers/engagements.controller');
-const engagementsBoardController = require('./controllers/engagements-board.controller');
+
 const techAvailabilityShortController = require('./controllers/tech-availability-short.controller');
 const dashboardController = require('./controllers/dashboard.controller');
 const estimatorController = require('./controllers/estimator.controller');
@@ -185,8 +185,6 @@ app.post('/api/create-test-contact', requireAuth, messagesController.createTestC
 
 // Engagement routes
 app.get('/api/create-engagement', engagementsController.createEngagement);
-app.get('/engagements', requireAuth, engagementsBoardController.showBoard);
-
 // Dashboard route
 app.get('/dashboard', requireAuth, dashboardController.showDashboard);
 

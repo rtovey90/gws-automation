@@ -110,7 +110,13 @@ exports.showInbox = async (req, res) => {
           contactName: contactInfo ? contactInfo.name : normalizedPhone,
           contactType: contactInfo ? contactInfo.type : 'unknown',
           leadId: fields['Related Lead'] ? fields['Related Lead'][0] : null,
+          unreadCount: 0,
         };
+      }
+
+      // Count unread inbound messages
+      if (fields.Direction === 'Inbound' && !fields.Read) {
+        conversations[normalizedPhone].unreadCount++;
       }
 
       conversations[normalizedPhone].messages.push({
@@ -169,7 +175,7 @@ exports.showInbox = async (req, res) => {
       if (minutes < 60) return minutes + 'm';
       if (hours < 24) return hours + 'h';
       if (days < 7) return days + 'd';
-      return date.toLocaleDateString();
+      return date.toLocaleDateString('en-AU', { timeZone: 'Australia/Perth' });
     };
 
     // Helper to render conversation list
@@ -188,6 +194,7 @@ exports.showInbox = async (req, res) => {
         const initials = conv.contactName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
         const lastMsg = conv.lastMessage;
         const messageType = (lastMsg.type || 'SMS').toLowerCase();
+        const isUnread = conv.unreadCount > 0;
 
         // Add icon based on message type
         const typeIcon = messageType === 'call' ? '📞 ' : messageType === 'email' ? '📧 ' : '';
@@ -197,13 +204,16 @@ exports.showInbox = async (req, res) => {
           : `${typeIcon}${lastMsg.content || ''}`;
         const timeAgo = getTimeAgo(lastMsg.timestamp);
 
+        const unreadDot = isUnread ? '<span class="unread-dot"></span>' : '';
+        const unreadBadge = isUnread ? `<span class="unread-badge">${conv.unreadCount}</span>` : '';
+
         return `
-          <div class="conversation" onclick="window.location.href='/messages/${encodeURIComponent(conv.phone)}'">
+          <div class="conversation${isUnread ? ' unread' : ''}" onclick="window.location.href='/messages/${encodeURIComponent(conv.phone)}'">
             <div class="conversation-avatar">${initials}</div>
             <div class="conversation-content">
               <div class="conversation-header">
-                <div class="conversation-name">${conv.contactName}</div>
-                <div class="conversation-time">${timeAgo}</div>
+                <div class="conversation-name">${unreadDot}${conv.contactName}</div>
+                <div class="conversation-time">${timeAgo}${unreadBadge}</div>
               </div>
               <div class="conversation-preview ${lastMsg.direction === 'Outbound' ? 'outbound' : ''}">
                 ${preview.substring(0, 60)}${preview.length > 60 ? '...' : ''}
@@ -336,6 +346,41 @@ exports.showInbox = async (req, res) => {
           }
           .conversation-preview.outbound {
             color: #a0aec0;
+          }
+          .conversation.unread .conversation-name {
+            font-weight: 800;
+            color: #0f1419;
+          }
+          .conversation.unread .conversation-preview {
+            color: #2d3748;
+            font-weight: 600;
+          }
+          .conversation.unread .conversation-time {
+            color: #00d4ff;
+            font-weight: 600;
+          }
+          .unread-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00d4ff;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+          }
+          .unread-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #00d4ff;
+            color: #0f1419;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            padding: 0 6px;
+            margin-left: 8px;
           }
           .empty-state {
             text-align: center;
@@ -747,6 +792,14 @@ exports.getConversationMessages = async (req, res) => {
 
     messages.sort((a, b) => getTimestamp(a) - getTimestamp(b));
 
+    // Mark any unread inbound messages as read (user is viewing the conversation)
+    const unreadIds = messages
+      .filter(msg => msg.fields.Direction === 'Inbound' && !msg.fields.Read)
+      .map(msg => msg.id);
+    if (unreadIds.length > 0) {
+      airtableService.markMessagesAsRead(unreadIds); // fire-and-forget
+    }
+
     const result = messages.map(msg => {
       const fields = msg.fields;
       const isOutbound = fields.Direction === 'Outbound';
@@ -768,7 +821,7 @@ exports.getConversationMessages = async (req, res) => {
         isOutbound,
         messageType,
         timestamp: timestamp.toISOString(),
-        timeStr: timestamp.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        timeStr: timestamp.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Australia/Perth' }),
       };
     });
 
@@ -802,6 +855,14 @@ exports.showConversation = async (req, res) => {
 
     // Sort by timestamp
     messages.sort((a, b) => getTimestamp(a) - getTimestamp(b));
+
+    // Mark unread inbound messages as read
+    const unreadIds = messages
+      .filter(msg => msg.fields.Direction === 'Inbound' && !msg.fields.Read)
+      .map(msg => msg.id);
+    if (unreadIds.length > 0) {
+      await airtableService.markMessagesAsRead(unreadIds);
+    }
 
     // Get customer info
     let customerName = decodedPhone;
@@ -1088,7 +1149,8 @@ exports.showConversation = async (req, res) => {
             const timeStr = timestamp.toLocaleTimeString('en-AU', {
               hour: 'numeric',
               minute: '2-digit',
-              hour12: true
+              hour12: true,
+              timeZone: 'Australia/Perth'
             });
 
             // Determine CSS class based on type and direction

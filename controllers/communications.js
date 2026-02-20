@@ -608,8 +608,8 @@ Here's the link: ${reviewLink}
 
 If you're interested in looking at potentially having ${systemSuggestion} installed, or need anything else, feel free to reach out anytime!
 
-Thanks,
-Ricky`;
+Kind regards,
+Ricky (Great White Security)`;
 
     // Show editable form
     res.send(`
