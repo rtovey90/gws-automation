@@ -384,6 +384,7 @@ exports.showDashboard = async (req, res) => {
     // ── NEW: Recent Leads List (top 15 with source + lead type) ──
     const recentLeadsList = actualLeads
       .map(e => ({
+        id: e.id,
         name: e.fields['Customer Name'] || e.fields['First Name'] || 'New Lead',
         status: e.fields.Status || 'Unknown',
         source: e.fields[' Source'] || 'Unknown',
@@ -592,7 +593,7 @@ exports.showDashboard = async (req, res) => {
       ? recentLeadsList.map(l => {
           const dotColor = statusColors[l.status] || '#78909c';
           return `
-        <div class="activity-item">
+        <a href="/engagement/${l.id}" class="activity-item" style="text-decoration:none;color:inherit;cursor:pointer">
           <span class="activity-icon" style="color:${dotColor}">&#9679;</span>
           <div class="activity-details">
             <span class="activity-name">${l.name}</span>
@@ -600,7 +601,7 @@ exports.showDashboard = async (req, res) => {
           </div>
           <span class="tech-status" style="color:${dotColor}">${l.status}</span>
           <span class="activity-time">${fmtTime(l.time)}</span>
-        </div>`;
+        </a>`;
         }).join('')
       : '<p class="empty-state">No leads yet</p>';
 
@@ -1104,7 +1105,8 @@ exports.showDashboard = async (req, res) => {
     .status-card-value { font-size:18px; font-weight:bold; }
 
     .activity-list { max-height:400px; overflow-y:auto; }
-    .activity-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1a2332; }
+    .activity-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1a2332; transition:background .15s; border-radius:6px; }
+    a.activity-item:hover { background:#1a2332; padding-left:6px; padding-right:6px; }
     .activity-icon { font-size:16px; flex-shrink:0; }
     .activity-details { flex:1; display:flex; flex-direction:column; }
     .activity-name { font-size:13px; color:#e0e6ed; }

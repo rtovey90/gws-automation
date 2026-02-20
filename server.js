@@ -25,6 +25,7 @@ const engagementsController = require('./controllers/engagements.controller');
 
 const techAvailabilityShortController = require('./controllers/tech-availability-short.controller');
 const dashboardController = require('./controllers/dashboard.controller');
+const timelineController = require('./controllers/timeline.controller');
 const estimatorController = require('./controllers/estimator.controller');
 const estimatorApiController = require('./controllers/estimator-api.controller');
 const proposalsController = require('./controllers/proposals.controller');
@@ -188,6 +189,10 @@ app.post('/api/create-test-contact', requireAuth, messagesController.createTestC
 app.get('/api/create-engagement', engagementsController.createEngagement);
 // Dashboard route
 app.get('/dashboard', requireAuth, dashboardController.showDashboard);
+
+// Engagement timeline routes
+app.get('/engagement/:id', requireAuth, timelineController.showTimeline);
+app.post('/api/engagement/:id/note', requireAuth, timelineController.addNote);
 
 // Design preview routes (dummy data, no Airtable writes)
 app.get('/preview/availability-yes', requireAuth, previewController.availabilityYes);

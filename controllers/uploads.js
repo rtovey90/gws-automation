@@ -475,6 +475,9 @@ exports.handleUpload = async (req, res) => {
 
     console.log(`✓ ${attachments.length} photo(s) saved to engagement (${files.length} attempted)`);
 
+    // Log activity
+    airtableService.logActivity(engagementId, `${attachments.length} photo(s) uploaded`);
+
     // Log in Messages table
     try {
       await airtableService.logMessage({

@@ -2066,6 +2066,8 @@ exports.sendProposal = async (req, res) => {
           'Quote Sent At': new Date().toISOString(),
         });
       }
+      // Log activity
+      airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} sent`);
     }
 
     res.json({ success: true, shortUrl });

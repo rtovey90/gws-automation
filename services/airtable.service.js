@@ -730,6 +730,35 @@ class AirtableService {
   }
 
   /**
+   * Log a system activity event or internal note on an engagement's timeline.
+   * Creates a Message record with Type "System" or "Note" and Direction "Internal".
+   */
+  async logActivity(engagementId, text, options = {}) {
+    clearCache('messages');
+    try {
+      const fields = {
+        Direction: 'Internal',
+        Type: options.type || 'System',
+        Content: text,
+        From: options.author || 'System',
+        To: 'Internal',
+        Status: 'Logged',
+        Read: true,
+      };
+
+      if (engagementId) {
+        fields['Related Lead'] = [engagementId];
+      }
+
+      const records = await tables.messages.create([{ fields }]);
+      return records[0];
+    } catch (error) {
+      console.error('Error logging activity:', error);
+      // Non-blocking — don't throw, just log the error
+    }
+  }
+
+  /**
    * Get the most recent outbound message linked to a tech (to find which engagement they're responding to)
    */
   async getRecentOutboundMessageForTech(techId) {

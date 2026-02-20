@@ -374,6 +374,9 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       });
       console.log(`✓ Engagement status updated to Payment Received (Payment ID: ${paymentId})`);
 
+      // Log activity
+      airtableService.logActivity(engagementId, 'Payment received via Stripe');
+
       return;
     }
 

@@ -92,6 +92,9 @@ Ricky`;
     }
     await airtableService.updateEngagement(engagementId, engUpdate);
 
+    // Log activity
+    airtableService.logActivity(engagementId, 'Payment link sent');
+
     console.log(`✓ Pricing SMS sent to ${lead.fields['First Name']} for ${productName}`);
 
     res.status(200).json({

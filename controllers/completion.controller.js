@@ -730,6 +730,9 @@ exports.completeJob = async (req, res) => {
 
     console.log(`✓ Visit ${vNum} logged for engagement ${engagementId}`);
 
+    // Log activity
+    airtableService.logActivity(engagementId, 'Job marked as completed');
+
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error completing job:', error);

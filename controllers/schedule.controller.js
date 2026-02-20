@@ -409,6 +409,10 @@ Ricky (Great White Security)`;
       }
     }
 
+    // Log activity
+    const schedDate = new Date(scheduledDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Perth' });
+    airtableService.logActivity(engagementId, `Job scheduled for ${schedDate}`);
+
     res.status(200).json({ success: true, completionLink: completionUrl });
   } catch (error) {
     console.error('Error scheduling job:', error);

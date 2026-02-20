@@ -418,6 +418,10 @@ exports.assignTech = async (req, res) => {
       status: 'Sent',
     });
 
+    // Log activity
+    const techFullName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || techFirstName;
+    airtableService.logActivity(engagementId, `Tech ${techFullName} assigned`);
+
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error assigning tech:', error);

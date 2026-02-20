@@ -57,6 +57,7 @@ exports.handleLogin = async (req, res) => {
   if (valid) {
     const returnTo = req.session.returnTo || '/dashboard';
     req.session.authenticated = true;
+    req.session.userEmail = email;
     delete req.session.returnTo;
     return res.redirect(returnTo);
   }

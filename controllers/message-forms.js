@@ -1748,6 +1748,9 @@ exports.sendPricingForm = async (req, res) => {
     }
     await airtableService.updateEngagement(engagementId, engUpdate);
 
+    // Log activity
+    airtableService.logActivity(engagementId, 'Payment link sent');
+
     console.log(`✓ Pricing SMS sent to ${leadName}`);
 
     res.status(200).json({
