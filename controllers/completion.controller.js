@@ -116,6 +116,8 @@ exports.showCompletionForm = async (req, res) => {
     const prefillNvrPassword = (lastVisit && lastVisit.fields['NVR Password']) || '';
     const prefillInstallerCode = (lastVisit && lastVisit.fields['Installer Code']) || '';
     const prefillMasterCode = (lastVisit && lastVisit.fields['Master Code']) || '';
+    const prefillCameraLogin = (lastVisit && lastVisit.fields['Camera Login']) || '';
+    const prefillCameraPassword = (lastVisit && lastVisit.fields['Camera Password']) || '';
 
     // Build previous visits HTML
     let previousVisitsHtml = '';
@@ -172,7 +174,7 @@ exports.showCompletionForm = async (req, res) => {
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0a0e27;
             min-height: 100vh;
             padding: 20px;
           }
@@ -180,9 +182,34 @@ exports.showCompletionForm = async (req, res) => {
             max-width: 600px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          }
+          .card-header {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2332 100%);
+            padding: 30px 24px;
+            text-align: center;
+          }
+          .card-header img {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            margin-bottom: 12px;
+          }
+          .card-header h1 {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+          }
+          .card-header p {
+            color: #78e4ff;
+            font-size: 14px;
+            font-weight: 500;
+          }
+          .card-body {
+            padding: 28px 24px;
           }
           h1 {
             color: #333;
@@ -237,7 +264,7 @@ exports.showCompletionForm = async (req, res) => {
           input:focus,
           textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #78e4ff;
           }
           .radio-group {
             margin-bottom: 20px;
@@ -281,7 +308,7 @@ exports.showCompletionForm = async (req, res) => {
           }
           input[type="file"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #78e4ff;
           }
           .file-note {
             color: #999;
@@ -289,8 +316,8 @@ exports.showCompletionForm = async (req, res) => {
             margin-top: 8px;
           }
           .btn {
-            background: #667eea;
-            color: white;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2332 100%);
+            color: #78e4ff;
             border: none;
             padding: 15px 40px;
             font-size: 18px;
@@ -301,7 +328,7 @@ exports.showCompletionForm = async (req, res) => {
             transition: background 0.2s;
           }
           .btn:hover {
-            background: #5568d3;
+            background: linear-gradient(135deg, #1a2332 0%, #0a0e27 100%);
           }
           .btn:disabled {
             background: #ccc;
@@ -310,7 +337,7 @@ exports.showCompletionForm = async (req, res) => {
           .loading {
             display: none;
             text-align: center;
-            color: #667eea;
+            color: #78e4ff;
             font-weight: 600;
             margin-top: 20px;
           }
@@ -318,7 +345,13 @@ exports.showCompletionForm = async (req, res) => {
       </head>
       <body>
         <div class="container">
-          <h1>✅ Visit ${visitNumber} — ${clientName}</h1>
+          <div class="card-header">
+            <img src="/gws-logo.webp" alt="Great White Security">
+            <h1>Visit ${visitNumber} — ${clientName}</h1>
+            <p>Great White Security</p>
+          </div>
+          <div class="card-body">
+
           <p class="subtitle">Upload photos and add notes about the work done on this visit.</p>
 
           ${previousVisitsHtml}
@@ -415,6 +448,12 @@ exports.showCompletionForm = async (req, res) => {
             <label for="masterCode">Master Code:</label>
             <input type="text" name="masterCode" id="masterCode" placeholder="Master code" value="${prefillMasterCode}">
 
+            <label for="cameraLogin">Camera Login:</label>
+            <input type="text" name="cameraLogin" id="cameraLogin" placeholder="Camera username" value="${prefillCameraLogin}">
+
+            <label for="cameraPassword">Camera Password:</label>
+            <input type="text" name="cameraPassword" id="cameraPassword" placeholder="Camera password" value="${prefillCameraPassword}">
+
             <label for="photos">📷 Please upload photos of site equipment:</label>
             <div class="file-input-wrapper">
               <input type="file" name="photos" id="photos" multiple accept="image/*">
@@ -424,6 +463,7 @@ exports.showCompletionForm = async (req, res) => {
             <button type="submit" class="btn">${submitLabel}</button>
             <div class="loading" id="loading">Uploading...</div>
           </form>
+          </div>
         </div>
 
         <script>
@@ -528,6 +568,8 @@ exports.completeJob = async (req, res) => {
       nvrPassword,
       installerCode,
       masterCode,
+      cameraLogin,
+      cameraPassword,
       jobNotes,
       issueResolved,
       nextSteps,
@@ -613,6 +655,8 @@ exports.completeJob = async (req, res) => {
     if (nvrPassword) siteVisitFields['NVR Password'] = nvrPassword;
     if (installerCode) siteVisitFields['Installer Code'] = installerCode;
     if (masterCode) siteVisitFields['Master Code'] = masterCode;
+    if (cameraLogin) siteVisitFields['Camera Login'] = cameraLogin;
+    if (cameraPassword) siteVisitFields['Camera Password'] = cameraPassword;
     if (photoAttachments.length > 0) siteVisitFields['Photos'] = photoAttachments;
     if (tech2Name) {
       siteVisitFields['Tech 2 Name'] = tech2Name;

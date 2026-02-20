@@ -98,49 +98,86 @@ exports.techYes = async (req, res) => {
         <title>Response Recorded</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: #0a0e27;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
             padding: 20px;
           }
-          .container {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
+          .card {
+            background: #fff;
+            border-radius: 20px;
             max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          }
+          .card-header {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2332 100%);
+            padding: 30px 24px;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
           }
-          .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
+          .card-header img {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            margin-bottom: 12px;
           }
-          h1 {
-            color: #28a745;
-            margin-bottom: 15px;
+          .card-header h1 {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
           }
-          p {
+          .card-header p {
+            color: #78e4ff;
+            font-size: 14px;
+            font-weight: 500;
+          }
+          .card-body {
+            padding: 36px 24px;
+            text-align: center;
+          }
+          .status-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+          }
+          .status-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #27ae60;
+            margin-bottom: 8px;
+          }
+          .status-subtitle {
             color: #666;
-            font-size: 18px;
-            line-height: 1.6;
+            font-size: 15px;
+            line-height: 1.5;
           }
-          .tech-name {
-            font-weight: 600;
-            color: #333;
+          .close-msg {
+            text-align: center;
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 24px;
           }
         </style>
       </head>
       <body>
-        <div class="container">
-          <div class="icon">👍</div>
-          <h1>Thanks ${tech.fields['First Name']}!</h1>
-          <p>We've recorded your <strong>YES</strong> response.</p>
-          <p style="margin-top: 20px; color: #999; font-size: 14px;">You can close this window.</p>
+        <div class="card">
+          <div class="card-header">
+            <img src="/gws-logo.webp" alt="Great White Security">
+            <h1>Response Recorded</h1>
+            <p>Great White Security</p>
+          </div>
+          <div class="card-body">
+            <div class="status-icon">&#10003;</div>
+            <div class="status-title">Thanks ${tech.fields['First Name']}!</div>
+            <div class="status-subtitle">We've recorded your <strong>YES</strong> response. We'll be in touch with more details if this job goes ahead.</div>
+            <div class="close-msg">You can close this window.</div>
+          </div>
         </div>
       </body>
       </html>
@@ -227,45 +264,99 @@ exports.techNo = async (req, res) => {
         <title>Response Recorded</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #dc3545 0%, #e35d6a 100%);
+            background: #0a0e27;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
             padding: 20px;
           }
-          .container {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
+          .card {
+            background: #fff;
+            border-radius: 20px;
             max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          }
+          .card-header {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2332 100%);
+            padding: 30px 24px;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
           }
-          .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
+          .card-header img {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            margin-bottom: 12px;
           }
-          h1 {
-            color: #dc3545;
-            margin-bottom: 15px;
+          .card-header h1 {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
           }
-          p {
+          .card-header p {
+            color: #78e4ff;
+            font-size: 14px;
+            font-weight: 500;
+          }
+          .card-body {
+            padding: 36px 24px;
+            text-align: center;
+          }
+          .status-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+          }
+          .status-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #e67e22;
+            margin-bottom: 8px;
+          }
+          .status-subtitle {
             color: #666;
-            font-size: 18px;
-            line-height: 1.6;
+            font-size: 15px;
+            line-height: 1.5;
+          }
+          .close-msg {
+            text-align: center;
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 24px;
+          }
+          .card-footer {
+            text-align: center;
+            padding: 0 24px 28px;
+            color: #999;
+            font-size: 13px;
+          }
+          .card-footer a {
+            color: #78e4ff;
+            text-decoration: none;
           }
         </style>
       </head>
       <body>
-        <div class="container">
-          <div class="icon">👎</div>
-          <h1>Thanks ${tech.fields['First Name']}</h1>
-          <p>We've recorded your <strong>NO</strong> response.</p>
-          <p style="margin-top: 20px; color: #999; font-size: 14px;">You can close this window.</p>
+        <div class="card">
+          <div class="card-header">
+            <img src="/gws-logo.webp" alt="Great White Security">
+            <h1>Response Recorded</h1>
+            <p>Great White Security</p>
+          </div>
+          <div class="card-body">
+            <div class="status-icon">&#128078;</div>
+            <div class="status-title">Thanks ${tech.fields['First Name']}</div>
+            <div class="status-subtitle">We've recorded your <strong>NO</strong> response. No worries — if your circumstances change, reach out anytime.</div>
+            <div class="close-msg">You can close this window.</div>
+          </div>
+          <div class="card-footer">
+            <a href="tel:0413346978">Call Ricky — 0413 346 978</a>
+          </div>
         </div>
       </body>
       </html>

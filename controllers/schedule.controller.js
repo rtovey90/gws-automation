@@ -65,7 +65,7 @@ exports.showScheduleForm = async (req, res) => {
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0a0e27;
             min-height: 100vh;
             padding: 20px;
           }
@@ -73,9 +73,34 @@ exports.showScheduleForm = async (req, res) => {
             max-width: 600px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          }
+          .card-header {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2332 100%);
+            padding: 30px 24px;
+            text-align: center;
+          }
+          .card-header img {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            margin-bottom: 12px;
+          }
+          .card-header h1 {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+          }
+          .card-header p {
+            color: #78e4ff;
+            font-size: 14px;
+            font-weight: 500;
+          }
+          .card-body {
+            padding: 28px 24px;
           }
           h1 {
             color: #333;
@@ -124,11 +149,11 @@ exports.showScheduleForm = async (req, res) => {
           input:focus,
           select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #78e4ff;
           }
           .btn {
-            background: #667eea;
-            color: white;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2332 100%);
+            color: #78e4ff;
             border: none;
             padding: 15px 40px;
             font-size: 18px;
@@ -139,7 +164,7 @@ exports.showScheduleForm = async (req, res) => {
             transition: background 0.2s;
           }
           .btn:hover {
-            background: #5568d3;
+            background: linear-gradient(135deg, #1a2332 0%, #0a0e27 100%);
           }
           .btn:disabled {
             background: #ccc;
@@ -148,7 +173,7 @@ exports.showScheduleForm = async (req, res) => {
           .loading {
             display: none;
             text-align: center;
-            color: #667eea;
+            color: #78e4ff;
             font-weight: 600;
             margin-top: 20px;
           }
@@ -156,7 +181,12 @@ exports.showScheduleForm = async (req, res) => {
       </head>
       <body>
         <div class="container">
-          <h1>📅 Schedule Job</h1>
+          <div class="card-header">
+            <img src="/gws-logo.webp" alt="Great White Security">
+            <h1>Schedule Job</h1>
+            <p>Great White Security</p>
+          </div>
+          <div class="card-body">
           <p class="subtitle">Please select the time and date you've scheduled to attend with ${clientName} so we can be available to support.</p>
 
           <div class="job-details">
@@ -211,6 +241,7 @@ exports.showScheduleForm = async (req, res) => {
             <button type="submit" class="btn">Confirm Schedule</button>
             <div class="loading" id="loading">Updating...</div>
           </form>
+          </div>
         </div>
 
         <script>
