@@ -30,6 +30,7 @@ exports.showLogin = (req, res) => {
 </head>
 <body>
   <div class="login-box">
+    <img src="/gws-logo.webp" alt="Great White Security" style="display:block;margin:0 auto 16px;width:64px;height:64px;object-fit:contain;">
     <h1>GWS Hub</h1>
     <p class="subtitle">Great White Security</p>
     ${error ? `<div class="error">${error}</div>` : ''}
