@@ -727,6 +727,58 @@ exports.createTestContact = async (req, res) => {
   }
 };
 
+/**
+ * API: Get messages for a conversation (for AJAX polling)
+ * GET /api/messages/:phone
+ */
+exports.getConversationMessages = async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const decodedPhone = decodeURIComponent(phone);
+    const normalizedPhone = normalizePhone(decodedPhone);
+
+    const allMessages = await airtableService.getAllMessages();
+    const messages = allMessages.filter(msg => {
+      const fields = msg.fields;
+      const toNormalized = normalizePhone(fields.To);
+      const fromNormalized = normalizePhone(fields.From);
+      return toNormalized === normalizedPhone || fromNormalized === normalizedPhone;
+    });
+
+    messages.sort((a, b) => getTimestamp(a) - getTimestamp(b));
+
+    const result = messages.map(msg => {
+      const fields = msg.fields;
+      const isOutbound = fields.Direction === 'Outbound';
+      const messageType = (fields.Type || 'SMS').toLowerCase();
+      const timestamp = getTimestamp(msg);
+
+      let content = fields.Content || '';
+      let hasMedia = false;
+      if (content.includes('[Media]')) {
+        const parts = content.split('[Media]');
+        content = parts[0].trim();
+        hasMedia = true;
+      }
+
+      return {
+        id: msg.id,
+        content,
+        hasMedia,
+        isOutbound,
+        messageType,
+        timestamp: timestamp.toISOString(),
+        timeStr: timestamp.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      };
+    });
+
+    res.json({ messages: result });
+  } catch (error) {
+    console.error('Error getting conversation messages:', error);
+    res.status(500).json({ error: 'Failed to load messages' });
+  }
+};
+
 module.exports = exports;
 
 /**
@@ -1296,10 +1348,47 @@ Ricky\`
             }
           }
 
-          // Auto-refresh every 30 seconds to get new messages
-          setInterval(() => {
-            window.location.reload();
-          }, 30000);
+          // Auto-refresh messages every 30 seconds WITHOUT reloading the page
+          let knownMessageIds = new Set();
+          document.querySelectorAll('.message').forEach((el, i) => knownMessageIds.add(i));
+          let lastMessageCount = document.querySelectorAll('.message').length;
+
+          setInterval(async () => {
+            // Don't refresh while user is typing
+            if (messageInput.value.trim()) return;
+            try {
+              const resp = await fetch('/api/messages/${encodeURIComponent(decodedPhone)}');
+              if (!resp.ok) return;
+              const data = await resp.json();
+              if (!data.messages || data.messages.length <= lastMessageCount) return;
+
+              // New messages arrived — append only the new ones
+              const newMessages = data.messages.slice(lastMessageCount);
+              newMessages.forEach(msg => {
+                let msgClass = msg.isOutbound ? 'outbound' : 'inbound';
+                if (msg.messageType === 'call') msgClass += ' call';
+                else if (msg.messageType === 'email') msgClass += ' email';
+
+                const typeIcon = msg.messageType === 'call' ? '📞' : msg.messageType === 'email' ? '📧' : '';
+                const typeLabel = msg.messageType !== 'sms'
+                  ? \`<div class="message-type-label">\${typeIcon} \${msg.messageType.toUpperCase()}</div>\`
+                  : '';
+                const mediaHtml = msg.hasMedia
+                  ? '<div class="message-media-placeholder">📷 Photo attached (view in Airtable)</div>'
+                  : '';
+
+                const el = document.createElement('div');
+                el.className = 'message ' + msgClass;
+                el.innerHTML = \`\${typeLabel}<div class="message-content">\${msg.content}</div>\${mediaHtml}<div class="message-time">\${msg.timeStr}</div>\`;
+                messagesContainer.appendChild(el);
+              });
+
+              lastMessageCount = data.messages.length;
+              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (e) {
+              // Silently ignore polling errors
+            }
+          }, 15000);
         </script>
     `;
 

@@ -179,6 +179,7 @@ app.post('/api/complete-job', completionController.uploadMiddleware, completionC
 // ── Admin routes (require login) ──
 app.get('/messages', requireAuth, messagesController.showInbox);
 app.get('/messages/:phone', requireAuth, messagesController.showConversation);
+app.get('/api/messages/:phone', requireAuth, messagesController.getConversationMessages);
 app.post('/api/send-sms-conversation', requireAuth, messagesController.sendSMS);
 app.post('/api/create-test-contact', requireAuth, messagesController.createTestContact);
 
