@@ -2216,9 +2216,11 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         'Install Conduit & Fittings as Required',
         'Install Cameras & Mounting Brackets',
         'Install NVR & Hard Drive & Connect to Customer Internet',
+        'Aim, Focus & Setup Cameras',
         'Program, Test & Commission System',
         'Setup Customer Phone App & Demonstrate Use',
         'Clean Up Site After Installation',
+        'Post Install Remote Support & System Fine-Tuning (1 Month Included)',
       ],
       deliverables: [
         { qty: '4', description: 'Dahua Wizsense Turret Cameras' },
