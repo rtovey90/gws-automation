@@ -474,7 +474,10 @@ exports.showInbox = async (req, res) => {
         <div class="header">
           <h1>Messages</h1>
           <div class="tabs">
-            <button class="tab active" onclick="switchTab('customers')">
+            <button class="tab active" onclick="switchTab('all')">
+              All <span class="tab-count">${allConversations.length}</span>
+            </button>
+            <button class="tab" onclick="switchTab('customers')">
               Customers <span class="tab-count">${customersConversations.length}</span>
             </button>
             <button class="tab" onclick="switchTab('techs')">
@@ -483,14 +486,14 @@ exports.showInbox = async (req, res) => {
             <button class="tab" onclick="switchTab('suppliers')">
               Suppliers <span class="tab-count">${suppliersConversations.length}</span>
             </button>
-            <button class="tab" onclick="switchTab('all')">
-              All <span class="tab-count">${allConversations.length}</span>
-            </button>
           </div>
         </div>
 
         <div class="conversations-container">
-          <div class="tab-content active" id="customers">
+          <div class="tab-content active" id="all">
+            ${renderConversations(allConversations)}
+          </div>
+          <div class="tab-content" id="customers">
             ${renderConversations(customersConversations)}
           </div>
           <div class="tab-content" id="techs">
@@ -498,9 +501,6 @@ exports.showInbox = async (req, res) => {
           </div>
           <div class="tab-content" id="suppliers">
             ${renderConversations(suppliersConversations)}
-          </div>
-          <div class="tab-content" id="all">
-            ${renderConversations(allConversations)}
           </div>
         </div>
 
