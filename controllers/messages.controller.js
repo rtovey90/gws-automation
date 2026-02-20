@@ -1152,6 +1152,7 @@ exports.showConversation = async (req, res) => {
           <div class="template-buttons">
             <button class="template-btn" onclick="loadTemplate('photos')">Request Photos from Client</button>
             <button class="template-btn" onclick="loadTemplate('payment')">Send Payment Link to Client</button>
+            <button class="template-btn" onclick="loadTemplate('paymentReceived')">Payment Received</button>
             <button class="template-btn" onclick="loadTemplate('review')">Request Review</button>
           </div>
         </div>
@@ -1179,38 +1180,53 @@ exports.showConversation = async (req, res) => {
 
           // Template messages
           const templates = {
-            photos: \`Hi ${customerName},
+            photos: \`Hey ${customerName},
 
-Thanks for choosing Great White Security!
+Ricky here from Great White Security.
+Nice speaking with you!
 
-Could you please send me some photos of your current setup? This will help me understand what you need and provide an accurate quote.
+To help us determine what's required and who to dispatch, could you please share a few photos of your system?
 
-You can reply with photos directly to this message.
+You can send the photos to this number.
 
-Thanks!
+Cheers,
+
 Ricky\`,
-            payment: \`Hi ${customerName},
+            payment: \`Hi ${customerName}, thanks for sending those through.
 
-Thanks for choosing Great White Security!
+Good news — I can have one of our technicians attend this week (or early next week).
 
-Here's the payment link to lock in your booking: [PAYMENT_LINK]
+The call-out is just $247 inc. GST, which includes travel and up to 30 minutes on site.
 
-Once payment is confirmed, I'll be in touch to schedule a time that works for you.
+If more time is needed, additional labour is billed at $147 per hour inc. GST.
 
-Thanks!
-Ricky\`,
-            review: \`Hi ${customerName},
+To secure the booking, please make payment here:
+[PAYMENT_LINK]
 
-Thanks again for trusting Great White Security.
+Once payment is through, the technician will reach out to confirm a suitable time.
+
+Thanks,
+Ricky
+Great White Security\`,
+            paymentReceived: \`Hi ${customerName}, thanks for your payment!
+
+The assigned technician will be in touch within the next 24 hours to schedule the booking with you.
+
+If you have any questions in the meantime, feel free to reach out.
+
+Thanks,
+Ricky
+Great White Security\`,
+            review: \`Hey ${customerName}, thanks again for trusting Great White Security.
 
 If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
 
-Here's the link: https://g.page/r/CWLlmL52RlBEEBM/review
+Here's the link: https://g.page/r/CWLImL52RIBEEBM/review
 
 If you need anything else, feel free to reach out anytime!
 
-Thanks,
-Ricky\`
+Kind regards,
+Ricky (Great White Security)\`
           };
 
           // Scroll to bottom on load

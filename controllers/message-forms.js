@@ -66,6 +66,11 @@ exports.showMessageForm = async (req, res) => {
         sentField = 'Tech Availability Requested';
         pageTitle = 'Checking Availability';
         break;
+      case 'payment-received':
+        templateName = 'Payment Received Confirmation';
+        sentField = 'Payment Received Sent';
+        pageTitle = 'Payment Received';
+        break;
       default:
         return res.status(400).send(`
           <!DOCTYPE html>
@@ -521,6 +526,9 @@ exports.sendMessage = async (req, res) => {
     // Update status based on message type
     if (messageType === 'request-photos') {
       updates.Status = 'Photos Requested';
+    }
+    if (messageType === 'payment-received') {
+      updates.Status = 'Payment Received ✅';
     }
 
     await airtableService.updateEngagement(engagementId, updates);
@@ -1248,19 +1256,14 @@ exports.showPricingForm = async (req, res) => {
 
 Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your ${systemTypeText}.
 
-The call-out is $${price} inc. GST, which includes travel and up to 30 minutes on site.
+The call-out is just $${price} inc. GST, which includes travel and up to 30 minutes on site.
 
-If more time is needed, additional labour is billed at $147 per hour inc. GST, with a maximum of 2 hours total on site. If the issue can't be resolved within this time, work will stop and I'll contact you to discuss next steps or alternative options. The technician will not remain on site beyond 2 hours without a new booking being arranged.
+If more time is needed, additional labour is billed at $147 per hour inc. GST.
 
 To secure the booking, please make payment here:
 ${paymentLink}
 
 Once payment is through, the technician will reach out to confirm a suitable time.
-
-Just to set expectations upfront — based on the age of your system, it's considered end-of-life and parts are no longer supported. We're happy to attempt troubleshooting, however there are no guarantees the system can be restored to full functionality.
-
-If you're considering replacing it with a newer, more reliable setup (including smartphone app control and optional monitoring), we have interest-free packages starting from $97/month over 24 months:
-https://www.greatwhitesecurity.com/alarm-packages/
 
 Thanks,
 Ricky
