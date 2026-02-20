@@ -949,6 +949,49 @@ class AirtableService {
   }
 
   /**
+   * Check if a project number already exists (optionally excluding a specific record)
+   */
+  async projectNumberExists(projectNumber, excludeRecordId) {
+    try {
+      const records = await tables.proposals
+        .select({
+          filterByFormula: `{Project Number} = '${projectNumber}'`,
+          maxRecords: 10,
+        })
+        .firstPage();
+
+      if (excludeRecordId) {
+        return records.some(r => r.id !== excludeRecordId);
+      }
+      return records.length > 0;
+    } catch (error) {
+      console.error('Error checking project number:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the next available project number
+   */
+  async getNextProjectNumber() {
+    try {
+      const allRecords = await this.getAllProposals();
+      let maxNum = 0;
+      for (const r of allRecords) {
+        const pn = r.fields['Project Number'];
+        if (pn) {
+          const num = parseInt(pn, 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      }
+      return String(maxNum + 1).padStart(6, '0');
+    } catch (error) {
+      console.error('Error getting next project number:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all proposals (cached 60s)
    */
   async getAllProposals() {

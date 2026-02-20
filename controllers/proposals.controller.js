@@ -1879,7 +1879,8 @@ exports.showCloneForm = async (req, res) => {
     }
 
     const customers = await airtableService.getAllCustomers();
-    res.send(renderProposalForm(null, null, { cloneSource: sourceProposal, customers }));
+    const nextProjectNumber = await airtableService.getNextProjectNumber();
+    res.send(renderProposalForm(null, null, { cloneSource: sourceProposal, customers, nextProjectNumber }));
   } catch (error) {
     console.error('Error showing clone form:', error);
     res.status(500).send('Error loading clone form');
@@ -1943,6 +1944,13 @@ exports.getCustomerEngagements = async (req, res) => {
 exports.createProposal = async (req, res) => {
   try {
     const data = buildProposalFields(req.body);
+    // Prevent duplicate project numbers
+    if (data['Project Number']) {
+      const exists = await airtableService.projectNumberExists(data['Project Number']);
+      if (exists) {
+        return res.status(400).json({ error: `Project number ${data['Project Number']} already exists. Please use a unique number.` });
+      }
+    }
     const proposal = await airtableService.createProposal(data);
     res.json({ success: true, id: proposal.id, projectNumber: data['Project Number'] });
   } catch (error) {
@@ -1957,6 +1965,13 @@ exports.updateProposal = async (req, res) => {
   try {
     const { proposalId } = req.params;
     const data = buildProposalFields(req.body);
+    // Prevent duplicate project numbers (exclude current record)
+    if (data['Project Number']) {
+      const exists = await airtableService.projectNumberExists(data['Project Number'], proposalId);
+      if (exists) {
+        return res.status(400).json({ error: `Project number ${data['Project Number']} already exists. Please use a unique number.` });
+      }
+    }
     await airtableService.updateProposal(proposalId, data);
     res.json({ success: true });
   } catch (error) {
@@ -2082,6 +2097,30 @@ exports.previewCheckout = async (req, res) => {
   }
 };
 
+// ─── ADMIN: Check Project Number & Get Next ──────────────────
+
+exports.checkProjectNumber = async (req, res) => {
+  try {
+    const { projectNumber, excludeId } = req.query;
+    if (!projectNumber) return res.json({ available: true });
+    const exists = await airtableService.projectNumberExists(projectNumber, excludeId || null);
+    res.json({ available: !exists });
+  } catch (error) {
+    console.error('Error checking project number:', error);
+    res.status(500).json({ error: 'Failed to check' });
+  }
+};
+
+exports.getNextProjectNumber = async (req, res) => {
+  try {
+    const next = await airtableService.getNextProjectNumber();
+    res.json({ projectNumber: next });
+  } catch (error) {
+    console.error('Error getting next project number:', error);
+    res.status(500).json({ error: 'Failed to get next number' });
+  }
+};
+
 // ─── Helper: Build Airtable fields from form data ────────────
 
 function buildProposalFields(body) {
@@ -2145,6 +2184,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const isClone = !!clone.cloneSource;
   const cf = isClone ? clone.cloneSource.fields : {};
   const customers = clone.customers || [];
+  const nextProjectNumber = clone.nextProjectNumber || '';
 
   // ── Job Type Templates ──────────────────────────────────
   const commonClarifications = [
@@ -2290,8 +2330,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   };
   const defaultTemplate = jobTypeTemplates.cctv;
 
-  // For clone: work content comes from cf, client fields stay empty
-  const projectNumber = f['Project Number'] || pf.projectNumber || '';
+  // For clone: use next available project number, NOT the source's
+  const projectNumber = isClone ? nextProjectNumber : (f['Project Number'] || pf.projectNumber || '');
   const date = f['Proposal Date'] || new Date().toISOString().split('T')[0];
   const clientName = f['Client Name'] || pf.clientName || '';
   const clientAddress = f['Client Address'] || pf.clientAddress || '';
@@ -2481,7 +2521,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             </div>
             ` : ''}
             <div class="form-row">
-              <div class="fg"><label>Project Number</label><input type="text" name="projectNumber" value="${escapeHtml(projectNumber)}" placeholder="e.g. 003256"></div>
+              <div class="fg"><label>Project Number</label><input type="text" name="projectNumber" value="${escapeHtml(projectNumber)}" placeholder="e.g. 003256"><span id="pn-status" style="font-size:11px;margin-top:4px;display:block;"></span></div>
               <div class="fg"><label>Date</label><input type="date" name="date" value="${escapeHtml(date)}"></div>
             </div>
             <div class="form-row">
@@ -3622,6 +3662,38 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       }
     });
     ` : ''}
+
+    // ── Project Number duplicate check ──
+    (function() {
+      const pnInput = document.querySelector('[name="projectNumber"]');
+      const pnStatus = document.getElementById('pn-status');
+      if (!pnInput || !pnStatus) return;
+      let debounce;
+      const currentId = '${isEdit ? proposal.id : ''}';
+      pnInput.addEventListener('input', function() {
+        clearTimeout(debounce);
+        const val = this.value.trim();
+        if (!val) { pnStatus.textContent = ''; return; }
+        pnStatus.textContent = 'Checking...';
+        pnStatus.style.color = '#aaa';
+        debounce = setTimeout(async () => {
+          try {
+            const url = '/api/admin/proposals/check-number?projectNumber=' + encodeURIComponent(val) + (currentId ? '&excludeId=' + currentId : '');
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data.available) {
+              pnStatus.textContent = 'Available';
+              pnStatus.style.color = '#4caf50';
+            } else {
+              pnStatus.textContent = 'Already in use — this will cause conflicts!';
+              pnStatus.style.color = '#ff5252';
+            }
+          } catch (e) {
+            pnStatus.textContent = '';
+          }
+        }, 400);
+      });
+    })();
   </script>`;
 
   return wrapInLayout(

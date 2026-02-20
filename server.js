@@ -217,6 +217,8 @@ app.post('/api/admin/proposals/upload-photos', requireAuth, proposalsController.
 app.post('/api/admin/proposals/:proposalId/send', requireAuth, proposalsController.sendProposal);
 app.post('/api/admin/proposals/:proposalId/preview-checkout', requireAuth, proposalsController.previewCheckout);
 app.post('/api/admin/proposals/:proposalId/toggle-pause', requireAuth, proposalsController.togglePause);
+app.get('/api/admin/proposals/check-number', requireAuth, proposalsController.checkProjectNumber);
+app.get('/api/admin/proposals/next-number', requireAuth, proposalsController.getNextProjectNumber);
 app.get('/api/admin/customers', requireAuth, proposalsController.listCustomers);
 app.get('/api/admin/customers/:customerId/engagements', requireAuth, proposalsController.getCustomerEngagements);
 
