@@ -83,10 +83,14 @@ Ricky`;
     });
 
     // Update engagement status and pricing sent checkbox
-    await airtableService.updateEngagement(engagementId, {
+    const engUpdate = {
       Status: 'Payment Link Sent',
       'Pricing Sent': true,
-    });
+    };
+    if (!lead.fields['Quote Sent At']) {
+      engUpdate['Quote Sent At'] = new Date().toISOString();
+    }
+    await airtableService.updateEngagement(engagementId, engUpdate);
 
     console.log(`✓ Pricing SMS sent to ${lead.fields['First Name']} for ${productName}`);
 

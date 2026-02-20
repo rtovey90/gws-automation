@@ -2057,6 +2057,17 @@ exports.sendProposal = async (req, res) => {
       'Sent At': new Date().toISOString(),
     });
 
+    // Stamp Quote Sent At on the linked engagement (first send only)
+    const engagementIds = f['Engagement'];
+    if (engagementIds && engagementIds.length > 0) {
+      const eng = await airtableService.getEngagement(engagementIds[0]);
+      if (eng && !eng.fields['Quote Sent At']) {
+        await airtableService.updateEngagement(engagementIds[0], {
+          'Quote Sent At': new Date().toISOString(),
+        });
+      }
+    }
+
     res.json({ success: true, shortUrl });
   } catch (error) {
     console.error('Error sending proposal:', error);

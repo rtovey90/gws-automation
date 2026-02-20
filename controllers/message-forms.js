@@ -1737,11 +1737,16 @@ exports.sendPricingForm = async (req, res) => {
     });
 
     // Update engagement with selected product, status, and pricing sent checkbox
-    await airtableService.updateEngagement(engagementId, {
+    const engUpdate = {
       'Selected Product': [productId],
       'Status': 'Payment Link Sent',
       'Pricing Sent': true,
-    });
+    };
+    // Only stamp Quote Sent At on the first send (don't overwrite on re-sends)
+    if (!lead.fields['Quote Sent At']) {
+      engUpdate['Quote Sent At'] = new Date().toISOString();
+    }
+    await airtableService.updateEngagement(engagementId, engUpdate);
 
     console.log(`✓ Pricing SMS sent to ${leadName}`);
 

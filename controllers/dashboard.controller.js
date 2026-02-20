@@ -188,18 +188,28 @@ exports.showDashboard = async (req, res) => {
       periods.forEach(p => {
         salesActivity.leads[p]++;
 
-        // Quoted or beyond = a quote went out
-        if (quotedOrBeyond.includes(f.Status) && quoteAmount > 0) {
-          salesActivity.quotesOut[p]++;
-          salesActivity.quotesValue[p] += quoteAmount;
-        }
-
         // Closed deal
         if (closedStatuses.includes(f.Status)) {
           salesActivity.dealsClosed[p]++;
           salesActivity.dealsValue[p] += dealAmount;
         }
       });
+
+      // Count quotes by actual send date (Quote Sent At field)
+      const quoteSentAt = f['Quote Sent At'];
+      if (quoteSentAt) {
+        const sentDate = new Date(quoteSentAt);
+        if (sentDate >= startOfDay) salesActivity.quotesOut.today++;
+        if (sentDate >= startOfWeek) salesActivity.quotesOut.week++;
+        if (sentDate >= startOfMonth) salesActivity.quotesOut.month++;
+        if (sentDate >= startOfYear) salesActivity.quotesOut.year++;
+        if (quoteAmount > 0) {
+          if (sentDate >= startOfDay) salesActivity.quotesValue.today += quoteAmount;
+          if (sentDate >= startOfWeek) salesActivity.quotesValue.week += quoteAmount;
+          if (sentDate >= startOfMonth) salesActivity.quotesValue.month += quoteAmount;
+          if (sentDate >= startOfYear) salesActivity.quotesValue.year += quoteAmount;
+        }
+      }
     });
 
     // Keep backward compat vars
