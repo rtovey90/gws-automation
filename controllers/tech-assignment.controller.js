@@ -393,6 +393,7 @@ exports.assignTech = async (req, res) => {
     await airtableService.updateEngagement(engagementId, {
       'Assigned Tech Name': [techId],
       Status: 'Tech Assigned 👷',
+      'Tech Assigned At': new Date().toISOString(),
     });
 
     console.log(`✓ Engagement updated with assigned tech`);
