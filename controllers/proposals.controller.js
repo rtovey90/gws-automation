@@ -2657,8 +2657,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
               <button type="button" class="btn-save" onclick="saveProposal(false)">Save as Draft</button>
               <button type="button" class="btn-send" onclick="openSendModal()">Save & Send to Client</button>
-              ${isEdit ? `<a href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview Proposal</a>
-              <a href="/offers/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview OTO Page</a>` : ''}
+              ${isEdit ? `<a id="preview-proposal-link" href="/proposals/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview Proposal</a>
+              <a id="preview-oto-link" href="/offers/${escapeHtml(projectNumber)}" target="_blank" class="btn-preview">Preview OTO Page</a>` : ''}
             </div>
             <div id="save-status" style="margin-top:12px;font-size:14px;"></div>
           </div>
@@ -3663,15 +3663,25 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     });
     ` : ''}
 
-    // ── Project Number duplicate check ──
+    // ── Project Number duplicate check + preview link sync ──
     (function() {
       const pnInput = document.querySelector('[name="projectNumber"]');
       const pnStatus = document.getElementById('pn-status');
+      const previewLink = document.getElementById('preview-proposal-link');
+      const otoLink = document.getElementById('preview-oto-link');
       if (!pnInput || !pnStatus) return;
+
+      function updatePreviewLinks() {
+        const val = pnInput.value.trim();
+        if (previewLink) previewLink.href = '/proposals/' + encodeURIComponent(val);
+        if (otoLink) otoLink.href = '/offers/' + encodeURIComponent(val);
+      }
+
       let debounce;
       const currentId = '${isEdit ? proposal.id : ''}';
       pnInput.addEventListener('input', function() {
         clearTimeout(debounce);
+        updatePreviewLinks();
         const val = this.value.trim();
         if (!val) { pnStatus.textContent = ''; return; }
         pnStatus.textContent = 'Checking...';
