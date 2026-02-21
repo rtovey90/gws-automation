@@ -1479,6 +1479,7 @@ Ricky (Great White Security)\`
 
                 messagesContainer.appendChild(messageEl);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                lastMessageCount++;
 
                 messageInput.value = '';
                 messageInput.style.height = 'auto';
