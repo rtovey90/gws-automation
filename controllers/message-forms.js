@@ -574,8 +574,31 @@ exports.showTechAvailabilityForm = async (req, res) => {
       `);
     }
 
-    // Get all techs
-    const techs = await airtableService.getAllTechs();
+    // Get all techs and messages for this engagement
+    const [techs, allMessages] = await Promise.all([
+      airtableService.getAllTechs(),
+      airtableService.getAllMessages(),
+    ]);
+
+    // Find techs already contacted for this engagement (outbound availability messages with YES/NO links)
+    const engMessages = allMessages.filter(m => {
+      const linked = m.fields['Related Lead'];
+      return linked && linked.includes(engagementId) && m.fields.Direction === 'Outbound';
+    });
+    const contactedPhones = new Set();
+    const contactedTimes = {};
+    engMessages.forEach(m => {
+      const content = m.fields.Content || '';
+      const to = m.fields.To || '';
+      if (content.includes('/ty/') || content.includes('/tn/')) {
+        const normalized = airtableService.normalizePhone(to);
+        contactedPhones.add(normalized);
+        const msgTime = new Date(m.fields.Timestamp || m._rawJson?.createdTime || Date.now());
+        if (!contactedTimes[normalized] || msgTime > contactedTimes[normalized]) {
+          contactedTimes[normalized] = msgTime;
+        }
+      }
+    });
 
     if (techs.length === 0) {
       return res.send(`
@@ -628,15 +651,32 @@ Thanks,
 
 Ricky (Great White Security)`;
 
-    // Build tech list HTML
+    // Build tech list HTML — show who's already been contacted
+    const now = new Date();
     const techListHTML = techs.map(tech => {
       const displayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
       const phone = tech.fields.Phone || 'No phone';
+      const normalizedPhone = phone !== 'No phone' ? airtableService.normalizePhone(phone) : '';
+      const alreadyContacted = normalizedPhone && contactedPhones.has(normalizedPhone);
+      const checked = alreadyContacted ? '' : 'checked';
+
+      let contactedTag = '';
+      if (alreadyContacted) {
+        const sentTime = contactedTimes[normalizedPhone];
+        const diffMins = sentTime ? Math.floor((now - sentTime) / 60000) : 0;
+        let timeAgo = '';
+        if (diffMins < 60) timeAgo = diffMins + 'm ago';
+        else if (diffMins < 1440) timeAgo = Math.floor(diffMins / 60) + 'h ago';
+        else timeAgo = Math.floor(diffMins / 1440) + 'd ago';
+        contactedTag = `<span class="contacted-tag">Contacted ${timeAgo}</span>`;
+      }
+
       return `
-        <div class="tech-item">
-          <input type="checkbox" id="tech-${tech.id}" name="techs" value="${tech.id}" checked data-name="${displayName}" data-phone="${phone}">
+        <div class="tech-item${alreadyContacted ? ' tech-contacted' : ''}">
+          <input type="checkbox" id="tech-${tech.id}" name="techs" value="${tech.id}" ${checked} data-name="${displayName}" data-phone="${phone}">
           <label for="tech-${tech.id}">
             <strong>${displayName}</strong>
+            ${contactedTag}
             <span class="tech-phone">${phone}</span>
           </label>
         </div>
@@ -746,6 +786,23 @@ Ricky (Great White Security)`;
           .tech-phone {
             color: #666;
             font-size: 14px;
+          }
+          .tech-contacted {
+            background: #f0f0f0;
+            border-color: #ddd;
+            opacity: 0.7;
+          }
+          .tech-contacted:hover {
+            opacity: 1;
+          }
+          .contacted-tag {
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
           }
           .select-all {
             margin-bottom: 15px;
@@ -897,7 +954,7 @@ Ricky (Great White Security)`;
               <div class="section">
                 <div class="section-title">
                   🔧 Select Techs
-                  <span class="selected-count" id="selectedCount">${techs.length} selected</span>
+                  <span class="selected-count" id="selectedCount">${techs.length - contactedPhones.size} selected</span>
                 </div>
 
                 <div class="tech-selection">
