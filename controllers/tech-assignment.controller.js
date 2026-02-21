@@ -73,7 +73,9 @@ exports.showAssignmentForm = async (req, res) => {
       return `<option value="${tech.id}">${techName} (${location}) - ${availability} - ${skills}</option>`;
     }).join('');
 
-    // Default message template
+    // Message templates
+    const calendarLink = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${engagementId}`;
+
     const defaultMessage = `Hey [TECH_NAME],
 
 Here are the details for the confirmed booking:
@@ -90,7 +92,34 @@ ${scope}
 Next steps:
 
 1. Call ${clientFirstName} **within 24 hours** to schedule a time to attend within the next week
-2. Update Calendar: ${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${engagementId}
+2. Update Calendar: ${calendarLink}
+
+Feel free to call if you have any questions!
+
+Cheers,
+
+Ricky (Great White Security)`;
+
+    const emergencyMessage = `Hey [TECH_NAME],
+
+Here are the details for the confirmed service call (today):
+
+Client: ${clientFirstName}
+Phone: ${clientPhone}
+Address: ${clientAddress}
+
+System: ${systemType}
+
+Scope:
+${scope}
+
+Pay: $250 + GST for 1st hour
+$150 + GST for additional hours
+
+Next steps:
+
+1. Call ${clientFirstName} **ASAP** to confirm ETA
+2. Update Calendar: ${calendarLink}
 
 Feel free to call if you have any questions!
 
@@ -266,6 +295,13 @@ Ricky (Great White Security)`;
               ${techOptions}
             </select>
 
+            <label for="template">📋 Message Template:</label>
+            <select id="template" name="template" style="margin-bottom: 16px;">
+              <option value="standard" selected>Standard Callout</option>
+              <option value="emergency">Emergency Callout</option>
+              <option value="custom">Custom (keep current text)</option>
+            </select>
+
             <label for="message">📝 Edit Message:</label>
             <textarea name="message" id="message" required>${defaultMessage}</textarea>
 
@@ -283,6 +319,13 @@ Ricky (Great White Security)`;
           const techSelect = document.getElementById('techId');
           const messageTextarea = document.getElementById('message');
           const previewDiv = document.getElementById('preview');
+          const templateSelect = document.getElementById('template');
+
+          // Templates injected from server
+          const templates = {
+            standard: ${JSON.stringify(defaultMessage)},
+            emergency: ${JSON.stringify(emergencyMessage)},
+          };
 
           // Store tech data (use first name only for greeting)
           const techData = ${JSON.stringify(techs.map(t => ({
@@ -300,6 +343,13 @@ Ricky (Great White Security)`;
 
             previewDiv.textContent = message;
           }
+
+          // Handle template change
+          templateSelect.addEventListener('change', function() {
+            if (templateSelect.value === 'custom') return;
+            messageTextarea.value = templates[templateSelect.value];
+            updatePreview();
+          });
 
           techSelect.addEventListener('change', updatePreview);
           messageTextarea.addEventListener('input', updatePreview);

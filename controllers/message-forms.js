@@ -630,14 +630,17 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Get job description from lead
     const jobDescription = lead.fields['Job Scope'] || lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
 
-    // Build default message (will be editable)
+    // Build message templates (will be editable)
     const techName = '{{TECH_NAME}}';
+    const locationText = lead.fields['Address (from Customer)'] || 'TBD';
+    const scopeText = jobDescription.length > 200 ? jobDescription.substring(0, 200) + '...' : jobDescription;
+
     const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
 
-Location: ${lead.fields['Address (from Customer)'] || 'TBD'}
+Location: ${locationText}
 
 Scope:
-${jobDescription.length > 200 ? jobDescription.substring(0, 200) + '...' : jobDescription}
+${scopeText}
 
 Please make your selection:
 
@@ -646,6 +649,26 @@ Please make your selection:
 👎 NO: {{NO_LINK}}
 
 I'll be in touch with more info once it's confirmed.
+
+Thanks,
+
+Ricky (Great White Security)`;
+
+    const emergencyMessage = `Hey ${techName}, got an emergency service call today if you're available!
+
+Location: ${locationText}
+
+Scope:
+${scopeText}
+
+Pay: $250 + GST for 1st hour
+$150 + GST for additional hours
+
+Please make your selection:
+
+👍 YES: {{YES_LINK}}
+
+👎 NO: {{NO_LINK}}
 
 Thanks,
 
@@ -969,7 +992,14 @@ Ricky (Great White Security)`;
 
               <!-- Message Template -->
               <div class="section">
-                <label class="message-label" for="message">📝 Message Template (edit as needed):</label>
+                <label class="message-label" for="template">📋 Message Template:</label>
+                <select id="template" name="template" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 16px;">
+                  <option value="standard" selected>Standard Callout</option>
+                  <option value="emergency">Emergency Callout</option>
+                  <option value="custom">Custom (keep current text)</option>
+                </select>
+
+                <label class="message-label" for="message">📝 Message (edit as needed):</label>
                 <textarea id="message" name="message" required>${defaultMessage}</textarea>
                 <div class="help-text">
                   💡 Use {{TECH_NAME}}, {{YES_LINK}}, and {{NO_LINK}} - they'll be replaced for each tech
@@ -1006,6 +1036,12 @@ Ricky (Great White Security)`;
           const BASE_URL = '${process.env.BASE_URL}';
           const engagementId = '${engagementId}';
 
+          // Templates injected from server
+          const templates = {
+            standard: ${JSON.stringify(defaultMessage)},
+            emergency: ${JSON.stringify(emergencyMessage)},
+          };
+
           const checkboxes = document.querySelectorAll('input[name="techs"]');
           const selectAll = document.getElementById('selectAll');
           const selectedCount = document.getElementById('selectedCount');
@@ -1016,6 +1052,14 @@ Ricky (Great White Security)`;
           const messageTextarea = document.getElementById('message');
           const previewContent = document.getElementById('previewContent');
           const previewTitle = document.getElementById('previewTitle');
+          const templateSelect = document.getElementById('template');
+
+          // Handle template change
+          templateSelect.addEventListener('change', function() {
+            if (templateSelect.value === 'custom') return;
+            messageTextarea.value = templates[templateSelect.value];
+            updatePreview();
+          });
 
           // Update preview
           function updatePreview() {
