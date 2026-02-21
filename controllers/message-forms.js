@@ -1523,6 +1523,13 @@ Great White Security`;
           </div>
 
           <form id="pricingForm">
+            <label for="systemType">🔧 System Type:</label>
+            <select id="systemType" name="systemType" multiple style="min-height: 90px;">
+              ${['CCTV', 'Alarm', 'Access Control', 'Intercom', 'Other'].map(t => `
+                <option value="${t}" ${systemTypes.includes(t) ? 'selected' : ''}>${t}</option>
+              `).join('')}
+            </select>
+
             <label for="product">📦 Select Product:</label>
             <select id="product" name="product">
               ${products.map(p => `
@@ -1578,8 +1585,18 @@ Great White Security`;
           const loading = document.getElementById('loading');
           const success = document.getElementById('success');
           const openCheckoutBtn = document.getElementById('openCheckoutBtn');
+          const systemTypeSelect = document.getElementById('systemType');
           const clientName = '${clientName}';
-          const systemTypeText = '${systemTypeText}';
+
+          // Derive system type text from the multi-select
+          function getSystemTypeText() {
+            const selected = Array.from(systemTypeSelect.selectedOptions).map(o => o.value.toLowerCase());
+            if (selected.length === 0) return 'alarm system';
+            if (selected.length === 1) return selected[0] + ' system';
+            return selected.join(' and ') + ' systems';
+          }
+
+          let systemTypeText = getSystemTypeText();
 
           // Message templates
           function getStandardTemplate(name, systemType, price, link) {
@@ -1604,12 +1621,12 @@ Great White Security\`;
           function getEmergencyTemplate(name, systemType, price, link) {
             return \`Hi \${name}, I've arranged for one of our technicians to attend today as an emergency call-out to address your \${systemType}.
 
-The emergency call-out fee is $\${price} inc. GST, which includes travel and up to 1 hour on site.
+The emergency call-out fee is $\${price} + GST, which includes travel and up to 1 hour on site.
 
 To confirm the booking, please make payment here:
 \${link}
 
-The technician will contact you shortly to confirm their ETA.
+Once payment is received, the technician will contact you shortly to confirm their ETA.
 
 Thanks,
 Ricky
@@ -1704,6 +1721,20 @@ Great White Security\`;
             autoSelectProduct(templateSelect.value);
             generateMessage();
           });
+          // When system type changes, update text, regenerate message, and save to Airtable
+          systemTypeSelect.addEventListener('change', function() {
+            systemTypeText = getSystemTypeText();
+            generateMessage();
+            // Save to Airtable in background
+            fetch('/api/update-system-type', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                leadId: '${engagementId}',
+                systemTypes: Array.from(systemTypeSelect.selectedOptions).map(o => o.value),
+              }),
+            }).catch(err => console.error('Failed to save system type:', err));
+          });
           messageTextarea.addEventListener('input', updatePreview);
 
           // Set correct template and message on initial load
@@ -1768,6 +1799,24 @@ Great White Security\`;
   } catch (error) {
     console.error('Error showing pricing form:', error);
     res.status(500).send('Error loading form');
+  }
+};
+
+/**
+ * Update system type on engagement
+ * POST /api/update-system-type
+ */
+exports.updateSystemType = async (req, res) => {
+  try {
+    const { leadId, systemTypes } = req.body;
+    if (!leadId || !systemTypes) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    await airtableService.updateEngagement(leadId, { 'System Type': systemTypes });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating system type:', error);
+    res.status(500).json({ error: 'Failed to update system type' });
   }
 };
 

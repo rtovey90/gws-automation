@@ -163,6 +163,7 @@ app.post('/api/send-tech-availability', messageFormsController.sendTechAvailabil
 app.get('/send-pricing-form/:leadId', messageFormsController.showPricingForm);
 app.post('/api/send-pricing-form', messageFormsController.sendPricingForm);
 app.post('/api/create-checkout-session', messageFormsController.createCheckoutSession);
+app.post('/api/update-system-type', messageFormsController.updateSystemType);
 
 // Tech assignment routes
 app.get('/assign-tech/:leadId', techAssignmentController.showAssignmentForm);
