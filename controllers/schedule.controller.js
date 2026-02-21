@@ -396,17 +396,7 @@ Ricky (Great White Security)`;
         );
 
         console.log(`✓ Completion SMS sent to ${techFirstName}`);
-
-        // Log the message
-        await airtableService.logMessage({
-          engagementId: engagementId,
-          direction: 'Outbound',
-          type: 'SMS',
-          to: techPhone,
-          from: process.env.TWILIO_PHONE_NUMBER,
-          content: message,
-          status: 'Sent',
-        });
+        // Note: twilioService.sendSMS() already logs the message to Airtable
       }
     }
 
