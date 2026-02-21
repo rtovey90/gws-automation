@@ -345,9 +345,10 @@ exports.scheduleJob = async (req, res) => {
     const assignedTechIds = engagement.fields['Assigned Tech Name'];
 
     // Convert datetime-local format to ISO 8601 for Airtable
-    // Input: "2026-01-22T10:40" -> Output: "2026-01-22T10:40:00.000Z"
-    const isoDate = new Date(scheduledDate).toISOString();
-    console.log(`📅 Converted date to ISO: ${isoDate}`);
+    // Input is Perth time (AWST = UTC+8), so append +08:00 before converting
+    // e.g. "2026-01-22T10:40" -> "2026-01-22T02:40:00.000Z"
+    const isoDate = new Date(scheduledDate + ':00+08:00').toISOString();
+    console.log(`📅 Converted date to ISO (Perth→UTC): ${isoDate}`);
 
     // Update engagement with scheduled date and status
     await airtableService.updateEngagement(engagementId, {
