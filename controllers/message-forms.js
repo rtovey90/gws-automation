@@ -1292,6 +1292,9 @@ exports.showPricingForm = async (req, res) => {
       `);
     }
 
+    // Sort products by price (cheapest first) so standard callout is the default
+    products.sort((a, b) => (a.fields.Price || 0) - (b.fields.Price || 0));
+
     // Get selected product if exists
     const selectedProductId = lead.fields['Selected Product'] ? lead.fields['Selected Product'][0] : null;
     const selectedProduct = selectedProductId ? products.find(p => p.id === selectedProductId) : products[0];
@@ -1686,7 +1689,10 @@ Great White Security\`;
           });
           templateSelect.addEventListener('change', generateMessage);
           messageTextarea.addEventListener('input', updatePreview);
-          updatePreview(); // Initial preview
+
+          // Set correct template and message on initial load
+          autoDetectTemplate();
+          generateMessage();
 
           // Handle form submission
           form.addEventListener('submit', async (e) => {
