@@ -68,7 +68,7 @@ exports.showMessageForm = async (req, res) => {
         break;
       case 'payment-received':
         templateName = 'Payment Received Confirmation';
-        sentField = 'Payment Received Sent';
+        sentField = null; // No separate tracking field — Status change covers it
         pageTitle = 'Payment Received';
         break;
       default:
@@ -519,9 +519,10 @@ exports.sendMessage = async (req, res) => {
     });
 
     // Mark as sent in Airtable and update status
-    const updates = {
-      [sentField]: true,
-    };
+    const updates = {};
+    if (sentField) {
+      updates[sentField] = true;
+    }
 
     // Update status based on message type
     if (messageType === 'request-photos') {
