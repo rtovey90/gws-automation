@@ -1217,6 +1217,13 @@ exports.showConversation = async (req, res) => {
             <button class="template-btn" onclick="loadTemplate('photos')">Request Photos from Client</button>
             <button class="template-btn" onclick="loadTemplate('payment')">Send Payment Link to Client</button>
             <button class="template-btn" onclick="loadTemplate('paymentReceived')">Payment Received</button>
+            <div style="position: relative; display: inline-block;">
+              <button class="template-btn" onclick="toggleJobSummaryDropdown(event)" id="jobSummaryBtn">Job Summary ▾</button>
+              <div id="jobSummaryDropdown" style="display:none; position:absolute; bottom:calc(100% + 4px); left:0; background:#1a1f3a; border:1px solid rgba(120,228,255,0.3); border-radius:8px; padding:4px; z-index:100; min-width:180px; box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+                <button onclick="loadTemplate('summaryNoBalance')" style="display:block; width:100%; padding:8px 12px; background:none; border:none; color:#e0e0e0; text-align:left; cursor:pointer; border-radius:6px; font-size:13px; font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='rgba(120,228,255,0.15)'" onmouseout="this.style.background='none'">No Extra Charge</button>
+                <button onclick="loadTemplate('summaryBalanceDue')" style="display:block; width:100%; padding:8px 12px; background:none; border:none; color:#e0e0e0; text-align:left; cursor:pointer; border-radius:6px; font-size:13px; font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='rgba(120,228,255,0.15)'" onmouseout="this.style.background='none'">Balance Due</button>
+              </div>
+            </div>
             <button class="template-btn" onclick="loadTemplate('review')">Request Review</button>
           </div>
         </div>
@@ -1279,6 +1286,52 @@ The assigned technician will be in touch within the next 24 hours to schedule th
 If you have any questions in the meantime, feel free to reach out.
 
 Thanks,
+Ricky
+Great White Security\`,
+            summaryNoBalance: \`Hi ${customerName},
+
+Here's a summary from the technician's attendance today:
+
+Attendance
+[DESCRIBE ATTENDANCE DETAILS]
+
+Findings & Work Completed
+[DESCRIBE FINDINGS AND WORK]
+
+Codes
+[LIST ANY CODES]
+
+Outstanding Issues
+[DESCRIBE ANY REMAINING ISSUES]
+
+Recommendation
+[DESCRIBE RECOMMENDED NEXT STEPS]
+
+Billing
+No additional charges — everything was covered within the call-out fee.
+
+If you'd like us to provide a quote for the recommended next steps, we can arrange this during the week.
+
+Kind regards,
+Ricky
+Great White Security\`,
+            summaryBalanceDue: \`Hi ${customerName},
+
+Just a summary from our attendance and the proposed next steps:
+
+[DESCRIBE WHAT WAS DONE AND FINDINGS]
+
+Next steps:
+[DESCRIBE WHAT NEEDS TO HAPPEN NEXT]
+
+Regarding billing:
+There is a remaining balance of $[AMOUNT] from the first visit (additional time beyond the included 30 minutes).
+
+For the follow-up visit, the standard $247 call-out will apply to secure the booking (this covers the first 30 minutes on site). Additional labour is billed at $147 per hour.
+
+[PAYMENT LINK OR INSTRUCTIONS]
+
+Kind regards,
 Ricky
 Great White Security\`,
             review: \`Hey ${customerName}, thanks again for trusting Great White Security.
@@ -1371,7 +1424,22 @@ Ricky (Great White Security)\`
 
             // Move cursor to end
             messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+
+            // Close job summary dropdown if open
+            const dd = document.getElementById('jobSummaryDropdown');
+            if (dd) dd.style.display = 'none';
           }
+
+          function toggleJobSummaryDropdown(e) {
+            e.stopPropagation();
+            const dd = document.getElementById('jobSummaryDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+          }
+
+          document.addEventListener('click', function() {
+            const dd = document.getElementById('jobSummaryDropdown');
+            if (dd) dd.style.display = 'none';
+          });
 
           async function sendMessage() {
             const message = messageInput.value.trim();
