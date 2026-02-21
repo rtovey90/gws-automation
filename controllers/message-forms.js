@@ -1665,6 +1665,18 @@ Great White Security\`;
             }
           }
 
+          // Auto-select matching product when template changes
+          function autoSelectProduct(template) {
+            const options = Array.from(productSelect.options);
+            if (template === 'emergency') {
+              const match = options.find(o => (o.dataset.name || o.textContent).toLowerCase().includes('emergency'));
+              if (match) productSelect.value = match.value;
+            } else if (template === 'standard') {
+              const match = options.find(o => !(o.dataset.name || o.textContent).toLowerCase().includes('emergency'));
+              if (match) productSelect.value = match.value;
+            }
+          }
+
           // Generate message based on selected template and product
           function generateMessage() {
             const template = templateSelect.value;
@@ -1687,7 +1699,11 @@ Great White Security\`;
             autoDetectTemplate();
             generateMessage();
           });
-          templateSelect.addEventListener('change', generateMessage);
+          // When template changes, auto-switch product then regenerate
+          templateSelect.addEventListener('change', function() {
+            autoSelectProduct(templateSelect.value);
+            generateMessage();
+          });
           messageTextarea.addEventListener('input', updatePreview);
 
           // Set correct template and message on initial load
