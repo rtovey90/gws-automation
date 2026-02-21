@@ -1257,15 +1257,13 @@ exports.showPricingForm = async (req, res) => {
       `);
     }
 
-    // Sync Stripe products to Airtable before fetching
-    try {
-      const productsController = require('./products');
-      await productsController.syncStripeProductsInternal();
-    } catch (syncError) {
-      console.error('⚠️ Product sync failed, using cached products:', syncError.message);
-    }
+    // Fire-and-forget: sync Stripe products in background (don't block page load)
+    const productsController = require('./products');
+    productsController.syncStripeProductsInternal().catch(err => {
+      console.error('⚠️ Background product sync failed:', err.message);
+    });
 
-    // Get all active products
+    // Get all active products from Airtable (cached, instant)
     const products = await airtableService.getActiveProducts();
 
     if (!products || products.length === 0) {
