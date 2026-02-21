@@ -1523,12 +1523,15 @@ Great White Security`;
           </div>
 
           <form id="pricingForm">
-            <label for="systemType">🔧 System Type:</label>
-            <select id="systemType" name="systemType" multiple style="min-height: 90px;">
+            <label>🔧 System Type:</label>
+            <div id="systemType" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
               ${['CCTV', 'Alarm', 'Access Control', 'Intercom', 'Other'].map(t => `
-                <option value="${t}" ${systemTypes.includes(t) ? 'selected' : ''}>${t}</option>
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer;">
+                  <input type="checkbox" name="systemType" value="${t}" ${systemTypes.includes(t) ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                  ${t}
+                </label>
               `).join('')}
-            </select>
+            </div>
 
             <label for="product">📦 Select Product:</label>
             <select id="product" name="product">
@@ -1585,12 +1588,17 @@ Great White Security`;
           const loading = document.getElementById('loading');
           const success = document.getElementById('success');
           const openCheckoutBtn = document.getElementById('openCheckoutBtn');
-          const systemTypeSelect = document.getElementById('systemType');
+          const systemTypeContainer = document.getElementById('systemType');
           const clientName = '${clientName}';
 
-          // Derive system type text from the multi-select
+          // Get checked system types
+          function getSelectedSystemTypes() {
+            return Array.from(systemTypeContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+          }
+
+          // Derive system type text from checkboxes
           function getSystemTypeText() {
-            const selected = Array.from(systemTypeSelect.selectedOptions).map(o => o.value.toLowerCase());
+            const selected = getSelectedSystemTypes().map(s => s.toLowerCase());
             if (selected.length === 0) return 'alarm system';
             if (selected.length === 1) return selected[0] + ' system';
             return selected.join(' and ') + ' systems';
@@ -1721,8 +1729,8 @@ Great White Security\`;
             autoSelectProduct(templateSelect.value);
             generateMessage();
           });
-          // When system type changes, update text, regenerate message, and save to Airtable
-          systemTypeSelect.addEventListener('change', function() {
+          // When system type checkboxes change, update text, regenerate message, and save to Airtable
+          systemTypeContainer.addEventListener('change', function() {
             systemTypeText = getSystemTypeText();
             generateMessage();
             // Save to Airtable in background
@@ -1731,7 +1739,7 @@ Great White Security\`;
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 leadId: '${engagementId}',
-                systemTypes: Array.from(systemTypeSelect.selectedOptions).map(o => o.value),
+                systemTypes: getSelectedSystemTypes(),
               }),
             }).catch(err => console.error('Failed to save system type:', err));
           });
