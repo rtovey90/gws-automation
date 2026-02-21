@@ -921,4 +921,359 @@ exports.submitReviewRequest = async (req, res) => {
   }
 };
 
+/**
+ * Show Job Summary form (GET /send-job-summary/:leadId)
+ * Airtable button opens this page to compose and send a job summary to the client
+ */
+exports.showJobSummaryForm = async (req, res) => {
+  try {
+    const engagementId = req.params.leadId;
+
+    if (!engagementId) {
+      return res.status(400).send('<h1>Error: Missing engagement ID</h1>');
+    }
+
+    console.log(`📋 Opening job summary form for engagement: ${engagementId}`);
+
+    const engagement = await airtableService.getEngagement(engagementId);
+
+    if (!engagement) {
+      return res.status(404).send('<h1>Error: Engagement not found</h1>');
+    }
+
+    let customerPhone = engagement.fields['Mobile Phone (from Customer)'] || engagement.fields['Phone (from Customer)'];
+    if (Array.isArray(customerPhone)) customerPhone = customerPhone[0];
+    customerPhone = String(customerPhone || '').trim();
+
+    if (!customerPhone) {
+      return res.status(400).send('<h1>Error: Customer has no phone number</h1>');
+    }
+
+    let firstName = engagement.fields['First Name (from Customer)'];
+    let lastName = engagement.fields['Last Name (from Customer)'];
+    if (Array.isArray(firstName)) firstName = firstName[0];
+    if (Array.isArray(lastName)) lastName = lastName[0];
+    firstName = firstName || 'there';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Client';
+
+    const templateNoBalance = `Hi ${firstName},
+
+Here's a summary from the technician's attendance today:
+
+Attendance
+[DESCRIBE ATTENDANCE DETAILS]
+
+Findings & Work Completed
+[DESCRIBE FINDINGS AND WORK]
+
+Codes
+[LIST ANY CODES]
+
+Outstanding Issues
+[DESCRIBE ANY REMAINING ISSUES]
+
+Recommendation
+[DESCRIBE RECOMMENDED NEXT STEPS]
+
+Billing
+No additional charges — everything was covered within the call-out fee.
+
+If you'd like us to provide a quote for the recommended next steps, we can arrange this during the week.
+
+Kind regards,
+Ricky
+Great White Security`;
+
+    const templateBalanceDue = `Hi ${firstName},
+
+Just a summary from our attendance and the proposed next steps:
+
+[DESCRIBE WHAT WAS DONE AND FINDINGS]
+
+Next steps:
+[DESCRIBE WHAT NEEDS TO HAPPEN NEXT]
+
+Regarding billing:
+There is a remaining balance of $[AMOUNT] from the first visit (additional time beyond the included 30 minutes).
+
+For the follow-up visit, the standard $247 call-out will apply to secure the booking (this covers the first 30 minutes on site). Additional labour is billed at $147 per hour.
+
+[PAYMENT LINK OR INSTRUCTIONS]
+
+Kind regards,
+Ricky
+Great White Security`;
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Send Job Summary - ${fullName}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2040 100%);
+            padding: 20px;
+            min-height: 100vh;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          }
+          h1 { color: #0a0e27; font-size: 28px; margin-bottom: 10px; }
+          .subtitle { color: #666; margin-bottom: 30px; font-size: 16px; }
+          .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #3dbfe0;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+          }
+          .info-box strong { color: #0a0e27; }
+          .template-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+          }
+          .template-selector button {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #f8f9fa;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+          }
+          .template-selector button.active {
+            border-color: #3dbfe0;
+            background: #e8f8fd;
+            color: #0a0e27;
+          }
+          .template-selector button:hover:not(.active) {
+            border-color: #aaa;
+          }
+          label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; }
+          textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 350px;
+            transition: border-color 0.3s;
+          }
+          textarea:focus { outline: none; border-color: #3dbfe0; }
+          .preview-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+          }
+          .preview-section h3 { color: #333; margin-bottom: 15px; font-size: 18px; }
+          .preview-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            white-space: pre-wrap;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+          }
+          .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+          }
+          .btn-primary { background: #0a0e27; color: white; }
+          .btn-primary:hover {
+            background: #1a2040;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(10, 14, 39, 0.4);
+          }
+          .btn-primary:active { transform: translateY(0); }
+          .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+          .loading { display: none; text-align: center; padding: 40px; }
+          .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3dbfe0;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+          }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>📋 Send Job Summary</h1>
+          <p class="subtitle">Choose a template, edit the details, then send to ${firstName}</p>
+
+          <div class="info-box">
+            <strong>Client:</strong> ${fullName}<br>
+            <strong>Phone:</strong> ${customerPhone}
+          </div>
+
+          <label>Choose Template:</label>
+          <div class="template-selector">
+            <button id="btnNoBalance" class="active" onclick="selectTemplate('noBalance')">No Extra Charge</button>
+            <button id="btnBalanceDue" onclick="selectTemplate('balanceDue')">Balance Due</button>
+          </div>
+
+          <form id="summaryForm">
+            <label for="message">Edit Message:</label>
+            <textarea id="message" name="message">${templateNoBalance}</textarea>
+
+            <div class="preview-section">
+              <h3>Preview (what ${firstName} will receive):</h3>
+              <div class="preview-content" id="preview"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+              Send Job Summary to ${firstName}
+            </button>
+          </form>
+
+          <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Sending message...</p>
+          </div>
+        </div>
+
+        <script>
+          const templates = {
+            noBalance: ${JSON.stringify(templateNoBalance)},
+            balanceDue: ${JSON.stringify(templateBalanceDue)}
+          };
+
+          const messageTextarea = document.getElementById('message');
+          const preview = document.getElementById('preview');
+          const form = document.getElementById('summaryForm');
+          const loading = document.getElementById('loading');
+
+          function selectTemplate(key) {
+            messageTextarea.value = templates[key];
+            document.getElementById('btnNoBalance').className = key === 'noBalance' ? 'active' : '';
+            document.getElementById('btnBalanceDue').className = key === 'balanceDue' ? 'active' : '';
+            updatePreview();
+          }
+
+          function updatePreview() {
+            preview.textContent = messageTextarea.value;
+          }
+
+          messageTextarea.addEventListener('input', updatePreview);
+          updatePreview();
+
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const message = messageTextarea.value.trim();
+            if (!message) { alert('Please enter a message'); return; }
+
+            form.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+              const response = await fetch('/api/submit-job-summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  engagementId: '${engagementId}',
+                  message: message
+                }),
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to send message');
+              }
+
+              document.querySelector('.container').innerHTML = \`
+                <div style="text-align: center; padding: 50px;">
+                  <div style="font-size: 60px; margin-bottom: 20px;">✅</div>
+                  <h1 style="color: #0a0e27;">Job Summary Sent!</h1>
+                  <p style="color: #666; font-size: 18px; margin-top: 10px;">Message sent to ${firstName} successfully.</p>
+                  <p style="color: #999; margin-top: 20px;">You can close this window.</p>
+                </div>
+              \`;
+            } catch (error) {
+              form.style.display = 'block';
+              loading.style.display = 'none';
+              alert('Error: ' + error.message);
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error showing job summary form:', error);
+    res.status(500).send('<h1>Error loading form</h1>');
+  }
+};
+
+/**
+ * Submit Job Summary (POST /api/submit-job-summary)
+ */
+exports.submitJobSummary = async (req, res) => {
+  try {
+    const { engagementId, message } = req.body;
+
+    if (!engagementId || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(`📋 Sending job summary for engagement: ${engagementId}`);
+
+    const engagement = await airtableService.getEngagement(engagementId);
+
+    if (!engagement) {
+      return res.status(404).json({ error: 'Engagement not found' });
+    }
+
+    let customerPhone = engagement.fields['Mobile Phone (from Customer)'] || engagement.fields['Phone (from Customer)'];
+    if (Array.isArray(customerPhone)) customerPhone = customerPhone[0];
+    customerPhone = String(customerPhone || '').trim();
+
+    if (!customerPhone) {
+      return res.status(400).json({ error: 'Customer has no phone number' });
+    }
+
+    // Send SMS (handles long message splitting internally)
+    await twilioService.sendSMS(
+      customerPhone,
+      message,
+      { leadId: engagementId, type: 'job_summary' }
+    );
+
+    console.log(`✓ Job summary sent to ${customerPhone}`);
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error sending job summary:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+};
+
 module.exports = exports;

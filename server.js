@@ -133,6 +133,8 @@ app.post('/api/review-follow-up', communicationsController.reviewFollowUp);
 app.get('/api/send-message', communicationsController.sendMessage); // Button-triggered messages from Airtable
 app.get('/api/send-review-request/:leadId', communicationsController.sendEngagementReviewRequest); // Show review request form
 app.post('/api/submit-review-request', communicationsController.submitReviewRequest); // Submit review request
+app.get('/send-job-summary/:leadId', communicationsController.showJobSummaryForm); // Show job summary form
+app.post('/api/submit-job-summary', communicationsController.submitJobSummary); // Submit job summary
 
 // Photo upload routes
 app.get('/upload-photos/:leadId', uploadsController.showUploadForm);
