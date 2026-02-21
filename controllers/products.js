@@ -6,55 +6,40 @@ const airtableService = require('../services/airtable.service');
  */
 
 /**
+ * Internal sync function (no req/res dependency)
+ * Syncs all Stripe payment links to Airtable Products table
+ */
+exports.syncStripeProductsInternal = async () => {
+  console.log('🔄 Syncing Stripe products to Airtable...');
+
+  const paymentLinks = await stripeService.getAllPaymentLinksWithDetails();
+  console.log(`Found ${paymentLinks.length} payment links in Stripe`);
+
+  for (const link of paymentLinks) {
+    await airtableService.upsertProduct({
+      name: `${link.productName} - $${link.priceAmount}`,
+      description: link.productName,
+      price: link.priceAmount,
+      paymentLink: link.url,
+      stripeProductId: link.productId,
+      active: link.active,
+    });
+    console.log(`  ✓ Synced: ${link.productName} - $${link.priceAmount}`);
+  }
+
+  return paymentLinks.length;
+};
+
+/**
  * Sync Stripe payment links to Airtable Products table
  * GET /api/sync-stripe-products
  */
 exports.syncStripeProducts = async (req, res) => {
   try {
-    console.log('🔄 Syncing Stripe products to Airtable...');
-
-    // Get all payment links with product details from Stripe
-    const paymentLinks = await stripeService.getAllPaymentLinksWithDetails();
-
-    console.log(`Found ${paymentLinks.length} payment links in Stripe`);
-
-    const results = [];
-
-    // Upsert each product into Airtable
-    for (const link of paymentLinks) {
-      try {
-        const productData = {
-          name: `${link.productName} - $${link.priceAmount}`,
-          description: link.productName,
-          price: link.priceAmount,
-          paymentLink: link.url,
-          stripeProductId: link.productId,
-          active: link.active,
-        };
-
-        const record = await airtableService.upsertProduct(productData);
-        results.push({
-          productId: link.productId,
-          name: productData.name,
-          status: 'synced',
-          airtableId: record.id,
-        });
-
-        console.log(`  ✓ Synced: ${productData.name}`);
-      } catch (error) {
-        console.error(`  ✗ Failed to sync product ${link.productId}:`, error.message);
-        results.push({
-          productId: link.productId,
-          status: 'failed',
-          error: error.message,
-        });
-      }
-    }
-
+    const count = await exports.syncStripeProductsInternal();
     res.status(200).json({
       success: true,
-      message: `Synced ${results.length} products from Stripe`,
-      results,
+      message: `Synced ${count} products from Stripe`,
     });
   } catch (error) {
     console.error('Error syncing Stripe products:', error);

@@ -1257,6 +1257,14 @@ exports.showPricingForm = async (req, res) => {
       `);
     }
 
+    // Sync Stripe products to Airtable before fetching
+    try {
+      const productsController = require('./products');
+      await productsController.syncStripeProductsInternal();
+    } catch (syncError) {
+      console.error('⚠️ Product sync failed, using cached products:', syncError.message);
+    }
+
     // Get all active products
     const products = await airtableService.getActiveProducts();
 
@@ -1528,6 +1536,13 @@ Great White Security`;
               </button>
             </div>
 
+            <label for="template">📋 Message Template:</label>
+            <select id="template" name="template">
+              <option value="standard" selected>Standard Callout</option>
+              <option value="emergency">Emergency Callout</option>
+              <option value="custom">Custom (keep current text)</option>
+            </select>
+
             <label for="message">📝 Edit Message:</label>
             <textarea id="message" name="message">${defaultMessage}</textarea>
 
@@ -1556,6 +1571,7 @@ Great White Security`;
         <script>
           const form = document.getElementById('pricingForm');
           const productSelect = document.getElementById('product');
+          const templateSelect = document.getElementById('template');
           const messageTextarea = document.getElementById('message');
           const preview = document.getElementById('preview');
           const loading = document.getElementById('loading');
@@ -1563,6 +1579,41 @@ Great White Security`;
           const openCheckoutBtn = document.getElementById('openCheckoutBtn');
           const clientName = '${clientName}';
           const systemTypeText = '${systemTypeText}';
+
+          // Message templates
+          function getStandardTemplate(name, systemType, price, link) {
+            return \`Hi \${name}, thanks for sending those through.
+
+Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your \${systemType}.
+
+The call-out is just $\${price} inc. GST, which includes travel and up to 30 minutes on site.
+
+If more time is needed, additional labour is billed at $147 per hour inc. GST.
+
+To secure the booking, please make payment here:
+\${link}
+
+Once payment is through, the technician will reach out to confirm a suitable time.
+
+Thanks,
+Ricky
+Great White Security\`;
+          }
+
+          function getEmergencyTemplate(name, systemType, price, link) {
+            return \`Hi \${name}, I've arranged for one of our technicians to attend today as an emergency call-out to address your \${systemType}.
+
+The emergency call-out fee is $\${price} inc. GST, which includes travel and up to 1 hour on site.
+
+To confirm the booking, please make payment here:
+\${link}
+
+The technician will contact you shortly to confirm their ETA.
+
+Thanks,
+Ricky
+Great White Security\`;
+          }
 
           // Update preview when message changes
           function updatePreview() {
@@ -1602,39 +1653,25 @@ Great White Security`;
 
           openCheckoutBtn.addEventListener('click', openCheckout);
 
-          // Update message when product changes
-          function updateMessage() {
+          // Generate message based on selected template and product
+          function generateMessage() {
+            const template = templateSelect.value;
+            if (template === 'custom') return; // Don't overwrite custom text
+
             const selectedOption = productSelect.options[productSelect.selectedIndex];
             const paymentLink = selectedOption.dataset.link;
             const price = selectedOption.dataset.price;
 
-            const newMessage = \`Hi \${clientName}, thanks for sending those through.
-
-Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your \${systemTypeText}.
-
-The call-out is $\${price} inc. GST, which includes travel and up to 30 minutes on site.
-
-If more time is needed, additional labour is billed at $147 per hour inc. GST, with a maximum of 2 hours total on site. If the issue can't be resolved within this time, work will stop and I'll contact you to discuss next steps or alternative options. The technician will not remain on site beyond 2 hours without a new booking being arranged.
-
-To secure the booking, please make payment here:
-\${paymentLink}
-
-Once payment is through, the technician will reach out to confirm a suitable time.
-
-Just to set expectations upfront — based on the age of your system, it's considered end-of-life and parts are no longer supported. We're happy to attempt troubleshooting, however there are no guarantees the system can be restored to full functionality.
-
-If you're considering replacing it with a newer, more reliable setup (including smartphone app control and optional monitoring), we have interest-free packages starting from $97/month over 24 months:
-https://www.greatwhitesecurity.com/alarm-packages/
-
-Thanks,
-Ricky
-Great White Security\`;
-
-            messageTextarea.value = newMessage;
+            if (template === 'emergency') {
+              messageTextarea.value = getEmergencyTemplate(clientName, systemTypeText, price, paymentLink);
+            } else {
+              messageTextarea.value = getStandardTemplate(clientName, systemTypeText, price, paymentLink);
+            }
             updatePreview();
           }
 
-          productSelect.addEventListener('change', updateMessage);
+          productSelect.addEventListener('change', generateMessage);
+          templateSelect.addEventListener('change', generateMessage);
           messageTextarea.addEventListener('input', updatePreview);
           updatePreview(); // Initial preview
 
