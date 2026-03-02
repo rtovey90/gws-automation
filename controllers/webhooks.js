@@ -1,6 +1,36 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary (same pattern as uploads.js)
+const cloudinaryUrl = process.env.CLOUDINARY_URL;
+let cloudinaryConfig = null;
+
+if (cloudinaryUrl) {
+  try {
+    const parsed = new URL(cloudinaryUrl);
+    cloudinaryConfig = {
+      cloud_name: parsed.hostname,
+      api_key: decodeURIComponent(parsed.username),
+      api_secret: decodeURIComponent(parsed.password),
+      secure: true,
+    };
+  } catch (error) {
+    console.error('Invalid CLOUDINARY_URL format. Falling back to discrete variables.');
+  }
+}
+
+if (!cloudinaryConfig) {
+  cloudinaryConfig = {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  };
+}
+
+cloudinary.config(cloudinaryConfig);
 
 /**
  * Webhook Controllers - Handle incoming webhooks from external services
@@ -727,6 +757,7 @@ exports.handleTwilioSMS = async (req, res) => {
 
     // Handle media (photos) if present
     const mediaUrls = [];
+    const cloudinaryAttachments = [];
     if (NumMedia && parseInt(NumMedia) > 0) {
       console.log(`📷 Processing ${NumMedia} media attachments...`);
 
@@ -743,29 +774,48 @@ exports.handleTwilioSMS = async (req, res) => {
         }
       }
 
-      // Add photos to engagement if it exists
-      if (engagement) {
-        // Add Twilio auth to media URLs for Airtable to download
-        const authenticatedUrls = mediaUrls.map(media => ({
-          url: `${media.url}?auth=${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`,
-        }));
+      // Download from Twilio and upload to Cloudinary for permanent URLs
+      const twilioAuth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+      const engagementFolder = engagement ? engagement.id : 'unmatched';
 
-        // Update engagement with photos (client sent via SMS)
+      for (let i = 0; i < mediaUrls.length; i++) {
         try {
-          // Get existing photos
-          const existingPhotos = engagement.fields.Photos || [];
-
-          // Append new photos
-          const updatedPhotos = [
-            ...existingPhotos,
-            ...authenticatedUrls,
-          ];
-
-          await airtableService.updateEngagement(engagement.id, {
-            Photos: updatedPhotos,
+          console.log(`📥 Downloading media ${i + 1} from Twilio...`);
+          const response = await fetch(mediaUrls[i].url, {
+            headers: { Authorization: `Basic ${twilioAuth}` },
           });
 
-          console.log(`✓ ${mediaUrls.length} photo(s) saved to engagement`);
+          if (!response.ok) {
+            console.error(`❌ Failed to download media ${i + 1}: ${response.status}`);
+            continue;
+          }
+
+          const buffer = Buffer.from(await response.arrayBuffer());
+          const base64Data = `data:${mediaUrls[i].contentType};base64,${buffer.toString('base64')}`;
+
+          console.log(`📤 Uploading media ${i + 1} to Cloudinary (${(buffer.length / 1024 / 1024).toFixed(2)}MB)...`);
+          const uploadResult = await cloudinary.uploader.upload(base64Data, {
+            folder: `gws-leads/${engagementFolder}`,
+            resource_type: 'auto',
+            public_id: `mms-${Date.now()}-${i}`,
+          });
+
+          console.log(`✓ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
+          cloudinaryAttachments.push({ url: uploadResult.secure_url });
+        } catch (uploadError) {
+          console.error(`❌ Failed to process media ${i + 1}:`, uploadError.message);
+        }
+      }
+
+      // Save to engagement if we have photos and an engagement
+      if (engagement && cloudinaryAttachments.length > 0) {
+        try {
+          const existingPhotos = engagement.fields.Photos || [];
+          await airtableService.updateEngagement(engagement.id, {
+            Photos: [...existingPhotos, ...cloudinaryAttachments],
+            Status: 'Reviewing 👀',
+          });
+          console.log(`✓ ${cloudinaryAttachments.length} photo(s) saved to engagement`);
         } catch (photoError) {
           console.error('Error saving photos to engagement:', photoError);
         }
@@ -782,9 +832,12 @@ exports.handleTwilioSMS = async (req, res) => {
         console.log('No tech match for phone:', clientPhone);
       }
 
-      // Build content with media URLs for display
+      // Build content with Cloudinary URLs for display (or Twilio URLs as fallback)
       let messageContent = Body || '';
-      if (mediaUrls.length > 0) {
+      if (cloudinaryAttachments.length > 0) {
+        const mediaLinks = cloudinaryAttachments.map(m => m.url).join('\n');
+        messageContent = messageContent ? `${messageContent}\n\n[Media]\n${mediaLinks}` : `[Media]\n${mediaLinks}`;
+      } else if (mediaUrls.length > 0) {
         const mediaLinks = mediaUrls.map(m => m.url).join('\n');
         messageContent = messageContent ? `${messageContent}\n\n[Media]\n${mediaLinks}` : `[Media]\n${mediaLinks}`;
       }
@@ -808,7 +861,8 @@ exports.handleTwilioSMS = async (req, res) => {
 
     // Send notification to admin
     try {
-      const photoText = mediaUrls.length > 0 ? `\n📷 ${mediaUrls.length} photo(s) attached` : '';
+      const photoCount = cloudinaryAttachments.length || mediaUrls.length;
+      const photoText = photoCount > 0 ? `\n📷 ${photoCount} photo(s) saved to engagement` : '';
 
       await twilioService.sendSMS(
         process.env.ADMIN_PHONE,
