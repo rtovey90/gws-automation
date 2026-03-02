@@ -962,6 +962,16 @@ class AirtableService {
     }
   }
 
+  async updateSiteVisit(siteVisitId, data) {
+    try {
+      const records = await tables.siteVisits.update([{ id: siteVisitId, fields: data }]);
+      return records[0];
+    } catch (error) {
+      console.error('Error updating site visit:', error);
+      throw error;
+    }
+  }
+
   /**
    * Get all site visits for an engagement, sorted by date descending
    */

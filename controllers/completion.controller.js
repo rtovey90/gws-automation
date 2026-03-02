@@ -598,48 +598,10 @@ exports.completeJob = async (req, res) => {
     console.log(`✅ Issue Resolved: ${issueResolved}`);
     console.log(`📷 Photos: ${files ? files.length : 0}`);
 
-    // Upload photos to Cloudinary
-    const photoAttachments = [];
-    const skippedFiles = [];
-    const cloudinaryLimit = 10 * 1024 * 1024; // 10MB Cloudinary free tier limit
+    // ── STEP 1: Save all text data to Airtable FIRST (before photo uploads) ──
 
-    if (files && files.length > 0) {
-      for (const file of files) {
-        try {
-          const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-
-          // Skip files over 10MB (Cloudinary free tier limit)
-          if (file.size > cloudinaryLimit) {
-            console.log(`⚠️ Skipping ${file.originalname} (${fileSizeMB}MB) - exceeds Cloudinary 10MB limit`);
-            skippedFiles.push(`${file.originalname} (${fileSizeMB}MB - too large)`);
-            continue;
-          }
-
-          console.log(`📤 Uploading ${file.originalname} (${fileSizeMB}MB) to Cloudinary...`);
-
-          // Upload to Cloudinary using base64
-          const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-
-          const uploadResult = await cloudinary.uploader.upload(base64Data, {
-            folder: `gws-jobs/${engagementId}`,
-            resource_type: 'auto',
-            public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
-          });
-
-          console.log(`✓ Uploaded ${file.originalname} to Cloudinary: ${uploadResult.secure_url}`);
-
-          photoAttachments.push({
-            url: uploadResult.secure_url,
-          });
-        } catch (uploadError) {
-          console.error(`❌ Failed to upload ${file.originalname} to Cloudinary:`, uploadError.message);
-          skippedFiles.push(`${file.originalname} (upload error)`);
-          // Continue with other files even if one fails
-        }
-      }
-    }
-
-    // 1. Create Site Visit record
+    // 1a. Create Site Visit record (without photos)
+    let siteVisitId = null;
     const siteVisitFields = {
       'Engagement': [engagementId],
       'Visit Date': today.toISOString().split('T')[0],
@@ -657,7 +619,6 @@ exports.completeJob = async (req, res) => {
     if (masterCode) siteVisitFields['Master Code'] = masterCode;
     if (cameraLogin) siteVisitFields['Camera Login'] = cameraLogin;
     if (cameraPassword) siteVisitFields['Camera Password'] = cameraPassword;
-    if (photoAttachments.length > 0) siteVisitFields['Photos'] = photoAttachments;
     if (tech2Name) {
       siteVisitFields['Tech 2 Name'] = tech2Name;
       if (tech2TimeArrived) siteVisitFields['Tech 2 Time Arrived'] = tech2TimeArrived;
@@ -665,13 +626,14 @@ exports.completeJob = async (req, res) => {
     }
 
     try {
-      await airtableService.createSiteVisit(siteVisitFields);
+      const siteVisit = await airtableService.createSiteVisit(siteVisitFields);
+      siteVisitId = siteVisit?.id || null;
+      console.log(`✓ Site visit record created${siteVisitId ? ': ' + siteVisitId : ''}`);
     } catch (siteVisitErr) {
       console.error('⚠️ Could not create site visit record:', siteVisitErr.message);
-      // Continue — still update engagement even if site visit table isn't set up yet
     }
 
-    // 2. Build visit block to APPEND to engagement Client Notes
+    // 1b. Build visit block and update engagement (without photos)
     const separator = `── VISIT ${vNum} — ${dateStr} ──────────────`;
     let visitBlock = separator;
     if (techName) visitBlock += `\nTech 1: ${techName}`;
@@ -688,14 +650,7 @@ exports.completeJob = async (req, res) => {
     visitBlock += `\n\nIssue Resolved: ${issueResolved || 'Yes'}`;
     if (nextSteps) visitBlock += `\nNext Steps: ${nextSteps}`;
     if (upgradeOpportunities) visitBlock += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
-    if (photoAttachments.length > 0) {
-      visitBlock += `\n\n📷 ${photoAttachments.length} photo(s) uploaded`;
-    }
-    if (skippedFiles.length > 0) {
-      visitBlock += `\n⚠️ Skipped files (too large): ${skippedFiles.join(', ')}`;
-    }
 
-    // 3. Update engagement record
     const engagement = await airtableService.getEngagement(engagementId);
     const existingNotes = engagement.fields['Client Notes'] || '';
     const appendedNotes = existingNotes
@@ -703,20 +658,12 @@ exports.completeJob = async (req, res) => {
       : visitBlock;
 
     const resolved = issueResolved === 'Yes';
-    const updates = {
+    await airtableService.updateEngagement(engagementId, {
       'Client Notes': appendedNotes,
       'Status': resolved ? 'Completed ✨' : 'Return Visit Required',
-    };
+    });
 
-    // Merge photos into engagement (all job photos browsable)
-    if (photoAttachments.length > 0) {
-      const existingPhotos = engagement.fields.Photos || [];
-      updates.Photos = [...existingPhotos, ...photoAttachments];
-    }
-
-    await airtableService.updateEngagement(engagementId, updates);
-
-    // Update time fields on engagement (most recent visit times)
+    // Update time fields on engagement
     if (timeArrived || timeDeparted) {
       try {
         const timeUpdates = {};
@@ -728,10 +675,74 @@ exports.completeJob = async (req, res) => {
       }
     }
 
-    console.log(`✓ Visit ${vNum} logged for engagement ${engagementId}`);
-
-    // Log activity
+    console.log(`✓ Visit ${vNum} text data saved for engagement ${engagementId}`);
     airtableService.logActivity(engagementId, 'Job marked as completed');
+
+    // ── STEP 2: Upload photos to Cloudinary (text data is already safe) ──
+
+    const photoAttachments = [];
+    const skippedFiles = [];
+    const cloudinaryLimit = 10 * 1024 * 1024; // 10MB Cloudinary free tier limit
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+
+          if (file.size > cloudinaryLimit) {
+            console.log(`⚠️ Skipping ${file.originalname} (${fileSizeMB}MB) - exceeds Cloudinary 10MB limit`);
+            skippedFiles.push(`${file.originalname} (${fileSizeMB}MB - too large)`);
+            continue;
+          }
+
+          console.log(`📤 Uploading ${file.originalname} (${fileSizeMB}MB) to Cloudinary...`);
+          const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+
+          const uploadResult = await cloudinary.uploader.upload(base64Data, {
+            folder: `gws-jobs/${engagementId}`,
+            resource_type: 'auto',
+            public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
+          });
+
+          console.log(`✓ Uploaded ${file.originalname} to Cloudinary: ${uploadResult.secure_url}`);
+          photoAttachments.push({ url: uploadResult.secure_url });
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload ${file.originalname} to Cloudinary:`, uploadError.message);
+          skippedFiles.push(`${file.originalname} (upload error)`);
+        }
+      }
+    }
+
+    // ── STEP 3: Attach photos to Airtable records (if any uploaded successfully) ──
+
+    if (photoAttachments.length > 0) {
+      try {
+        const existingPhotos = engagement.fields.Photos || [];
+        await airtableService.updateEngagement(engagementId, {
+          Photos: [...existingPhotos, ...photoAttachments],
+        });
+        console.log(`✓ ${photoAttachments.length} photo(s) added to engagement`);
+      } catch (photoErr) {
+        console.error('⚠️ Could not attach photos to engagement:', photoErr.message);
+      }
+
+      if (siteVisitId) {
+        try {
+          await airtableService.updateSiteVisit(siteVisitId, {
+            Photos: photoAttachments,
+          });
+          console.log(`✓ ${photoAttachments.length} photo(s) added to site visit`);
+        } catch (photoErr) {
+          console.error('⚠️ Could not attach photos to site visit:', photoErr.message);
+        }
+      }
+    }
+
+    if (skippedFiles.length > 0) {
+      console.log(`⚠️ Skipped files: ${skippedFiles.join(', ')}`);
+    }
+
+    console.log(`✓ Visit ${vNum} fully complete for engagement ${engagementId}`);
 
     res.status(200).json({ success: true });
   } catch (error) {
