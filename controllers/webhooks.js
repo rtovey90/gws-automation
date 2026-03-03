@@ -813,7 +813,6 @@ exports.handleTwilioSMS = async (req, res) => {
           const existingPhotos = engagement.fields.Photos || [];
           await airtableService.updateEngagement(engagement.id, {
             Photos: [...existingPhotos, ...cloudinaryAttachments],
-            Status: 'Reviewing 👀',
           });
           console.log(`✓ ${cloudinaryAttachments.length} photo(s) saved to engagement`);
         } catch (photoError) {
