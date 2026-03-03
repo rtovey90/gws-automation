@@ -702,7 +702,7 @@ exports.handleTwilioSMS = async (req, res) => {
         customerName = [firstName, lastName].filter(Boolean).join(' ') || clientPhone;
 
         // Get most recent engagement for this customer
-        const engagementIds = customer.fields.Engagements;
+        const engagementIds = customer.fields['Engagements 2'] || customer.fields.Engagements;
         if (engagementIds && engagementIds.length > 0) {
           // Get the first linked engagement (most recent)
           engagement = await airtableService.getEngagement(engagementIds[0]);
