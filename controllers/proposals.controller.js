@@ -159,7 +159,7 @@ exports.showProposal = async (req, res) => {
 
     // Build upgrade cards for pricing page
     const upgradeCardsHtml = cameraOptions.map(opt => `
-      <div class="upgrade-card" onclick="toggleUpgrade(this, ${opt.price || 0})">
+      <div class="upgrade-card" onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false})" data-discountable="${opt.discountable !== false}">
         <div class="upgrade-check">&#10003;</div>
         <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p></div>
         <div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>
@@ -745,7 +745,8 @@ ${sitePhotoPages}
 <script>
   let selectedBasePrice = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
-  let upgradeTotal = 0;
+  let discountableUpgradeTotal = 0;
+  let nonDiscountableUpgradeTotal = 0;
   const DISCOUNT_TYPE = '${escapeHtml(discountType)}';
   const DISCOUNT_VALUE = ${Number(discountValue) || 0};
   const DISCOUNT_NAME = '${escapeHtml(discountName)}';
@@ -753,19 +754,20 @@ ${sitePhotoPages}
   const DISCOUNT_EXPIRES = '${escapeHtml(discountExpires)}';
 
   function getTotal() {
-    return selectedBasePrice + upgradeTotal;
+    return selectedBasePrice + discountableUpgradeTotal + nonDiscountableUpgradeTotal;
   }
 
-  function applyDiscount(total) {
+  function applyDiscount(discountableSubtotal) {
     if (!DISCOUNT_TYPE || DISCOUNT_VALUE <= 0 || DISCOUNT_EXPIRED) return 0;
-    if (DISCOUNT_TYPE === 'percentage') return Math.round(total * DISCOUNT_VALUE / 100);
-    if (DISCOUNT_TYPE === 'fixed') return Math.min(DISCOUNT_VALUE, total);
+    if (DISCOUNT_TYPE === 'percentage') return Math.round(discountableSubtotal * DISCOUNT_VALUE / 100);
+    if (DISCOUNT_TYPE === 'fixed') return Math.min(DISCOUNT_VALUE, discountableSubtotal);
     return 0;
   }
 
   function updateTotalDisplay() {
     const subtotal = getTotal();
-    const discountAmt = applyDiscount(subtotal);
+    const discountableSubtotal = selectedBasePrice + discountableUpgradeTotal;
+    const discountAmt = applyDiscount(discountableSubtotal);
     const finalTotal = Math.max(subtotal - discountAmt, 0);
     const discountEl = document.getElementById('discountDisplay');
     if (discountAmt > 0) {
@@ -795,9 +797,14 @@ ${sitePhotoPages}
     updateTotalDisplay();
   }
 
-  function toggleUpgrade(card, price) {
+  function toggleUpgrade(card, price, discountable) {
     card.classList.toggle('selected');
-    upgradeTotal += card.classList.contains('selected') ? price : -price;
+    const delta = card.classList.contains('selected') ? price : -price;
+    if (discountable) {
+      discountableUpgradeTotal += delta;
+    } else {
+      nonDiscountableUpgradeTotal += delta;
+    }
     updateTotalDisplay();
   }
 
@@ -970,31 +977,37 @@ exports.createProposalCheckout = async (req, res) => {
     }
 
     // Server-side total calculation (never trust client amount)
-    let total = selectedPrice;
+    // Split upgrades into discountable and non-discountable
+    let discountableTotal = selectedPrice;
+    let nonDiscountableTotal = 0;
     if (Array.isArray(selectedUpgrades)) {
       for (const upgrade of selectedUpgrades) {
-        // Look up each upgrade by name in the server-side camera options
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
         if (match && match.price) {
-          total += Number(match.price);
+          if (match.discountable === false) {
+            nonDiscountableTotal += Number(match.price);
+          } else {
+            discountableTotal += Number(match.price);
+          }
         }
       }
     }
 
-    // Apply discount server-side
+    // Apply discount server-side (only to discountable items)
     let discountAmount = 0;
     let checkoutDesc = selectedName;
     if (discountActive) {
       if (discountType === 'percentage') {
-        discountAmount = Math.round(total * discountValue / 100);
+        discountAmount = Math.round(discountableTotal * discountValue / 100);
       } else if (discountType === 'fixed') {
-        discountAmount = Math.min(discountValue, total);
+        discountAmount = Math.min(discountValue, discountableTotal);
       }
-      total = Math.max(total - discountAmount, 0);
+      discountableTotal = Math.max(discountableTotal - discountAmount, 0);
       const label = discountName || (discountType === 'percentage' ? `${discountValue}% off` : `$${discountValue} off`);
       checkoutDesc = `${selectedName} (${label}: -$${discountAmount.toLocaleString('en-AU')})`;
     }
 
+    const total = discountableTotal + nonDiscountableTotal;
     if (total <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
@@ -2448,10 +2461,12 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
   // Build camera option rows
   const cameraRowsHtml = cameraOptions.map(opt => {
+    const discChecked = opt.discountable !== false ? 'checked' : '';
     return `<div class="list-row camera-row" data-list="camera">
       <input type="text" class="cam-name" value="${escapeHtml(opt.name || '')}" placeholder="Option name">
       <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
       <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
+      <label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -2790,12 +2805,14 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     }
     .row-remove:hover { color:#ff5252; }
 
-    .camera-row { display:grid; grid-template-columns:1fr 1.5fr 80px 30px; gap:8px; align-items:center; margin-bottom:8px; }
+    .camera-row { display:grid; grid-template-columns:1fr 1.5fr 80px 32px 30px; gap:8px; align-items:center; margin-bottom:8px; }
     .cam-name, .cam-desc, .cam-price {
       padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; font-family:inherit;
     }
     .cam-name:focus, .cam-desc:focus, .cam-price:focus { border-color:#00d4ff; outline:none; }
+    .cam-disc-label { display:flex; align-items:center; gap:3px; color:#78e4ff; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .cam-disc-label input { width:auto; cursor:pointer; }
 
     .pkg-card { background:#1a2332; border:2px solid #2a3a4a; border-radius:10px; padding:16px; margin-top:12px; transition:opacity 0.2s; }
     .pkg-card.dragging { opacity:0.4; }
@@ -2893,7 +2910,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     @media (max-width:768px) {
       .form-row { grid-template-columns:1fr; }
-      .camera-row { grid-template-columns:1fr 1fr; }
+      .camera-row { grid-template-columns:1fr 1fr 32px; }
       .steps-bar { gap:2px; }
       .step-tab { font-size:11px; padding:8px 4px; }
     }
@@ -3002,7 +3019,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const row = document.createElement('div');
         row.className = 'list-row camera-row';
         row.dataset.list = 'camera';
-        row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+        row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
         row.querySelector('.cam-name').value = opt.name || '';
         row.querySelector('.cam-desc').value = opt.description || '';
         row.querySelector('.cam-price').value = opt.price || '';
@@ -3250,7 +3267,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       const row = document.createElement('div');
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
-      row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       row.querySelector('.cam-name').focus();
     }
@@ -3334,7 +3351,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const name = row.querySelector('.cam-name').value.trim();
         const desc = row.querySelector('.cam-desc').value.trim();
         const price = parseFloat(row.querySelector('.cam-price').value) || 0;
-        if (name) cameras.push({ name, description: desc, price });
+        const discountable = row.querySelector('.cam-disc') ? row.querySelector('.cam-disc').checked : true;
+        if (name) cameras.push({ name, description: desc, price, discountable });
       });
       data.cameraOptions = JSON.stringify(cameras);
 
