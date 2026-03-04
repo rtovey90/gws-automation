@@ -311,7 +311,13 @@ class AirtableService {
 
       // Add System Type if provided (multiple select: CCTV, Alarm, etc.)
       if (engagementData.systemType) {
-        fields['System Type'] = Array.isArray(engagementData.systemType) ? engagementData.systemType : [engagementData.systemType];
+        let types = engagementData.systemType;
+        if (typeof types === 'string') {
+          // Handle pipe-separated values from AI analysis (e.g. 'CCTV|Alarm')
+          types = types.split('|').map(t => t.trim()).filter(Boolean);
+        }
+        if (!Array.isArray(types)) types = [types];
+        fields['System Type'] = types;
       }
 
       // Link to customer

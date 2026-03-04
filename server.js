@@ -196,6 +196,7 @@ app.get('/dashboard', requireAuth, dashboardController.showDashboard);
 // Engagement timeline routes
 app.get('/engagement/:id', requireAuth, timelineController.showTimeline);
 app.post('/api/engagement/:id/note', requireAuth, timelineController.addNote);
+app.post('/api/engagement/:id/bank-payment', requireAuth, dashboardController.addBankPayment);
 
 // Design preview routes (dummy data, no Airtable writes)
 app.get('/preview/availability-yes', requireAuth, previewController.availabilityYes);

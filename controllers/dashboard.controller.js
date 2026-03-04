@@ -232,6 +232,51 @@ exports.showDashboard = async (req, res) => {
       });
     }
 
+    // ── Bank Payment Aggregation ──
+    let bankPaymentsThisMonth = 0;
+    const bankPaymentsList = [];
+    const bankPaymentsByMonth = {};
+
+    engagements.forEach(e => {
+      const f = e.fields;
+      const bankAmount = parseFloat(f['Bank Payment Amount']) || 0;
+      const bankDate = f['Bank Payment Date'];
+
+      if (bankAmount > 0 && bankDate) {
+        const paymentDate = new Date(bankDate);
+        const customerName = f['Customer Name'] || f['First Name'] || 'Unknown';
+
+        bankPaymentsList.push({
+          id: e.id,
+          name: customerName,
+          amount: bankAmount,
+          date: paymentDate,
+          dateStr: bankDate,
+          status: f.Status || 'Unknown',
+        });
+
+        const monthKey = paymentDate.toLocaleString('en-AU', { month: 'short' }) + '-' + paymentDate.getFullYear();
+        bankPaymentsByMonth[monthKey] = (bankPaymentsByMonth[monthKey] || 0) + bankAmount;
+
+        if (paymentDate >= startOfMonth) {
+          bankPaymentsThisMonth += bankAmount;
+        }
+      }
+    });
+
+    bankPaymentsList.sort((a, b) => b.date - a.date);
+    const combinedRevenueThisMonth = revenueThisMonth + bankPaymentsThisMonth;
+
+    // Engagement options for bank payment modal
+    const engagementOptions = engagements
+      .filter(e => e.fields.Status && e.fields.Status !== 'Lost')
+      .map(e => ({
+        id: e.id,
+        name: e.fields['Customer Name'] || e.fields['First Name'] || 'Unknown',
+        status: e.fields.Status || 'Unknown',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     // ── NEW: Completed Jobs Count ──
     const completedJobsCount = jobsOverview['Completed'] || 0;
 
@@ -617,7 +662,10 @@ exports.showDashboard = async (req, res) => {
     // Mini sparkline (last 3 months revenue)
     let sparklineHtml = '';
     if (stripeData && stripeData.monthlyRevenue.length > 0) {
-      const last3 = stripeData.monthlyRevenue.slice(-3);
+      const last3 = stripeData.monthlyRevenue.slice(-3).map(m => {
+        const key = m.month + '-' + m.year;
+        return { ...m, total: m.total + (bankPaymentsByMonth[key] || 0) };
+      });
       const maxSpark = Math.max(...last3.map(m => m.total), 1);
       sparklineHtml = `
         <div class="month-chart" style="height:120px">
@@ -655,8 +703,12 @@ exports.showDashboard = async (req, res) => {
           <span class="kpi-label">Stripe Pending</span>
         </div>`;
 
-      const maxMonthly = Math.max(...stripeData.monthlyRevenue.map(m => m.total), 1);
-      const monthlyBars = stripeData.monthlyRevenue.map(m => {
+      const combinedMonthlyRevenue = stripeData.monthlyRevenue.map(m => {
+        const key = m.month + '-' + m.year;
+        return { ...m, total: m.total + (bankPaymentsByMonth[key] || 0) };
+      });
+      const maxMonthly = Math.max(...combinedMonthlyRevenue.map(m => m.total), 1);
+      const monthlyBars = combinedMonthlyRevenue.map(m => {
         const pct = (m.total / maxMonthly) * 100;
         return `
           <div class="month-col">
@@ -670,7 +722,7 @@ exports.showDashboard = async (req, res) => {
 
       monthlyRevenueChart = `
         <div class="card" style="grid-column:1/-1">
-          <h2>Monthly Revenue (Stripe)</h2>
+          <h2>Monthly Revenue</h2>
           <div class="month-chart" style="height:280px">
             ${monthlyBars}
           </div>
@@ -806,8 +858,9 @@ exports.showDashboard = async (req, res) => {
     const overviewTabHtml = `
       <div class="kpi-row">
         <div class="kpi-card">
-          <span class="kpi-value">${fmtCurrency(revenueThisMonth)}</span>
-          <span class="kpi-label">Revenue This Month${stripeData ? ' (Stripe)' : ''}</span>
+          <span class="kpi-value">${fmtCurrency(combinedRevenueThisMonth)}</span>
+          <span class="kpi-label">Revenue This Month</span>
+          ${bankPaymentsThisMonth > 0 ? `<span style="font-size:11px;color:#8899aa;margin-top:4px;display:block">Stripe ${fmtCurrency(revenueThisMonth)} &middot; Bank ${fmtCurrency(bankPaymentsThisMonth)}</span>` : ''}
         </div>
         <div class="kpi-card">
           <span class="kpi-value">${totalLeads}</span>
@@ -942,6 +995,10 @@ exports.showDashboard = async (req, res) => {
           <span class="kpi-value" style="color:#ffa726">${fmtCurrency(pendingPayments)}</span>
           <span class="kpi-label">Pending Payments</span>
         </div>
+        <div class="kpi-card" style="border-top:3px solid #42a5f5">
+          <span class="kpi-value" style="color:#42a5f5">${fmtCurrency(bankPaymentsThisMonth)}</span>
+          <span class="kpi-label">Bank Payments (Month)</span>
+        </div>
       </div>
 
       ${stripeData ? `<div class="grid" style="margin-bottom:24px">${monthlyRevenueChart}</div>` : ''}
@@ -977,6 +1034,30 @@ exports.showDashboard = async (req, res) => {
         ${recentPaymentsCard}
         ${payoutsCard}
       </div>` : ''}
+
+      <div class="card" style="margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #2a3a4a">
+          <h2 style="margin:0;border:none;padding:0">Bank Payments</h2>
+          <button onclick="openBankPaymentModal()" style="background:#00d4ff;color:#0f1419;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px">+ Add Bank Payment</button>
+        </div>
+        <div class="payments-list">
+          ${bankPaymentsList.length > 0
+            ? bankPaymentsList.slice(0, 10).map(bp => {
+                const dateDisplay = bp.date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+                return `
+                <div class="payment-item">
+                  <span class="payment-dot" style="background:#42a5f5"></span>
+                  <div class="payment-details">
+                    <span class="payment-name">${bp.name}</span>
+                    <span class="payment-email">${bp.status}</span>
+                  </div>
+                  <span class="payment-amount" style="color:#42a5f5">${fmtCurrency(bp.amount)}</span>
+                  <span class="payment-date">${dateDisplay}</span>
+                </div>`;
+              }).join('')
+            : '<p class="empty-state">No bank payments recorded</p>'}
+        </div>
+      </div>
 
       <div style="border-top:2px solid #2a3a4a;margin:32px 0 24px;padding-top:24px">
         <h2 style="color:#fff;font-size:18px;margin-bottom:16px">Job Profitability</h2>
@@ -1170,6 +1251,24 @@ exports.showDashboard = async (req, res) => {
       .tab-btn { padding:10px 16px; font-size:13px; }
       .month-chart { height:160px; }
     }
+    /* Bank Payment Modal */
+    .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#0f1419; border:1px solid #2a3a4a; border-radius:12px; width:100%; max-width:440px; padding:28px; margin:16px; }
+    .modal-title { font-size:18px; color:#fff; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid #2a3a4a; }
+    .modal-field { margin-bottom:16px; }
+    .modal-field label { display:block; font-size:12px; color:#8899aa; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+    .modal-field select,
+    .modal-field input { width:100%; background:#1a2332; border:1px solid #2a3a4a; border-radius:6px; padding:10px 12px; color:#e0e6ed; font-size:14px; outline:none; box-sizing:border-box; }
+    .modal-field select:focus,
+    .modal-field input:focus { border-color:#00d4ff; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+    .modal-btn { padding:10px 20px; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer; border:none; }
+    .modal-btn-cancel { background:transparent; color:#8899aa; border:1px solid #2a3a4a; }
+    .modal-btn-cancel:hover { color:#e0e6ed; border-color:#5a6a7a; }
+    .modal-btn-submit { background:#00d4ff; color:#0f1419; }
+    .modal-btn-submit:hover { background:#00b8d9; }
+    .modal-btn-submit:disabled { opacity:0.5; cursor:not-allowed; }
     `;
 
     const dashboardBody = `
@@ -1204,7 +1303,35 @@ exports.showDashboard = async (req, res) => {
     <div id="tab-operations" class="tab-panel">
       ${operationsTabHtml}
     </div>
+  </div>
+
+  <div class="modal-overlay" id="bankPaymentModal">
+    <div class="modal-box">
+      <div class="modal-title">Record Bank Payment</div>
+      <div class="modal-field">
+        <label>Engagement</label>
+        <select id="bp-engagement">
+          <option value="">Select engagement...</option>
+          ${engagementOptions.map(e => `<option value="${e.id}">${e.name} &mdash; ${e.status}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-field">
+        <label>Amount ($)</label>
+        <input type="number" id="bp-amount" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="modal-field">
+        <label>Payment Date</label>
+        <input type="date" id="bp-date" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+      <div id="bp-error" style="color:#ef5350;font-size:13px;margin-bottom:8px;display:none"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" onclick="closeBankPaymentModal()">Cancel</button>
+        <button class="modal-btn modal-btn-submit" id="bp-submit-btn" onclick="submitBankPayment()">Record Payment</button>
+      </div>
+    </div>
   </div>`;
+
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const dashboardScripts = `
   <script>
@@ -1217,6 +1344,60 @@ exports.showDashboard = async (req, res) => {
       });
     });
     setTimeout(function(){ location.reload(); }, 300000);
+
+    function openBankPaymentModal() {
+      document.getElementById('bankPaymentModal').classList.add('open');
+      document.getElementById('bp-engagement').value = '';
+      document.getElementById('bp-amount').value = '';
+      document.getElementById('bp-date').value = '${todayStr}';
+      document.getElementById('bp-error').style.display = 'none';
+    }
+
+    function closeBankPaymentModal() {
+      document.getElementById('bankPaymentModal').classList.remove('open');
+    }
+
+    document.getElementById('bankPaymentModal').addEventListener('click', function(e) {
+      if (e.target === this) closeBankPaymentModal();
+    });
+
+    async function submitBankPayment() {
+      var engId = document.getElementById('bp-engagement').value;
+      var amount = document.getElementById('bp-amount').value;
+      var date = document.getElementById('bp-date').value;
+      var errEl = document.getElementById('bp-error');
+      var btn = document.getElementById('bp-submit-btn');
+
+      errEl.style.display = 'none';
+
+      if (!engId) { errEl.textContent = 'Please select an engagement'; errEl.style.display = 'block'; return; }
+      if (!amount || parseFloat(amount) <= 0) { errEl.textContent = 'Please enter a valid amount'; errEl.style.display = 'block'; return; }
+      if (!date) { errEl.textContent = 'Please select a date'; errEl.style.display = 'block'; return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Recording...';
+
+      try {
+        var resp = await fetch('/api/engagement/' + engId + '/bank-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: parseFloat(amount), date: date }),
+        });
+
+        if (!resp.ok) {
+          var data = await resp.json();
+          throw new Error(data.error || 'Failed to record payment');
+        }
+
+        closeBankPaymentModal();
+        location.reload();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Record Payment';
+      }
+    }
   </script>`;
 
     res.send(wrapInLayout('Dashboard', dashboardBody, 'dashboard', { customStyles: dashboardStyles, customScripts: dashboardScripts }));
@@ -1231,5 +1412,38 @@ exports.showDashboard = async (req, res) => {
       a{color:#00d4ff;text-decoration:none;}a:hover{text-decoration:underline;}</style></head>
       <body><div class="error-box"><h1>Dashboard Error</h1><p>Unable to load dashboard data. Please try again.</p><a href="/dashboard">Retry</a></div></body></html>
     `);
+  }
+};
+
+/**
+ * Record a manual bank payment on an engagement
+ * POST /api/engagement/:id/bank-payment
+ */
+exports.addBankPayment = async (req, res) => {
+  try {
+    const engagementId = req.params.id;
+    const { amount, date } = req.body;
+
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Valid payment amount is required' });
+    }
+
+    const paymentAmount = parseFloat(amount);
+    const paymentDate = date || new Date().toISOString().split('T')[0];
+
+    await airtableService.updateEngagement(engagementId, {
+      'Bank Payment Amount': paymentAmount,
+      'Bank Payment Date': paymentDate,
+    });
+
+    await airtableService.logActivity(engagementId, `Bank payment of $${paymentAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })} recorded (${paymentDate})`, {
+      type: 'System',
+      author: req.session?.userEmail || 'Admin',
+    });
+
+    res.json({ success: true, amount: paymentAmount, date: paymentDate });
+  } catch (error) {
+    console.error('Error recording bank payment:', error);
+    res.status(500).json({ error: 'Failed to record bank payment' });
   }
 };
