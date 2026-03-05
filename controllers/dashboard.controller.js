@@ -332,6 +332,7 @@ exports.showDashboard = async (req, res) => {
 
     // ── Bank Payment Aggregation ──
     let bankPaymentsThisMonth = 0;
+    let scBankThisMonth = 0, projBankThisMonth = 0;
     const bankPaymentsList = [];
     const bankPaymentsByMonth = {};
 
@@ -343,6 +344,7 @@ exports.showDashboard = async (req, res) => {
       if (bankAmount > 0 && bankDate) {
         const paymentDate = new Date(bankDate);
         const customerName = f['Customer Name'] || f['First Name'] || 'Unknown';
+        const bankType = f['Bank Payment Type'] || '';
 
         bankPaymentsList.push({
           id: e.id,
@@ -351,6 +353,7 @@ exports.showDashboard = async (req, res) => {
           date: paymentDate,
           dateStr: bankDate,
           status: f.Status || 'Unknown',
+          type: bankType,
         });
 
         const monthKey = paymentDate.toLocaleString('en-AU', { month: 'short' }) + '-' + paymentDate.getFullYear();
@@ -358,6 +361,8 @@ exports.showDashboard = async (req, res) => {
 
         if (paymentDate >= startOfMonth) {
           bankPaymentsThisMonth += bankAmount;
+          if (bankType === 'Service Call') scBankThisMonth += bankAmount;
+          else if (bankType === 'Project') projBankThisMonth += bankAmount;
         }
       }
     });
@@ -1013,7 +1018,7 @@ exports.showDashboard = async (req, res) => {
               <span class="mini-kpi-label">Sent Value</span>
             </div>
             <div class="mini-kpi">
-              <span class="mini-kpi-value">${fmtCurrency(scRevenueThisMonth)}</span>
+              <span class="mini-kpi-value">${fmtCurrency(scRevenueThisMonth + scBankThisMonth)}</span>
               <span class="mini-kpi-label">Revenue</span>
             </div>
             <div class="mini-kpi" style="grid-column:1/-1">
@@ -1038,7 +1043,7 @@ exports.showDashboard = async (req, res) => {
               <span class="mini-kpi-label">Sent Value</span>
             </div>
             <div class="mini-kpi">
-              <span class="mini-kpi-value">${fmtCurrency(projRevenueThisMonth)}</span>
+              <span class="mini-kpi-value">${fmtCurrency(projRevenueThisMonth + projBankThisMonth)}</span>
               <span class="mini-kpi-label">Revenue</span>
             </div>
             <div class="mini-kpi" style="grid-column:1/-1">
@@ -1359,7 +1364,7 @@ exports.showDashboard = async (req, res) => {
                 <div class="payment-item">
                   <span class="payment-dot" style="background:#42a5f5"></span>
                   <div class="payment-details">
-                    <span class="payment-name">${bp.name}</span>
+                    <span class="payment-name">${bp.name} ${bp.type ? `<span class="type-badge ${bp.type === 'Service Call' ? 'type-badge-sc' : 'type-badge-proj'}">${bp.type === 'Service Call' ? 'SC' : 'Proj'}</span>` : ''}</span>
                     <span class="payment-email">${bp.status}</span>
                   </div>
                   <span class="payment-amount" style="color:#42a5f5">${fmtCurrency(bp.amount)}</span>
