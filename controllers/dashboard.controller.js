@@ -32,7 +32,10 @@ exports.showDashboard = async (req, res) => {
     }
 
     // ── KPI Cards ──
-    const actualLeads = engagements.filter(e => e.fields['Actual Lead']);
+    // Split confirmed leads by type (replaces old "Actual Lead" checkbox)
+    const serviceCallLeads = engagements.filter(e => e.fields['Confirmed Service Call']);
+    const projectLeads = engagements.filter(e => e.fields['Confirmed Project']);
+    const actualLeads = [...serviceCallLeads, ...projectLeads];
     const totalLeads = actualLeads.length;
 
     const paidStatuses = ['Initial Parts Ordered', 'Completed ✨', 'Positive Review Received', 'Negative Review Received'];
@@ -47,10 +50,6 @@ exports.showDashboard = async (req, res) => {
         convertedCount++;
       }
     });
-
-    // ── Split by Lead Type ──
-    const serviceCallLeads = actualLeads.filter(e => e.fields['Lead Type'] === 'Service Call');
-    const projectLeads = actualLeads.filter(e => e.fields['Lead Type'] === 'Project');
 
     let scConverted = 0, projConverted = 0;
     serviceCallLeads.forEach(e => { if (paidStatuses.includes(e.fields.Status)) scConverted++; });
@@ -546,7 +545,7 @@ exports.showDashboard = async (req, res) => {
         name: e.fields['Customer Name'] || e.fields['First Name'] || 'New Lead',
         status: e.fields.Status || 'Unknown',
         source: e.fields[' Source'] || 'Unknown',
-        leadType: e.fields['Lead Type'] || e.fields['Service Type'] || '-',
+        leadType: e.fields['Confirmed Service Call'] ? 'Service Call' : e.fields['Confirmed Project'] ? 'Project' : (e.fields['Lead Type'] || '-'),
         time: new Date(e._rawJson?.createdTime || Date.now()),
       }))
       .sort((a, b) => b.time - a.time)
