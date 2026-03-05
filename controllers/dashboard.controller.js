@@ -1643,6 +1643,13 @@ exports.showDashboard = async (req, res) => {
         </select>
       </div>
       <div class="modal-field">
+        <label>Payment Type</label>
+        <select id="bp-type">
+          <option value="Service Call">Service Call</option>
+          <option value="Project">Project</option>
+        </select>
+      </div>
+      <div class="modal-field">
         <label>Amount ($)</label>
         <input type="number" id="bp-amount" min="0" step="0.01" placeholder="0.00">
       </div>
@@ -1675,6 +1682,7 @@ exports.showDashboard = async (req, res) => {
     function openBankPaymentModal() {
       document.getElementById('bankPaymentModal').classList.add('open');
       document.getElementById('bp-engagement').value = '';
+      document.getElementById('bp-type').value = 'Service Call';
       document.getElementById('bp-amount').value = '';
       document.getElementById('bp-date').value = '${todayStr}';
       document.getElementById('bp-error').style.display = 'none';
@@ -1690,6 +1698,7 @@ exports.showDashboard = async (req, res) => {
 
     async function submitBankPayment() {
       var engId = document.getElementById('bp-engagement').value;
+      var paymentType = document.getElementById('bp-type').value;
       var amount = document.getElementById('bp-amount').value;
       var date = document.getElementById('bp-date').value;
       var errEl = document.getElementById('bp-error');
@@ -1708,7 +1717,7 @@ exports.showDashboard = async (req, res) => {
         var resp = await fetch('/api/engagement/' + engId + '/bank-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: parseFloat(amount), date: date }),
+          body: JSON.stringify({ amount: parseFloat(amount), date: date, paymentType: paymentType }),
         });
 
         if (!resp.ok) {
@@ -1749,7 +1758,7 @@ exports.showDashboard = async (req, res) => {
 exports.addBankPayment = async (req, res) => {
   try {
     const engagementId = req.params.id;
-    const { amount, date } = req.body;
+    const { amount, date, paymentType } = req.body;
 
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       return res.status(400).json({ error: 'Valid payment amount is required' });
@@ -1758,10 +1767,15 @@ exports.addBankPayment = async (req, res) => {
     const paymentAmount = parseFloat(amount);
     const paymentDate = date || new Date().toISOString().split('T')[0];
 
-    await airtableService.updateEngagement(engagementId, {
+    const updateFields = {
       'Bank Payment Amount': paymentAmount,
       'Bank Payment Date': paymentDate,
-    });
+    };
+    if (paymentType === 'Service Call' || paymentType === 'Project') {
+      updateFields['Bank Payment Type'] = paymentType;
+    }
+
+    await airtableService.updateEngagement(engagementId, updateFields);
 
     await airtableService.logActivity(engagementId, `Bank payment of $${paymentAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })} recorded (${paymentDate})`, {
       type: 'System',
