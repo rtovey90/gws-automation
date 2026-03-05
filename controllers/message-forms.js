@@ -1977,6 +1977,11 @@ exports.sendPricingForm = async (req, res) => {
     if (!lead.fields['Quote Sent At']) {
       engUpdate['Quote Sent At'] = new Date().toISOString();
     }
+    // Extract the actual dollar amount from the message text (always accurate, even if wrong product selected)
+    const priceMatch = finalMessage.match(/\$(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+    if (priceMatch) {
+      engUpdate['Quote Amount'] = parseFloat(priceMatch[1].replace(/,/g, ''));
+    }
     await airtableService.updateEngagement(engagementId, engUpdate);
 
     // Log activity

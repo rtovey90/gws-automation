@@ -90,6 +90,10 @@ Ricky`;
     if (!lead.fields['Quote Sent At']) {
       engUpdate['Quote Sent At'] = new Date().toISOString();
     }
+    // Save the quoted price from the product
+    if (price) {
+      engUpdate['Quote Amount'] = parseFloat(price) || 0;
+    }
     await airtableService.updateEngagement(engagementId, engUpdate);
 
     // Log activity
