@@ -279,10 +279,13 @@ exports.showDashboard = async (req, res) => {
       .filter(e => e.fields.Status && e.fields.Status !== 'Lost')
       .map(e => {
         const linkedCustomerId = e.fields.Customer && e.fields.Customer[0];
-        const name = e.fields['Customer Name'] || (linkedCustomerId && customerMap[linkedCustomerId]) || e.fields['First Name'] || 'Unknown';
+        const linkedCustomer = linkedCustomerId && customers.find(c => c.id === linkedCustomerId);
+        const name = e.fields['Customer Name'] || (linkedCustomer && [linkedCustomer.fields['First Name'], linkedCustomer.fields['Last Name']].filter(Boolean).join(' ')) || e.fields['First Name'] || 'Unknown';
+        const address = e.fields['Address/Location'] || (linkedCustomer && linkedCustomer.fields['Address']) || '';
         return {
           id: e.id,
           name,
+          address,
           status: e.fields.Status || 'Unknown',
         };
       })
@@ -1323,7 +1326,7 @@ exports.showDashboard = async (req, res) => {
         <label>Engagement</label>
         <select id="bp-engagement">
           <option value="">Select engagement...</option>
-          ${engagementOptions.map(e => `<option value="${e.id}">${e.name} &mdash; ${e.status}</option>`).join('')}
+          ${engagementOptions.map(e => `<option value="${e.id}">${e.name}${e.address ? ' — ' + e.address : ''} — ${e.status}</option>`).join('')}
         </select>
       </div>
       <div class="modal-field">
