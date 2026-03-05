@@ -237,7 +237,9 @@ app.get('/api/admin/customers/:customerId/engagements', requireAuth, proposalsCo
 
 // Tech availability short link routes (must come before /:code catch-all)
 app.get('/ty/:code', techAvailabilityShortController.techYes);
+app.post('/ty/:code', techAvailabilityShortController.techYesConfirm);
 app.get('/tn/:code', techAvailabilityShortController.techNo);
+app.post('/tn/:code', techAvailabilityShortController.techNoConfirm);
 
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
