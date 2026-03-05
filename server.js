@@ -241,6 +241,9 @@ app.post('/ty/:code', techAvailabilityShortController.techYesConfirm);
 app.get('/tn/:code', techAvailabilityShortController.techNo);
 app.post('/tn/:code', techAvailabilityShortController.techNoConfirm);
 
+// Ignore favicon requests (browsers request this automatically)
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
 app.get('/:code', shortLinkController.redirect); // Must be last - catch-all redirect
