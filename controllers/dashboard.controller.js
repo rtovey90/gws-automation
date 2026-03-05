@@ -33,8 +33,8 @@ exports.showDashboard = async (req, res) => {
 
     // ── KPI Cards ──
     // Split confirmed leads by type (replaces old "Actual Lead" checkbox)
-    const serviceCallLeads = engagements.filter(e => e.fields['Confirmed Service Call']);
-    const projectLeads = engagements.filter(e => e.fields['Confirmed Project']);
+    const serviceCallLeads = engagements.filter(e => e.fields['Confirmed Service Call Lead']);
+    const projectLeads = engagements.filter(e => e.fields['Confirmed Project Lead']);
     const actualLeads = [...serviceCallLeads, ...projectLeads];
     const totalLeads = actualLeads.length;
 
@@ -545,7 +545,7 @@ exports.showDashboard = async (req, res) => {
         name: e.fields['Customer Name'] || e.fields['First Name'] || 'New Lead',
         status: e.fields.Status || 'Unknown',
         source: e.fields[' Source'] || 'Unknown',
-        leadType: e.fields['Confirmed Service Call'] ? 'Service Call' : e.fields['Confirmed Project'] ? 'Project' : (e.fields['Lead Type'] || '-'),
+        leadType: e.fields['Confirmed Service Call Lead'] ? 'Service Call' : e.fields['Confirmed Project Lead'] ? 'Project' : (e.fields['Lead Type'] || '-'),
         time: new Date(e._rawJson?.createdTime || Date.now()),
       }))
       .sort((a, b) => b.time - a.time)
