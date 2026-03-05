@@ -188,7 +188,7 @@ async function createCustomerAndEngagement(data) {
       business: data.business || 'Great White Security',
       serviceCallAmount: data.serviceCallAmount,
       projectValue: data.projectValue,
-      actualLead: true, // Form/Call submissions are real leads
+      actualLead: false, // Admin manually marks as Actual Lead from Airtable
     });
 
     return { customer, engagement };
