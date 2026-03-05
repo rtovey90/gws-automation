@@ -221,6 +221,7 @@ class StripeService {
             customerEmail: c.customer?.email || c.billing_details?.email || '',
             created: new Date(c.created * 1000),
             status: c.status,
+            metadata: c.metadata || {},
           });
           if (results.length >= limit) break;
         }
@@ -268,6 +269,8 @@ class StripeService {
         const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
 
         let total = 0;
+        let projectTotal = 0;
+        let serviceCallTotal = 0;
         for await (const charge of stripe.charges.list({
           created: {
             gte: Math.floor(start.getTime() / 1000),
@@ -277,6 +280,12 @@ class StripeService {
         })) {
           if (charge.status === 'succeeded' && charge.currency === 'aud') {
             total += charge.amount;
+            const isProject = charge.metadata?.type === 'proposal' || charge.metadata?.type === 'oto';
+            if (isProject) {
+              projectTotal += charge.amount;
+            } else {
+              serviceCallTotal += charge.amount;
+            }
           }
         }
 
@@ -284,6 +293,8 @@ class StripeService {
           month: start.toLocaleString('en-AU', { month: 'short' }),
           year: start.getFullYear(),
           total: total / 100,
+          serviceCallTotal: serviceCallTotal / 100,
+          projectTotal: projectTotal / 100,
         });
       }
 

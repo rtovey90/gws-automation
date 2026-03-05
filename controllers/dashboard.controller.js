@@ -8,12 +8,13 @@ const { wrapInLayout } = require('../utils/layout');
  */
 exports.showDashboard = async (req, res) => {
   try {
-    const [engagements, jobs, customers, messages, techs] = await Promise.all([
+    const [engagements, jobs, customers, messages, techs, proposals] = await Promise.all([
       airtableService.getAllEngagements(),
       airtableService.getAllJobs(),
       airtableService.getAllCustomers(),
       airtableService.getAllMessages(),
       airtableService.getAllTechs(),
+      airtableService.getAllProposals(),
     ]);
 
     // ── Stripe Financial Data ──
@@ -46,6 +47,16 @@ exports.showDashboard = async (req, res) => {
         convertedCount++;
       }
     });
+
+    // ── Split by Lead Type ──
+    const serviceCallLeads = actualLeads.filter(e => e.fields['Lead Type'] === 'Service Call');
+    const projectLeads = actualLeads.filter(e => e.fields['Lead Type'] === 'Project');
+
+    let scConverted = 0, projConverted = 0;
+    serviceCallLeads.forEach(e => { if (paidStatuses.includes(e.fields.Status)) scConverted++; });
+    projectLeads.forEach(e => { if (paidStatuses.includes(e.fields.Status)) projConverted++; });
+    const scConversionRate = serviceCallLeads.length > 0 ? ((scConverted / serviceCallLeads.length) * 100).toFixed(1) : '0.0';
+    const projConversionRate = projectLeads.length > 0 ? ((projConverted / projectLeads.length) * 100).toFixed(1) : '0.0';
 
     // Use Stripe total revenue if available, Airtable as fallback
     const stripeTotal = stripeData
@@ -211,6 +222,94 @@ exports.showDashboard = async (req, res) => {
         }
       }
     });
+
+    // ── Split Sales Activity by Lead Type ──
+    const scActivity = {
+      leads: { today: 0, week: 0, month: 0, year: 0 },
+      quotesOut: { today: 0, week: 0, month: 0, year: 0 },
+      quotesValue: { today: 0, week: 0, month: 0, year: 0 },
+      dealsClosed: { today: 0, week: 0, month: 0, year: 0 },
+      dealsValue: { today: 0, week: 0, month: 0, year: 0 },
+    };
+    const projActivity = {
+      leads: { today: 0, week: 0, month: 0, year: 0 },
+      quotesOut: { today: 0, week: 0, month: 0, year: 0 },
+      quotesValue: { today: 0, week: 0, month: 0, year: 0 },
+      dealsClosed: { today: 0, week: 0, month: 0, year: 0 },
+      dealsValue: { today: 0, week: 0, month: 0, year: 0 },
+    };
+
+    const splitLeadActivity = (leads, tracker) => {
+      leads.forEach(e => {
+        const f = e.fields;
+        const created = new Date(e._rawJson?.createdTime || Date.now());
+        const quoteAmount = parseFloat(f['Quote Amount']) || 0;
+        const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+        const dealAmount = totalInvoiced > 0 ? totalInvoiced
+          : (parseFloat(f['Service Call Amount']) || 0) + (parseFloat(f['Project Value']) || 0);
+
+        const periods = [];
+        if (created >= startOfDay) periods.push('today');
+        if (created >= startOfWeek) periods.push('week');
+        if (created >= startOfMonth) periods.push('month');
+        if (created >= startOfYear) periods.push('year');
+
+        periods.forEach(p => {
+          tracker.leads[p]++;
+          if (closedStatuses.includes(f.Status)) {
+            tracker.dealsClosed[p]++;
+            tracker.dealsValue[p] += dealAmount;
+          }
+        });
+
+        const quoteSentAt = f['Quote Sent At'];
+        if (quoteSentAt) {
+          const sentDate = new Date(quoteSentAt);
+          if (sentDate >= startOfDay) tracker.quotesOut.today++;
+          if (sentDate >= startOfWeek) tracker.quotesOut.week++;
+          if (sentDate >= startOfMonth) tracker.quotesOut.month++;
+          if (sentDate >= startOfYear) tracker.quotesOut.year++;
+          if (quoteAmount > 0) {
+            if (sentDate >= startOfDay) tracker.quotesValue.today += quoteAmount;
+            if (sentDate >= startOfWeek) tracker.quotesValue.week += quoteAmount;
+            if (sentDate >= startOfMonth) tracker.quotesValue.month += quoteAmount;
+            if (sentDate >= startOfYear) tracker.quotesValue.year += quoteAmount;
+          }
+        }
+      });
+    };
+
+    splitLeadActivity(serviceCallLeads, scActivity);
+    splitLeadActivity(projectLeads, projActivity);
+
+    // ── Proposal-based tracking for Projects ──
+    const proposalActivity = {
+      sent: { today: 0, week: 0, month: 0, year: 0 },
+      sentValue: { today: 0, week: 0, month: 0, year: 0 },
+      accepted: 0, paid: 0,
+    };
+    proposals.forEach(p => {
+      const f = p.fields;
+      const sentAt = f['Sent At'];
+      const basePrice = parseFloat(f['Base Price']) || 0;
+      if (sentAt) {
+        const sentDate = new Date(sentAt);
+        if (sentDate >= startOfDay) { proposalActivity.sent.today++; proposalActivity.sentValue.today += basePrice; }
+        if (sentDate >= startOfWeek) { proposalActivity.sent.week++; proposalActivity.sentValue.week += basePrice; }
+        if (sentDate >= startOfMonth) { proposalActivity.sent.month++; proposalActivity.sentValue.month += basePrice; }
+        if (sentDate >= startOfYear) { proposalActivity.sent.year++; proposalActivity.sentValue.year += basePrice; }
+      }
+      if (f.Status === 'Accepted') proposalActivity.accepted++;
+      if (f.Status === 'Paid') proposalActivity.paid++;
+    });
+
+    // ── Split Stripe revenue by type ──
+    let scRevenueThisMonth = 0, projRevenueThisMonth = 0;
+    if (stripeData && stripeData.monthlyRevenue.length > 0) {
+      const lastMonth = stripeData.monthlyRevenue[stripeData.monthlyRevenue.length - 1];
+      scRevenueThisMonth = lastMonth.serviceCallTotal || 0;
+      projRevenueThisMonth = lastMonth.projectTotal || 0;
+    }
 
     // Keep backward compat vars
     const leadsThisWeek = salesActivity.leads.week;
@@ -682,14 +781,24 @@ exports.showDashboard = async (req, res) => {
       });
       const maxSpark = Math.max(...last3.map(m => m.total), 1);
       sparklineHtml = `
+        <div style="display:flex;gap:12px;margin-bottom:4px;font-size:10px;color:#8899aa">
+          <span><span style="display:inline-block;width:8px;height:8px;background:#00d4ff;border-radius:2px;margin-right:3px"></span>SC</span>
+          <span><span style="display:inline-block;width:8px;height:8px;background:#ce93d8;border-radius:2px;margin-right:3px"></span>Proj</span>
+        </div>
         <div class="month-chart" style="height:120px">
           ${last3.map(m => {
-            const pct = (m.total / maxSpark) * 100;
+            const scPct = maxSpark > 0 ? ((m.serviceCallTotal || 0) / maxSpark) * 100 : 0;
+            const projPct = maxSpark > 0 ? ((m.projectTotal || 0) / maxSpark) * 100 : 0;
+            const bankKey = m.month + '-' + m.year;
+            const bankAmt = bankPaymentsByMonth[bankKey] || 0;
+            const bankPct = maxSpark > 0 ? (bankAmt / maxSpark) * 100 : 0;
             return `
             <div class="month-col">
               <span class="month-amount">${fmtCurrency(m.total)}</span>
-              <div class="month-bar-track">
-                <div class="month-bar-fill" style="height:${pct}%"></div>
+              <div class="month-bar-track" style="flex-direction:column;align-items:stretch;justify-content:flex-end">
+                ${bankAmt > 0 ? `<div style="width:100%;height:${bankPct}%;background:#42a5f5;border-radius:4px 4px 0 0;min-height:2px"></div>` : ''}
+                <div style="width:100%;height:${projPct}%;background:#ce93d8;min-height:${(m.projectTotal || 0) > 0 ? '2px' : '0'}"></div>
+                <div style="width:100%;height:${scPct}%;background:#00d4ff;border-radius:0 0 4px 4px;min-height:${(m.serviceCallTotal || 0) > 0 ? '2px' : '0'}"></div>
               </div>
               <span class="month-label">${m.month}</span>
             </div>`;
@@ -723,12 +832,18 @@ exports.showDashboard = async (req, res) => {
       });
       const maxMonthly = Math.max(...combinedMonthlyRevenue.map(m => m.total), 1);
       const monthlyBars = combinedMonthlyRevenue.map(m => {
-        const pct = (m.total / maxMonthly) * 100;
+        const scPct = maxMonthly > 0 ? ((m.serviceCallTotal || 0) / maxMonthly) * 100 : 0;
+        const projPct = maxMonthly > 0 ? ((m.projectTotal || 0) / maxMonthly) * 100 : 0;
+        const bankKey = m.month + '-' + m.year;
+        const bankAmt = bankPaymentsByMonth[bankKey] || 0;
+        const bankPct = maxMonthly > 0 ? (bankAmt / maxMonthly) * 100 : 0;
         return `
           <div class="month-col">
             <span class="month-amount">${fmtCurrency(m.total)}</span>
-            <div class="month-bar-track">
-              <div class="month-bar-fill" style="height:${pct}%"></div>
+            <div class="month-bar-track" style="flex-direction:column;align-items:stretch;justify-content:flex-end">
+              ${bankAmt > 0 ? `<div style="width:100%;height:${bankPct}%;background:#42a5f5;border-radius:4px 4px 0 0;min-height:${bankAmt > 0 ? '2px' : '0'}"></div>` : ''}
+              <div style="width:100%;height:${projPct}%;background:#ce93d8;min-height:${(m.projectTotal || 0) > 0 ? '2px' : '0'}"></div>
+              <div style="width:100%;height:${scPct}%;background:#00d4ff;border-radius:0 0 4px 4px;min-height:${(m.serviceCallTotal || 0) > 0 ? '2px' : '0'}"></div>
             </div>
             <span class="month-label">${m.month}</span>
           </div>`;
@@ -737,6 +852,11 @@ exports.showDashboard = async (req, res) => {
       monthlyRevenueChart = `
         <div class="card" style="grid-column:1/-1">
           <h2>Monthly Revenue</h2>
+          <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:#8899aa">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#00d4ff;border-radius:2px;margin-right:4px"></span>Service Calls</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#ce93d8;border-radius:2px;margin-right:4px"></span>Projects</span>
+            ${Object.values(bankPaymentsByMonth).some(v => v > 0) ? '<span><span style="display:inline-block;width:10px;height:10px;background:#42a5f5;border-radius:2px;margin-right:4px"></span>Bank</span>' : ''}
+          </div>
           <div class="month-chart" style="height:280px">
             ${monthlyBars}
           </div>
@@ -745,11 +865,15 @@ exports.showDashboard = async (req, res) => {
       const paymentsList = stripeData.charges.length > 0
         ? stripeData.charges.map(c => {
             const date = c.created.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+            const isProject = c.metadata?.type === 'proposal' || c.metadata?.type === 'oto';
+            const typeBadge = isProject
+              ? '<span class="type-badge type-badge-proj">Proj</span>'
+              : '<span class="type-badge type-badge-sc">SC</span>';
             return `
           <div class="payment-item">
             <span class="payment-dot" style="background:#66bb6a"></span>
             <div class="payment-details">
-              <span class="payment-name">${c.customerName}</span>
+              <span class="payment-name">${c.customerName} ${typeBadge}</span>
               <span class="payment-email">${c.customerEmail}</span>
             </div>
             <span class="payment-amount">${fmtCurrency(c.amount)}</span>
@@ -869,20 +993,72 @@ exports.showDashboard = async (req, res) => {
 
     // Tab 1: Overview
     const sa = salesActivity;
+    const sc = scActivity;
+    const pj = projActivity;
+    const pa = proposalActivity;
     const overviewTabHtml = `
-      <div class="kpi-row">
+      <div class="split-summary" style="margin-bottom:24px">
+        <div class="summary-card sc">
+          <div class="summary-card-header"><span class="type-badge type-badge-sc">Service Calls</span></div>
+          <div class="summary-card-grid">
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${sc.leads.month}</span>
+              <span class="mini-kpi-label">Leads This Month</span>
+            </div>
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${sc.quotesOut.month}</span>
+              <span class="mini-kpi-label">Payment Links Sent</span>
+            </div>
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${fmtCurrency(sc.quotesValue.month)}</span>
+              <span class="mini-kpi-label">Sent Value</span>
+            </div>
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${fmtCurrency(scRevenueThisMonth)}</span>
+              <span class="mini-kpi-label">Revenue</span>
+            </div>
+            <div class="mini-kpi" style="grid-column:1/-1">
+              <span class="mini-kpi-value">${scConversionRate}%</span>
+              <span class="mini-kpi-label">Conversion Rate</span>
+            </div>
+          </div>
+        </div>
+        <div class="summary-card proj">
+          <div class="summary-card-header"><span class="type-badge type-badge-proj">Projects</span></div>
+          <div class="summary-card-grid">
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${pj.leads.month}</span>
+              <span class="mini-kpi-label">Leads This Month</span>
+            </div>
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${pa.sent.month}</span>
+              <span class="mini-kpi-label">Proposals Sent</span>
+            </div>
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${fmtCurrency(pa.sentValue.month)}</span>
+              <span class="mini-kpi-label">Sent Value</span>
+            </div>
+            <div class="mini-kpi">
+              <span class="mini-kpi-value">${fmtCurrency(projRevenueThisMonth)}</span>
+              <span class="mini-kpi-label">Revenue</span>
+            </div>
+            <div class="mini-kpi" style="grid-column:1/-1">
+              <span class="mini-kpi-value">${projConversionRate}%</span>
+              <span class="mini-kpi-label">Conversion Rate</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
         <div class="kpi-card">
           <span class="kpi-value">${fmtCurrency(combinedRevenueThisMonth)}</span>
-          <span class="kpi-label">Revenue This Month</span>
+          <span class="kpi-label">Total Revenue</span>
           ${bankPaymentsThisMonth > 0 ? `<span style="font-size:11px;color:#8899aa;margin-top:4px;display:block">Stripe ${fmtCurrency(revenueThisMonth)} &middot; Bank ${fmtCurrency(bankPaymentsThisMonth)}</span>` : ''}
         </div>
         <div class="kpi-card">
-          <span class="kpi-value">${totalLeads}</span>
-          <span class="kpi-label">Total Leads</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-value">${conversionRate}%</span>
-          <span class="kpi-label">Conversion Rate</span>
+          <span class="kpi-value">${sa.leads.month}</span>
+          <span class="kpi-label">Leads This Month</span>
         </div>
         <div class="kpi-card">
           <span class="kpi-value">${activeJobs}</span>
@@ -891,7 +1067,7 @@ exports.showDashboard = async (req, res) => {
       </div>
 
       <div class="card" style="margin-bottom:24px">
-        <h2>Sales Activity</h2>
+        <h2>Service Call Activity</h2>
         <div class="activity-table-wrap">
           <table class="activity-table">
             <thead>
@@ -906,38 +1082,92 @@ exports.showDashboard = async (req, res) => {
             <tbody>
               <tr>
                 <td class="row-label">New Leads</td>
-                <td>${sa.leads.today}</td>
-                <td>${sa.leads.week}</td>
-                <td>${sa.leads.month}</td>
-                <td>${sa.leads.year}</td>
+                <td>${sc.leads.today}</td>
+                <td>${sc.leads.week}</td>
+                <td>${sc.leads.month}</td>
+                <td>${sc.leads.year}</td>
               </tr>
               <tr>
-                <td class="row-label">Quotes Sent</td>
-                <td>${sa.quotesOut.today}</td>
-                <td>${sa.quotesOut.week}</td>
-                <td>${sa.quotesOut.month}</td>
-                <td>${sa.quotesOut.year}</td>
+                <td class="row-label">Payment Links Sent</td>
+                <td>${sc.quotesOut.today}</td>
+                <td>${sc.quotesOut.week}</td>
+                <td>${sc.quotesOut.month}</td>
+                <td>${sc.quotesOut.year}</td>
               </tr>
               <tr>
-                <td class="row-label">Quotes Value</td>
-                <td>${fmtCurrency(sa.quotesValue.today)}</td>
-                <td>${fmtCurrency(sa.quotesValue.week)}</td>
-                <td>${fmtCurrency(sa.quotesValue.month)}</td>
-                <td>${fmtCurrency(sa.quotesValue.year)}</td>
+                <td class="row-label">Sent Value</td>
+                <td>${fmtCurrency(sc.quotesValue.today)}</td>
+                <td>${fmtCurrency(sc.quotesValue.week)}</td>
+                <td>${fmtCurrency(sc.quotesValue.month)}</td>
+                <td>${fmtCurrency(sc.quotesValue.year)}</td>
               </tr>
               <tr>
                 <td class="row-label">Deals Closed</td>
-                <td>${sa.dealsClosed.today}</td>
-                <td>${sa.dealsClosed.week}</td>
-                <td>${sa.dealsClosed.month}</td>
-                <td>${sa.dealsClosed.year}</td>
+                <td>${sc.dealsClosed.today}</td>
+                <td>${sc.dealsClosed.week}</td>
+                <td>${sc.dealsClosed.month}</td>
+                <td>${sc.dealsClosed.year}</td>
               </tr>
               <tr>
                 <td class="row-label">Deals Value</td>
-                <td>${fmtCurrency(sa.dealsValue.today)}</td>
-                <td>${fmtCurrency(sa.dealsValue.week)}</td>
-                <td>${fmtCurrency(sa.dealsValue.month)}</td>
-                <td>${fmtCurrency(sa.dealsValue.year)}</td>
+                <td>${fmtCurrency(sc.dealsValue.today)}</td>
+                <td>${fmtCurrency(sc.dealsValue.week)}</td>
+                <td>${fmtCurrency(sc.dealsValue.month)}</td>
+                <td>${fmtCurrency(sc.dealsValue.year)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px">
+        <h2>Project Activity</h2>
+        <div class="activity-table-wrap">
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Today</th>
+                <th>This Week</th>
+                <th>This Month</th>
+                <th>This Year</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">New Leads</td>
+                <td>${pj.leads.today}</td>
+                <td>${pj.leads.week}</td>
+                <td>${pj.leads.month}</td>
+                <td>${pj.leads.year}</td>
+              </tr>
+              <tr>
+                <td class="row-label">Proposals Sent</td>
+                <td>${pa.sent.today}</td>
+                <td>${pa.sent.week}</td>
+                <td>${pa.sent.month}</td>
+                <td>${pa.sent.year}</td>
+              </tr>
+              <tr>
+                <td class="row-label">Proposals Value</td>
+                <td>${fmtCurrency(pa.sentValue.today)}</td>
+                <td>${fmtCurrency(pa.sentValue.week)}</td>
+                <td>${fmtCurrency(pa.sentValue.month)}</td>
+                <td>${fmtCurrency(pa.sentValue.year)}</td>
+              </tr>
+              <tr>
+                <td class="row-label">Deals Closed</td>
+                <td>${pj.dealsClosed.today}</td>
+                <td>${pj.dealsClosed.week}</td>
+                <td>${pj.dealsClosed.month}</td>
+                <td>${pj.dealsClosed.year}</td>
+              </tr>
+              <tr>
+                <td class="row-label">Deals Value</td>
+                <td>${fmtCurrency(pj.dealsValue.today)}</td>
+                <td>${fmtCurrency(pj.dealsValue.week)}</td>
+                <td>${fmtCurrency(pj.dealsValue.month)}</td>
+                <td>${fmtCurrency(pj.dealsValue.year)}</td>
               </tr>
             </tbody>
           </table>
@@ -960,22 +1190,86 @@ exports.showDashboard = async (req, res) => {
         ${attentionHtml}
       </div>`;
 
+    // ── Split pipelines for Sales tab ──
+    const scPipeline = {};
+    const projPipeline = {};
+    leadStatuses.forEach(s => { scPipeline[s] = 0; projPipeline[s] = 0; });
+    serviceCallLeads.forEach(e => { const s = e.fields.Status; if (s in scPipeline) scPipeline[s]++; });
+    projectLeads.forEach(e => { const s = e.fields.Status; if (s in projPipeline) projPipeline[s]++; });
+
+    const buildPipelineBars = (pipeline) => {
+      const maxCount = Math.max(...Object.values(pipeline), 1);
+      return leadStatuses.filter(s => pipeline[s] > 0).map(s => {
+        const count = pipeline[s];
+        const pct = (count / maxCount) * 100;
+        const color = statusColors[s] || '#00d4ff';
+        return `<div class="bar-row"><span class="bar-label">${s}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><span class="bar-value">${count}</span></div>`;
+      }).join('') || '<p class="empty-state">No data</p>';
+    };
+
+    // ── Split conversion funnels ──
+    const buildFunnel = (leads) => {
+      const maxCount = Math.max(leads.length, 1);
+      return funnelStages.map(stage => {
+        const count = leads.filter(e => stageThresholds[stage].includes(e.fields.Status)).length;
+        const pct = (count / maxCount) * 100;
+        const color = funnelColors[stage] || '#00d4ff';
+        return `<div class="funnel-step"><span class="bar-label">${stage}</span><div class="bar-track"><div class="funnel-bar" style="width:${pct}%;background:${color}"></div></div><span class="bar-value">${count}</span></div>`;
+      }).join('');
+    };
+
+    // ── Recent leads with type badge ──
+    const recentLeadsWithBadge = recentLeadsList.length > 0
+      ? recentLeadsList.map(l => {
+          const dotColor = statusColors[l.status] || '#78909c';
+          const typeBadge = l.leadType === 'Service Call'
+            ? '<span class="type-badge type-badge-sc">SC</span>'
+            : l.leadType === 'Project'
+              ? '<span class="type-badge type-badge-proj">Proj</span>'
+              : '';
+          return `
+        <a href="/engagement/${l.id}" class="activity-item" style="text-decoration:none;color:inherit;cursor:pointer">
+          <span class="activity-icon" style="color:${dotColor}">&#9679;</span>
+          <div class="activity-details">
+            <span class="activity-name">${l.name} ${typeBadge}</span>
+            <span class="activity-status">${l.source}</span>
+          </div>
+          <span class="tech-status" style="color:${dotColor}">${l.status}</span>
+          <span class="activity-time">${fmtTime(l.time)}</span>
+        </a>`;
+        }).join('')
+      : '<p class="empty-state">No leads yet</p>';
+
     // Tab 2: Sales & Leads
     const salesTabHtml = `
-      <div class="new-leads-row">
-        <div class="new-leads-card">
-          <span class="nl-label">New Leads Today</span>
-          <span class="nl-value">${sa.leads.today}</span>
+      <div class="kpi-row">
+        <div class="kpi-card" style="border-top:3px solid #00d4ff">
+          <span class="kpi-value" style="color:#00d4ff">${sc.leads.today}</span>
+          <span class="kpi-label">SC Leads Today</span>
         </div>
-        <div class="new-leads-card">
-          <span class="nl-label">New Leads This Week</span>
-          <span class="nl-value">${leadsThisWeek}</span>
+        <div class="kpi-card" style="border-top:3px solid #00d4ff">
+          <span class="kpi-value" style="color:#00d4ff">${sc.leads.week}</span>
+          <span class="kpi-label">SC Leads This Week</span>
+        </div>
+        <div class="kpi-card" style="border-top:3px solid #ce93d8">
+          <span class="kpi-value" style="color:#ce93d8">${pj.leads.today}</span>
+          <span class="kpi-label">Project Leads Today</span>
+        </div>
+        <div class="kpi-card" style="border-top:3px solid #ce93d8">
+          <span class="kpi-value" style="color:#ce93d8">${pj.leads.week}</span>
+          <span class="kpi-label">Project Leads This Week</span>
         </div>
       </div>
 
-      <div class="card" style="margin-bottom:24px">
-        <h2>Lead Pipeline</h2>
-        ${leadPipelineBars}
+      <div class="grid" style="margin-bottom:24px">
+        <div class="card">
+          <h2><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Call Pipeline</h2>
+          ${buildPipelineBars(scPipeline)}
+        </div>
+        <div class="card">
+          <h2><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Project Pipeline</h2>
+          ${buildPipelineBars(projPipeline)}
+        </div>
       </div>
 
       <div class="grid" style="margin-bottom:24px">
@@ -984,15 +1278,19 @@ exports.showDashboard = async (req, res) => {
           ${leadSourceBars}
         </div>
         <div class="card">
-          <h2>Conversion Funnel</h2>
-          ${conversionFunnelHtml}
+          <h2><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>SC Conversion Funnel</h2>
+          ${buildFunnel(serviceCallLeads)}
+          <div style="border-top:1px solid #2a3a4a;margin-top:16px;padding-top:16px">
+            <h2 style="border:none;padding:0;margin-bottom:12px"><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Project Conversion Funnel</h2>
+            ${buildFunnel(projectLeads)}
+          </div>
         </div>
       </div>
 
       <div class="card">
         <h2>Recent Leads</h2>
         <div class="activity-list">
-          ${recentLeadsListHtml}
+          ${recentLeadsWithBadge}
         </div>
       </div>`;
 
@@ -1253,11 +1551,26 @@ exports.showDashboard = async (req, res) => {
     .payout-status { font-size:12px; text-transform:capitalize; flex:1; }
     .payout-date { font-size:11px; color:#5a6a7a; flex-shrink:0; }
 
+    .type-badge { font-size:10px; padding:2px 8px; border-radius:4px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; display:inline-block; vertical-align:middle; }
+    .type-badge-sc { background:rgba(0,212,255,0.15); color:#00d4ff; }
+    .type-badge-proj { background:rgba(206,147,216,0.15); color:#ce93d8; }
+
+    .split-summary { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .summary-card { background:#0f1419; border-radius:10px; border:1px solid #2a3a4a; overflow:hidden; }
+    .summary-card.sc { border-top:3px solid #00d4ff; }
+    .summary-card.proj { border-top:3px solid #ce93d8; }
+    .summary-card-header { padding:14px 16px 0; }
+    .summary-card-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; padding:8px 0; }
+    .mini-kpi { text-align:center; padding:10px 12px; }
+    .mini-kpi-value { font-size:22px; font-weight:bold; color:#e0e6ed; display:block; margin-bottom:2px; }
+    .mini-kpi-label { font-size:10px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; }
+
     @media (max-width:768px) {
       .kpi-row { grid-template-columns:repeat(2,1fr); }
       .kpi-row-3 { grid-template-columns:1fr; }
       .new-leads-row { grid-template-columns:1fr; }
       .grid { grid-template-columns:1fr; }
+      .split-summary { grid-template-columns:1fr; }
       .header { flex-direction:column; align-items:flex-start; }
       .bar-label { width:70px; font-size:11px; }
       .bar-value { width:55px; font-size:12px; }
