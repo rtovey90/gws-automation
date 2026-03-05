@@ -267,14 +267,25 @@ exports.showDashboard = async (req, res) => {
     bankPaymentsList.sort((a, b) => b.date - a.date);
     const combinedRevenueThisMonth = revenueThisMonth + bankPaymentsThisMonth;
 
+    // Build customer lookup for engagement names
+    const customerMap = {};
+    customers.forEach(c => {
+      const name = [c.fields['First Name'], c.fields['Last Name']].filter(Boolean).join(' ');
+      if (name) customerMap[c.id] = name;
+    });
+
     // Engagement options for bank payment modal
     const engagementOptions = engagements
       .filter(e => e.fields.Status && e.fields.Status !== 'Lost')
-      .map(e => ({
-        id: e.id,
-        name: e.fields['Customer Name'] || e.fields['First Name'] || 'Unknown',
-        status: e.fields.Status || 'Unknown',
-      }))
+      .map(e => {
+        const linkedCustomerId = e.fields.Customer && e.fields.Customer[0];
+        const name = e.fields['Customer Name'] || (linkedCustomerId && customerMap[linkedCustomerId]) || e.fields['First Name'] || 'Unknown';
+        return {
+          id: e.id,
+          name,
+          status: e.fields.Status || 'Unknown',
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
 
     // ── NEW: Completed Jobs Count ──
