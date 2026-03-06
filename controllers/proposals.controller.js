@@ -2037,7 +2037,8 @@ exports.listProposals = async (req, res) => {
 
 exports.showCreateForm = async (req, res) => {
   try {
-    res.send(renderProposalForm(null, null));
+    const nextNum = await airtableService.getNextProjectNumber();
+    res.send(renderProposalForm(null, { projectNumber: nextNum }));
   } catch (error) {
     console.error('Error showing create form:', error);
     res.status(500).send('Error loading form');
