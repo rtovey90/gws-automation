@@ -431,6 +431,22 @@ exports.showCompletionForm = async (req, res) => {
               <textarea name="nextSteps" id="nextSteps" placeholder="What needs to be done to resolve the issue?"></textarea>
             </div>
 
+            <label>How was the client when you left?</label>
+            <div class="radio-group" style="grid-template-columns:repeat(3,1fr)">
+              <div class="radio-option">
+                <input type="radio" name="clientMood" id="moodHappy" value="Happy" required>
+                <label for="moodHappy" style="border-color:#27ae60">😊 Happy</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="clientMood" id="moodNeutral" value="Neutral">
+                <label for="moodNeutral">😐 Neutral</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="clientMood" id="moodUnhappy" value="Unhappy">
+                <label for="moodUnhappy" style="border-color:#e67e22">😟 Unhappy</label>
+              </div>
+            </div>
+
             <label for="upgradeOpportunities">💡 Potential Upgrade Opportunities (Important!):</label>
             <textarea name="upgradeOpportunities" id="upgradeOpportunities" placeholder="Note any potential upgrades or additional services the client might need..." style="min-height: 120px;"></textarea>
 
@@ -574,6 +590,7 @@ exports.completeJob = async (req, res) => {
       issueResolved,
       nextSteps,
       upgradeOpportunities,
+      clientMood,
       timeArrived,
       timeDeparted,
       techName,
@@ -619,6 +636,7 @@ exports.completeJob = async (req, res) => {
     if (masterCode) siteVisitFields['Master Code'] = masterCode;
     if (cameraLogin) siteVisitFields['Camera Login'] = cameraLogin;
     if (cameraPassword) siteVisitFields['Camera Password'] = cameraPassword;
+    if (clientMood) siteVisitFields['Client Mood'] = clientMood;
     if (tech2Name) {
       siteVisitFields['Tech 2 Name'] = tech2Name;
       if (tech2TimeArrived) siteVisitFields['Tech 2 Time Arrived'] = tech2TimeArrived;
@@ -648,6 +666,7 @@ exports.completeJob = async (req, res) => {
     }
     visitBlock += `\n\n${jobNotes}`;
     visitBlock += `\n\nIssue Resolved: ${issueResolved || 'Yes'}`;
+    if (clientMood) visitBlock += `\nClient Mood: ${clientMood}`;
     if (nextSteps) visitBlock += `\nNext Steps: ${nextSteps}`;
     if (upgradeOpportunities) visitBlock += `\n\n💡 UPGRADE OPPORTUNITIES:\n${upgradeOpportunities}`;
 
