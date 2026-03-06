@@ -215,6 +215,7 @@ app.get('/proposals/:projectNumber', proposalsController.showProposal);
 app.get('/offers/:projectNumber', proposalsController.showOTO);
 app.get('/offers/:projectNumber/thank-you', proposalsController.showOTOThankYou);
 app.post('/api/proposals/:projectNumber/track-view', proposalsController.trackProposalView);
+app.post('/api/proposals/:projectNumber/analytics', proposalsController.analyticsHeartbeat);
 app.post('/api/proposals/:projectNumber/checkout', proposalsController.createProposalCheckout);
 app.post('/api/proposals/:projectNumber/oto-charge', proposalsController.chargeOTODirect);
 

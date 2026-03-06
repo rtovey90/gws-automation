@@ -6,6 +6,32 @@ const { wrapInLayout } = require('../utils/layout');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 
+// ── User-Agent Parsing (no npm dependency) ──
+function parseDevice(ua) {
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/iPad/i.test(ua)) return 'iPad';
+  if (/Android/i.test(ua)) return 'Android';
+  if (/Windows/i.test(ua)) return 'Windows';
+  if (/Mac/i.test(ua)) return 'Mac';
+  return 'Other';
+}
+function parseBrowser(ua) {
+  if (/SamsungBrowser/i.test(ua)) return 'Samsung';
+  if (/Edg\//i.test(ua)) return 'Edge';
+  if (/Firefox/i.test(ua)) return 'Firefox';
+  if (/CriOS|Chrome/i.test(ua)) return 'Chrome';
+  if (/Safari/i.test(ua)) return 'Safari';
+  return 'Other';
+}
+function calcEngagementScore(viewCount, totalTime, maxScroll, ctaClicks) {
+  let score = 0;
+  if (viewCount >= 3) score += 3; else if (viewCount >= 2) score += 2; else if (viewCount >= 1) score += 1;
+  if (totalTime >= 300) score += 3; else if (totalTime >= 120) score += 2; else if (totalTime >= 30) score += 1;
+  if (maxScroll >= 100) score += 3; else if (maxScroll >= 75) score += 2; else if (maxScroll >= 50) score += 1;
+  if (ctaClicks > 0) score += 1;
+  return Math.max(1, Math.min(10, score));
+}
+
 // Configure Cloudinary (same pattern as uploads.js)
 const cloudinaryUrl = process.env.CLOUDINARY_URL;
 let cloudinaryConfig = null;
@@ -137,12 +163,25 @@ exports.showProposal = async (req, res) => {
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const coverMonthYear = dateObj.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }).toUpperCase();
 
-    // Track view (fire-and-forget)
-    if (!f['Viewed At']) {
-      airtableService.updateProposal(proposal.id, {
-        'Viewed At': new Date().toISOString(),
-        Status: 'Viewed',
-      }).catch(err => console.error('Error tracking proposal view:', err));
+    // Track every view (fire-and-forget)
+    {
+      const now = new Date().toISOString();
+      const ua = req.headers['user-agent'] || '';
+      const device = parseDevice(ua);
+      const browser = parseBrowser(ua);
+      const existingLog = f['Views Log'] || '';
+      const logEntry = `${now} | ${device} | ${browser}`;
+      const viewUpdates = {
+        'View Count': (f['View Count'] || 0) + 1,
+        'Last Viewed At': now,
+        'Views Log': existingLog ? existingLog + '\n' + logEntry : logEntry,
+      };
+      if (!f['Viewed At']) {
+        viewUpdates['Viewed At'] = now;
+        viewUpdates['Status'] = 'Viewed';
+      }
+      airtableService.updateProposal(proposal.id, viewUpdates)
+        .catch(err => console.error('Error tracking proposal view:', err));
     }
 
     // Build scope rows
@@ -576,7 +615,7 @@ exports.showProposal = async (req, res) => {
 </div>
 
 <!-- ==================== LETTER ==================== -->
-<div class="page bg-gradient">
+<div class="page bg-gradient" data-section="letter">
   ${pgHeader}
   <div class="pg-body letter">
     <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
@@ -599,7 +638,7 @@ exports.showProposal = async (req, res) => {
 </div>
 
 <!-- ==================== WHY CHOOSE US ==================== -->
-<div class="page bg-subtle">
+<div class="page bg-subtle" data-section="why-us">
   ${pgHeader}
   <div class="pg-body">
     <div class="sec-title">Why Choose Us?</div>
@@ -628,7 +667,7 @@ exports.showProposal = async (req, res) => {
 </div>
 
 <!-- ==================== PROJECT SCOPE ==================== -->
-<div class="page bg-gradient">
+<div class="page bg-gradient" data-section="scope">
   ${pgHeader}
   <div class="pg-body">
     <div class="sec-title">Project Scope</div>
@@ -645,7 +684,7 @@ exports.showProposal = async (req, res) => {
 ${sitePhotoPages}
 
 <!-- ==================== DELIVERABLES ==================== -->
-<div class="page bg-subtle">
+<div class="page bg-subtle" data-section="deliverables">
   ${pgHeader}
   <div class="pg-body">
     <div class="sec-title">Project Deliverables</div>
@@ -659,7 +698,7 @@ ${sitePhotoPages}
 </div>
 
 <!-- ==================== INTERACTIVE PRICING ==================== -->
-<div class="page bg-warm" style="display:flex; flex-direction:column;">
+<div class="page bg-warm" data-section="pricing" style="display:flex; flex-direction:column;">
   ${pgHeader}
   <div class="pg-body" style="padding-bottom:0; flex:none;">
     <div class="sec-title">Ready to Get Started?</div>
@@ -732,7 +771,7 @@ ${sitePhotoPages}
 </div>
 
 <!-- ==================== CLARIFICATIONS ==================== -->
-<div class="page bg-gradient">
+<div class="page bg-gradient" data-section="clarifications">
   ${pgHeader}
   <div class="pg-body">
     <div class="sec-title">Clarifications &amp; Exclusions</div>
@@ -898,6 +937,81 @@ async function downloadPDF() {
 }
 </script>
 
+<script>
+// ── Proposal Analytics ──
+(function() {
+  var PN = '${escapeHtml(projectNumber)}';
+  var SID = 'S' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  var activeTime = 0, scrollDepth = 0, ctaClicks = 0, active = true, lastTick = Date.now();
+  var sectionTimes = {};
+
+  // Track active time (pause when tab hidden)
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) { activeTime += (Date.now() - lastTick) / 1000; active = false; }
+    else { lastTick = Date.now(); active = true; }
+  });
+  setInterval(function() { if (active) { activeTime += (Date.now() - lastTick) / 1000; lastTick = Date.now(); } }, 1000);
+
+  // Track scroll depth
+  window.addEventListener('scroll', function() {
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    if (h > 0) scrollDepth = Math.max(scrollDepth, Math.round((window.scrollY / h) * 100));
+  }, { passive: true });
+
+  // Track time per section via IntersectionObserver
+  var pages = document.querySelectorAll('.page');
+  var visibleSections = {};
+  if (pages.length && window.IntersectionObserver) {
+    var obs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        var id = e.target.getAttribute('data-section') || ('section-' + Array.from(pages).indexOf(e.target));
+        if (e.isIntersecting) { visibleSections[id] = Date.now(); }
+        else if (visibleSections[id]) {
+          sectionTimes[id] = (sectionTimes[id] || 0) + (Date.now() - visibleSections[id]) / 1000;
+          delete visibleSections[id];
+        }
+      });
+    }, { threshold: 0.3 });
+    pages.forEach(function(p) { obs.observe(p); });
+  }
+
+  // Track CTA clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest && e.target.closest('[onclick*="checkout"], .accept-btn, [data-cta]')) ctaClicks++;
+  });
+
+  function flushSections() {
+    var now = Date.now();
+    Object.keys(visibleSections).forEach(function(id) {
+      sectionTimes[id] = (sectionTimes[id] || 0) + (now - visibleSections[id]) / 1000;
+      visibleSections[id] = now;
+    });
+  }
+
+  function getPayload() {
+    flushSections();
+    return JSON.stringify({ sessionId: SID, activeTime: Math.round(activeTime), scrollDepth: scrollDepth, sectionTimes: sectionTimes, ctaClicks: ctaClicks });
+  }
+
+  // Heartbeat every 30s
+  setInterval(function() {
+    fetch('/api/proposals/' + PN + '/analytics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: getPayload() }).catch(function(){});
+  }, 30000);
+
+  // Final beacon on page close
+  window.addEventListener('beforeunload', function() {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/proposals/' + PN + '/analytics', new Blob([getPayload()], { type: 'application/json' }));
+    }
+  });
+
+  // Send initial ping after 5s
+  setTimeout(function() {
+    fetch('/api/proposals/' + PN + '/analytics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: getPayload() }).catch(function(){});
+  }, 5000);
+})();
+</script>
+
 </body>
 </html>`;
 
@@ -927,6 +1041,64 @@ exports.trackProposalView = async (req, res) => {
   } catch (error) {
     console.error('Error tracking view:', error);
     res.json({ ok: true }); // Don't fail the client
+  }
+};
+
+// ─── PUBLIC: Analytics Heartbeat ──────────────────────────────
+
+exports.analyticsHeartbeat = async (req, res) => {
+  try {
+    const { projectNumber } = req.params;
+    const { sessionId, activeTime, scrollDepth, sectionTimes, ctaClicks } = req.body;
+
+    if (!sessionId) return res.json({ ok: true });
+
+    const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
+    if (!proposal) return res.json({ ok: true });
+
+    const f = proposal.fields;
+    let sessions = [];
+    try { sessions = JSON.parse(f['Analytics'] || '[]'); } catch { sessions = []; }
+
+    // Upsert session
+    const idx = sessions.findIndex(s => s.id === sessionId);
+    const sessionData = {
+      id: sessionId,
+      activeTime: activeTime || 0,
+      scrollDepth: scrollDepth || 0,
+      sectionTimes: sectionTimes || {},
+      ctaClicks: ctaClicks || 0,
+      lastUpdate: new Date().toISOString(),
+    };
+    if (idx >= 0) {
+      sessions[idx] = { ...sessions[idx], ...sessionData };
+    } else {
+      sessionData.startedAt = new Date().toISOString();
+      // Capture device/browser from first heartbeat
+      const ua = req.headers['user-agent'] || '';
+      sessionData.device = parseDevice(ua);
+      sessionData.browser = parseBrowser(ua);
+      sessions.push(sessionData);
+    }
+
+    // Recalculate aggregates
+    const totalTime = sessions.reduce((sum, s) => sum + (s.activeTime || 0), 0);
+    const maxScroll = Math.max(...sessions.map(s => s.scrollDepth || 0), 0);
+    const totalCta = sessions.reduce((sum, s) => sum + (s.ctaClicks || 0), 0);
+    const viewCount = f['View Count'] || 0;
+    const engScore = calcEngagementScore(viewCount, totalTime, maxScroll, totalCta);
+
+    await airtableService.updateProposal(proposal.id, {
+      'Analytics': JSON.stringify(sessions),
+      'Total View Time': Math.round(totalTime),
+      'Max Scroll Depth': Math.round(maxScroll),
+      'Engagement Score': engScore,
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error saving analytics:', error);
+    res.json({ ok: true });
   }
 };
 
@@ -1725,6 +1897,31 @@ exports.listProposals = async (req, res) => {
       return db.localeCompare(da);
     });
 
+    // Helper: format date as "05 Mar"
+    const fmtShort = (d) => {
+      if (!d) return '–';
+      const dt = new Date(d);
+      if (isNaN(dt)) return '–';
+      return dt.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
+    };
+    // Helper: relative time
+    const timeAgo = (d) => {
+      if (!d) return '–';
+      const dt = new Date(d);
+      if (isNaN(dt)) return '–';
+      const diff = (Date.now() - dt.getTime()) / 1000;
+      if (diff < 3600) return Math.max(1, Math.round(diff / 60)) + 'm ago';
+      if (diff < 86400) return Math.round(diff / 3600) + 'h ago';
+      if (diff < 604800) return Math.round(diff / 86400) + 'd ago';
+      return fmtShort(d);
+    };
+    // Helper: format seconds as "Xm Xs"
+    const fmtTime = (s) => {
+      if (!s || s < 1) return '–';
+      if (s < 60) return Math.round(s) + 's';
+      return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+    };
+
     const rows = proposals.map(p => {
       const f = p.fields;
       const status = f['Status'] || 'Draft';
@@ -1737,6 +1934,29 @@ exports.listProposals = async (req, res) => {
         Paid: '#00bcd4',
       };
       const color = statusColors[status] || '#6c757d';
+      const viewCount = f['View Count'] || 0;
+      const totalTime = f['Total View Time'] || 0;
+      const maxScroll = f['Max Scroll Depth'] || 0;
+      const engScore = f['Engagement Score'] || 0;
+      const lastViewed = f['Last Viewed At'] || '';
+
+      // Engagement score color
+      const scoreColor = engScore >= 7 ? '#4caf50' : engScore >= 4 ? '#ff9800' : engScore >= 1 ? '#e05252' : '#3a4a5a';
+
+      // Parse last device from Views Log (last line)
+      const viewsLog = f['Views Log'] || '';
+      const lastLogLine = viewsLog.split('\n').filter(Boolean).pop() || '';
+      const lastDevice = lastLogLine.includes('iPhone') || lastLogLine.includes('iPad') || lastLogLine.includes('Android') ? '📱' : lastLogLine.includes('Windows') || lastLogLine.includes('Mac') ? '💻' : '';
+
+      // Engagement cell content
+      let engHtml = '<span style="color:#3a4a5a">–</span>';
+      if (viewCount > 0) {
+        engHtml = `<span style="display:inline-flex;align-items:center;gap:6px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${scoreColor};color:#fff;font-size:10px;font-weight:700;">${engScore}</span>
+          <span style="font-size:11px;color:#8899aa;">👁${viewCount} · ${fmtTime(totalTime)} · ${maxScroll}%</span>
+          ${lastDevice ? `<span style="font-size:12px">${lastDevice}</span>` : ''}
+        </span>`;
+      }
 
       return `<tr onclick="window.location='/admin/proposals/edit/${p.id}'" style="cursor:pointer;">
         <td style="font-weight:700;">${escapeHtml(f['Project Number'] || '')}</td>
@@ -1744,7 +1964,10 @@ exports.listProposals = async (req, res) => {
         <td>${escapeHtml(f['Client Address'] || '')}</td>
         <td><span style="background:${color};color:white;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${escapeHtml(status)}</span></td>
         <td>${f['Base Price'] ? formatCurrency(f['Base Price']) : '-'}</td>
-        <td>${escapeHtml(f['Proposal Date'] || '')}</td>
+        <td style="font-size:12px;color:#8899aa;">${fmtShort(f['Proposal Date'])}</td>
+        <td style="font-size:12px;color:#8899aa;">${fmtShort(f['Sent At'])}</td>
+        <td>${engHtml}</td>
+        <td style="font-size:11px;color:#5a6a7a;">${lastViewed ? timeAgo(lastViewed) : '–'}</td>
         <td>
           <button onclick="event.stopPropagation(); togglePause('${p.id}', this)" style="background:${paused ? '#e05252' : '#4caf50'};color:white;border:none;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;min-width:60px;">${paused ? 'Paused' : 'Live'}</button>
         </td>
@@ -1752,6 +1975,7 @@ exports.listProposals = async (req, res) => {
       </tr>`;
     }).join('');
 
+    const thStyle = 'padding:12px;text-align:left;color:#8899aa;font-size:11px;text-transform:uppercase;white-space:nowrap;';
     const bodyHtml = `
       <div style="padding:24px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
@@ -1762,18 +1986,21 @@ exports.listProposals = async (req, res) => {
           <table style="width:100%;border-collapse:collapse;">
             <thead>
               <tr style="border-bottom:2px solid #2a3a4a;">
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Project #</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Client</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Address</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Status</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Price</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Date</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;">Link</th>
-                <th style="padding:12px;text-align:left;color:#8899aa;font-size:12px;text-transform:uppercase;"></th>
+                <th style="${thStyle}">Project #</th>
+                <th style="${thStyle}">Client</th>
+                <th style="${thStyle}">Address</th>
+                <th style="${thStyle}">Status</th>
+                <th style="${thStyle}">Price</th>
+                <th style="${thStyle}">Created</th>
+                <th style="${thStyle}">Sent</th>
+                <th style="${thStyle}">Engagement</th>
+                <th style="${thStyle}">Last Opened</th>
+                <th style="${thStyle}">Link</th>
+                <th style="${thStyle}"></th>
               </tr>
             </thead>
             <tbody>
-              ${rows || '<tr><td colspan="8" style="padding:40px;text-align:center;color:#5a6a7a;">No proposals yet. Click "+ New Proposal" to create one.</td></tr>'}
+              ${rows || '<tr><td colspan="11" style="padding:40px;text-align:center;color:#5a6a7a;">No proposals yet. Click "+ New Proposal" to create one.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -2519,6 +2746,51 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         Cloned from <strong style="color:#4caf50;">${escapeHtml(cf['Client Name'] || 'Unknown')}</strong>${cf['Project Number'] ? ' (Project #' + escapeHtml(cf['Project Number']) + ')' : ''} &mdash; scope, deliverables, pricing & upsells carried over. Select a customer below.
       </div>` : ''}
       ${clientName ? `<p style="color:#00d4ff;font-size:15px;margin-bottom:20px;">for <strong>${escapeHtml(clientName)}</strong>${clientAddress ? ' &mdash; ' + escapeHtml(clientAddress) : ''}</p>` : ''}
+
+      ${isEdit && (f['View Count'] || 0) > 0 ? (() => {
+        const vc = f['View Count'] || 0;
+        const tvt = f['Total View Time'] || 0;
+        const msd = f['Max Scroll Depth'] || 0;
+        const es = f['Engagement Score'] || 0;
+        const esColor = es >= 7 ? '#4caf50' : es >= 4 ? '#ff9800' : '#e05252';
+        let sessions = [];
+        try { sessions = JSON.parse(f['Analytics'] || '[]'); } catch {}
+        const totalCta = sessions.reduce((s, x) => s + (x.ctaClicks || 0), 0);
+
+        // Section times aggregated across sessions
+        const aggSections = {};
+        sessions.forEach(s => {
+          if (s.sectionTimes) Object.entries(s.sectionTimes).forEach(([k, v]) => { aggSections[k] = (aggSections[k] || 0) + v; });
+        });
+        const maxSectionTime = Math.max(...Object.values(aggSections), 1);
+        const sectionLabels = { cover: 'Cover', letter: 'Letter', 'why-us': 'Why Us', scope: 'Scope', deliverables: 'Deliverables', pricing: 'Pricing', clarifications: 'Clarifications' };
+        const sectionBars = Object.entries(aggSections).map(([k, v]) => {
+          const pct = Math.round((v / maxSectionTime) * 100);
+          const label = sectionLabels[k] || k;
+          return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="width:90px;font-size:11px;color:#8899aa;text-align:right;">' + label + '</span><div style="flex:1;background:#1a2a3a;border-radius:3px;height:14px;"><div style="width:' + pct + '%;background:#00d4ff;border-radius:3px;height:100%;min-width:2px;"></div></div><span style="font-size:10px;color:#5a6a7a;width:35px;">' + Math.round(v) + 's</span></div>';
+        }).join('');
+
+        // Session history
+        const sessionRows = sessions.slice().reverse().slice(0, 10).map(s => {
+          const dt = s.startedAt ? new Date(s.startedAt) : null;
+          const dateStr = dt ? dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ', ' + dt.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }) : '–';
+          const devIcon = (s.device === 'iPhone' || s.device === 'iPad' || s.device === 'Android') ? '📱' : '💻';
+          const dur = s.activeTime >= 60 ? Math.floor(s.activeTime / 60) + 'm ' + Math.round(s.activeTime % 60) + 's' : Math.round(s.activeTime || 0) + 's';
+          return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1a2a3a;font-size:12px;color:#8899aa;"><span>' + dateStr + '</span><span>' + devIcon + ' ' + (s.device || '') + ' ' + (s.browser || '') + '</span><span style="margin-left:auto;">' + dur + ' · ' + Math.round(s.scrollDepth || 0) + '%</span></div>';
+        }).join('');
+
+        const timeFmt = tvt >= 60 ? Math.floor(tvt / 60) + 'm ' + Math.round(tvt % 60) + 's' : Math.round(tvt) + 's';
+        return '<div id="analyticsPanel" style="background:#0f1a24;border:1px solid #2a3a4a;border-radius:12px;padding:16px 20px;margin-bottom:20px;">'
+          + '<div id="analyticsToggle" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">'
+          + '<div style="display:flex;align-items:center;gap:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:' + esColor + ';color:#fff;font-size:14px;font-weight:700;">' + es + '</span><span style="font-size:14px;font-weight:600;color:#e0e6ed;">Engagement Analytics</span></div>'
+          + '<div style="display:flex;gap:16px;font-size:12px;color:#8899aa;"><span>👁 ' + vc + ' views</span><span>⏱ ' + timeFmt + '</span><span>📜 ' + msd + '%</span>' + (totalCta > 0 ? '<span>🖱 ' + totalCta + ' CTA</span>' : '') + '<span id="analyticsArrow" style="color:#5a6a7a;">▼</span></div>'
+          + '</div>'
+          + '<div id="analyticsBody" style="display:none;margin-top:16px;">'
+          + (sectionBars ? '<div style="margin-bottom:16px;"><div style="font-size:11px;color:#5a6a7a;text-transform:uppercase;margin-bottom:8px;font-weight:600;">Time per Section</div>' + sectionBars + '</div>' : '')
+          + (sessionRows ? '<div><div style="font-size:11px;color:#5a6a7a;text-transform:uppercase;margin-bottom:8px;font-weight:600;">Session History</div>' + sessionRows + '</div>' : '')
+          + '</div></div>'
+          + '<script>document.getElementById("analyticsToggle").addEventListener("click",function(){var b=document.getElementById("analyticsBody");var a=document.getElementById("analyticsArrow");if(b.style.display==="none"){b.style.display="block";a.textContent="▲";}else{b.style.display="none";a.textContent="▼";}});</script>';
+      })() : ''}
 
       <!-- STEP INDICATORS -->
       <div class="steps-bar">
