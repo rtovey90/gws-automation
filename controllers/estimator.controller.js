@@ -285,7 +285,7 @@ const engagementPickerHTML = `
                 <button id="mode-estimate" onclick="switchMode('estimate')" style="padding:8px 20px; background:#00d4ff; color:#0a0e27; border:none; font-weight:700; font-size:13px; cursor:pointer;">Estimate</button>
                 <button id="mode-actuals" onclick="switchMode('actuals')" style="padding:8px 20px; background:transparent; color:#8899aa; border:none; font-weight:700; font-size:13px; cursor:pointer;">Actuals</button>
               </div>
-              <button id="save-actuals-btn" onclick="saveActualsToEngagement()" class="save-btn" style="display:none; white-space:nowrap; background:linear-gradient(135deg,#ff6b6b,#ee5a5a);">Save Actuals</button>
+              <button id="save-actuals-btn" onclick="saveActualsToEngagement()" class="save-btn" style="display:none; white-space:nowrap; background:linear-gradient(135deg,#00d4ff,#00a7e1); color:#0a0e27;">Save Actuals</button>
               <span id="actuals-status" style="color:#34c759; font-weight:600; font-size:13px;"></span>
             </div>
           </div>
@@ -295,7 +295,7 @@ const engagementPickerHTML = `
               <div id="supplier-quotes-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
             <div id="supplier-invoices-section" style="display:none;">
-              <label style="display:block; font-weight:700; margin-bottom:8px; font-size:13px; color:#ff6b6b; text-transform:uppercase; letter-spacing:0.5px;">Supplier Invoices</label>
+              <label style="display:block; font-weight:700; margin-bottom:8px; font-size:13px; color:#ffa726; text-transform:uppercase; letter-spacing:0.5px;">Supplier Invoices</label>
               <div id="supplier-invoices-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
           </div>
@@ -303,11 +303,11 @@ const engagementPickerHTML = `
 `;
 
 const comparisonPanelHTML = `
-  <button id="actuals-panel-toggle" onclick="toggleActualsPanel()" style="display:none; position:fixed; left:0; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,#ff6b6b,#ee5a5a); color:white; border:none; padding:15px 12px; border-radius:0 12px 12px 0; cursor:pointer; font-size:13px; font-weight:700; writing-mode:vertical-rl; text-orientation:mixed; box-shadow:4px 0 15px rgba(255,107,107,0.3); z-index:999; transition:all .3s ease;">ACTUALS</button>
+  <button id="actuals-panel-toggle" onclick="toggleActualsPanel()" style="display:none; position:fixed; left:0; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,#00d4ff,#00a7e1); color:#0a0e27; border:none; padding:15px 12px; border-radius:0 12px 12px 0; cursor:pointer; font-size:13px; font-weight:700; writing-mode:vertical-rl; text-orientation:mixed; box-shadow:4px 0 15px rgba(0,212,255,0.3); z-index:999; transition:all .3s ease;">EST vs ACTUAL</button>
   <div id="actuals-panel" style="position:fixed; left:0; top:0; width:340px; height:100vh; background:linear-gradient(180deg,#1a1a2e,#16213e); box-shadow:4px 0 20px rgba(0,0,0,0.3); z-index:1000; overflow-y:auto; transform:translateX(-100%); transition:transform .3s ease; display:flex; flex-direction:column;">
-    <div style="padding:16px 20px; background:linear-gradient(135deg,#ff6b6b,#ee5a5a); color:white; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+    <div style="padding:16px 20px; background:linear-gradient(135deg,#00d4ff,#00a7e1); color:#0a0e27; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="font-size:18px; font-weight:700; margin:0;">Estimated vs Actual</h2>
-      <button onclick="toggleActualsPanel()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:18px;">&times;</button>
+      <button onclick="toggleActualsPanel()" style="background:rgba(10,14,39,0.2); border:none; color:#0a0e27; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:18px;">&times;</button>
     </div>
     <div style="padding:16px 20px; flex:1;">
       <div style="margin-bottom:16px;">
@@ -491,8 +491,8 @@ const engagementJS = `
       const actBtn = document.getElementById('mode-actuals');
       estBtn.style.background = mode === 'estimate' ? '#00d4ff' : 'transparent';
       estBtn.style.color = mode === 'estimate' ? '#0a0e27' : '#8899aa';
-      actBtn.style.background = mode === 'actuals' ? '#ff6b6b' : 'transparent';
-      actBtn.style.color = mode === 'actuals' ? '#fff' : '#8899aa';
+      actBtn.style.background = mode === 'actuals' ? '#00d4ff' : 'transparent';
+      actBtn.style.color = mode === 'actuals' ? '#0a0e27' : '#8899aa';
 
       // Show/hide actuals controls
       document.getElementById('save-actuals-btn').style.display = mode === 'actuals' ? 'inline-block' : 'none';
@@ -644,8 +644,8 @@ const engagementJS = `
             '<td style="padding:6px;text-align:right;color:' + color + ';font-size:11px;">' + sign + '$' + diff.toFixed(0) + '</td>' +
             '</tr>';
         }).join('') +
-          '<tr style="border-top:2px solid #ff6b6b;font-weight:700;">' +
-          '<td style="padding:6px;color:#ff6b6b;">Total</td>' +
+          '<tr style="border-top:2px solid #00d4ff;font-weight:700;">' +
+          '<td style="padding:6px;color:#00d4ff;">Total</td>' +
           '<td style="padding:6px;text-align:right;color:#e0e6ed;">$' + totalEst.toFixed(0) + '</td>' +
           '<td style="padding:6px;text-align:right;color:#e0e6ed;">$' + totalAct.toFixed(0) + '</td>' +
           '<td style="padding:6px;text-align:right;color:' + (totalAct > totalEst ? '#ff6b6b' : '#34c759') + ';">' + (totalAct > totalEst ? '+' : '') + '$' + (totalAct - totalEst).toFixed(0) + '</td>' +
