@@ -369,11 +369,14 @@ exports.listEngagements = async (req, res) => {
   try {
     const engagements = await airtableService.getAllEngagements();
 
-    const hiddenStatuses = ['Disqualified', 'TRELLO LEADS TO ADD'];
     const list = engagements
       .filter(eng => {
-        const status = eng.fields.Status || '';
-        return !hiddenStatuses.some(s => status.includes(s));
+        const f = eng.fields;
+        // Only show engagements with an assigned number (confirmed leads)
+        if (!f['Engagement Number']) return false;
+        const status = f.Status || '';
+        if (status.includes('Disqualified') || status.includes('TRELLO LEADS TO ADD')) return false;
+        return true;
       })
       .map(eng => {
         const f = eng.fields;
@@ -383,18 +386,15 @@ exports.listEngagements = async (req, res) => {
         const customerName = [firstName, lastName].filter(Boolean).join(' ');
         const address = (f['Address (from Customer)'] || [])[0] || '';
         const systemType = Array.isArray(f['System Type']) ? f['System Type'].join(', ') : (f['System Type'] || '');
-        const status = (f.Status || '').replace(/[^\w\s]/g, '').trim();
-
         // Skip entries with no customer name (likely bad data)
         if (!customerName) return null;
 
         const parts = [engNumber, customerName, address, systemType].filter(Boolean);
         const name = parts.join(' — ');
-        const statusSuffix = status ? ` (${status})` : '';
 
         return {
           id: eng.id,
-          name: name + statusSuffix,
+          name,
           status: f.Status || '',
         };
       })
