@@ -1144,6 +1144,28 @@ exports.showDashboard = async (req, res) => {
       }),
       stripeMonthly: stripeData ? stripeData.monthlyRevenue : [],
       bankByMonth: bankPaymentsByMonth,
+      // Pre-computed server-side values for "this month" (Stripe + bank)
+      precomputed: {
+        scRevenueMonth: scRevenueThisMonth + scBankThisMonth,
+        prRevenueMonth: projRevenueThisMonth + projBankThisMonth,
+        scDealsMonth: sc.dealsClosed.month,
+        prDealsMonth: pj.dealsClosed.month,
+        scDealsValueMonth: sc.dealsValue.month,
+        prDealsValueMonth: pj.dealsValue.month,
+        scRevenueWeek: sc.dealsValue.week,
+        prRevenueWeek: pj.dealsValue.week,
+        scDealsWeek: sc.dealsClosed.week,
+        prDealsWeek: pj.dealsClosed.week,
+        scRevenueYear: sc.dealsValue.year,
+        prRevenueYear: pj.dealsValue.year,
+        scDealsYear: sc.dealsClosed.year,
+        prDealsYear: pj.dealsClosed.year,
+        scRevenueToday: sc.dealsValue.today,
+        prRevenueToday: pj.dealsValue.today,
+        scDealsToday: sc.dealsClosed.today,
+        prDealsToday: pj.dealsClosed.today,
+        totalRevenueMonth: combinedRevenueThisMonth,
+      },
     };
 
     // Tab 1: Overview (client-side rendered)
@@ -1787,44 +1809,65 @@ exports.showDashboard = async (req, res) => {
       var prPropsSent = props.filter(function(p) { return inRange(p.sentAt, range); });
       var prPropsValue = prPropsSent.reduce(function(s, p) { return s + p.basePrice; }, 0);
 
-      // Deals accepted: SC deals = SC engagements with closed status + invoiced in range
-      // Best proxy: SC engagements created in range that reached a closed/paid status
-      var scDeals = engs.filter(function(e) {
-        return e.type === 'sc' && e.totalInvoiced > 0 && (inRange(e.created, range) || inRange(e.bankPaymentDate, range));
-      });
-      // Deduplicate: prefer bank payment date match, then created match
-      var scDealsUnique = {};
-      scDeals.forEach(function(e) { scDealsUnique[e.id] = e; });
-      scDeals = Object.values(scDealsUnique);
-      var scDealsValue = scDeals.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+      // Revenue & Deals — use precomputed Stripe+Airtable data for known periods
+      var pre = OV_DATA.precomputed;
+      var periodMap = { today: 'Today', week: 'Week', month: 'Month', year: 'Year' };
+      var suffix = periodMap[period] || null;
 
-      // PR deals: proposals paid in range
-      var prDealProps = props.filter(function(p) { return p.status === 'Paid' && inRange(p.paidAt, range); });
-      var prDealsValue = prDealProps.reduce(function(s, p) { return s + p.basePrice; }, 0);
-      // Also check PR engagements with Total Invoiced and bank payment in range
-      var prBankDeals = engs.filter(function(e) {
-        return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.bankPaymentDate, range);
-      });
-      var prBankValue = prBankDeals.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+      var scDealsCount, prDealsCount, scRevenue, prRevenue;
 
-      // Revenue = SC deals value + PR deals value + PR bank
-      var scRevenue = scDealsValue;
-      var prRevenue = prDealsValue + prBankValue;
+      if (suffix) {
+        // Use accurate server-side precomputed values (includes Stripe data)
+        scDealsCount = pre['scDeals' + suffix];
+        prDealsCount = pre['prDeals' + suffix];
+        scRevenue = pre['scRevenue' + suffix] || pre['scDealsValue' + suffix] || 0;
+        prRevenue = pre['prRevenue' + suffix] || pre['prDealsValue' + suffix] || 0;
+        // For month, use the Stripe-sourced revenue which is more accurate
+        if (period === 'month' && pre.scRevenueMonth > 0) scRevenue = pre.scRevenueMonth;
+        if (period === 'month' && pre.prRevenueMonth > 0) prRevenue = pre.prRevenueMonth;
+      } else {
+        // Custom/allTime/lastMonth/yesterday — calculate from engagement data
+        var closedSet = ['Initial Parts Ordered', 'Completed \\u2728', 'Positive Review Received', 'Negative Review Received', 'Payment Received \\u2705'];
+        var scDealsList = engs.filter(function(e) {
+          return e.type === 'sc' && inRange(e.created, range) && (closedSet.indexOf(e.status) !== -1 || e.totalInvoiced > 0);
+        });
+        var prDealsList = engs.filter(function(e) {
+          return e.type === 'pr' && inRange(e.created, range) && (closedSet.indexOf(e.status) !== -1 || e.totalInvoiced > 0);
+        });
+        // Also count proposals paid in range
+        var prPaidProps = props.filter(function(p) { return p.status === 'Paid' && inRange(p.paidAt, range); });
+        scDealsCount = scDealsList.length;
+        prDealsCount = prDealsList.length + prPaidProps.length;
+        scRevenue = scDealsList.reduce(function(s, e) { return s + (e.totalInvoiced || e.scAmount || 0); }, 0);
+        prRevenue = prDealsList.reduce(function(s, e) { return s + (e.totalInvoiced || e.projectValue || 0); }, 0);
+        prRevenue += prPaidProps.reduce(function(s, p) { return s + p.basePrice; }, 0);
+        // Add bank payments in range
+        engs.forEach(function(e) {
+          if (e.bankPaymentAmount > 0 && inRange(e.bankPaymentDate, range)) {
+            if (e.type === 'sc') scRevenue += e.bankPaymentAmount;
+            if (e.type === 'pr') prRevenue += e.bankPaymentAmount;
+          }
+        });
+      }
+
       var totalRevenue = scRevenue + prRevenue;
 
-      // Profit (only where costs exist)
+      // Profit — from all engagements with costs in range (all-time if period is allTime)
       var scProfit = 0, prProfit = 0;
-      scDeals.forEach(function(e) { if (e.totalCost > 0) scProfit += e.totalInvoiced - e.totalCost; });
-      prBankDeals.forEach(function(e) { if (e.totalCost > 0) prProfit += e.totalInvoiced - e.totalCost; });
-      // Add profit from proposal-paid engagements
-      prDealProps.forEach(function(p) {
-        var eng = engs.find(function(e) { return e.engNumber && p.projectNumber && p.projectNumber.startsWith(e.engNumber); });
-        if (eng && eng.totalCost > 0) prProfit += eng.totalInvoiced - eng.totalCost;
+      engs.forEach(function(e) {
+        if (e.totalInvoiced > 0 && e.totalCost > 0) {
+          var matchRange = suffix ? inRange(e.created, range) : inRange(e.created, range) || inRange(e.bankPaymentDate, range);
+          if (matchRange || period === 'allTime') {
+            var p = e.totalInvoiced - e.totalCost;
+            if (e.type === 'sc') scProfit += p;
+            if (e.type === 'pr') prProfit += p;
+          }
+        }
       });
 
-      // SC conversion
-      var scConversion = scLeads.length > 0 ? pctOf(scDeals.length, scLeads.length) : '0.0';
-      var prConversion = prLeads.length > 0 ? pctOf(prDealProps.length + prBankDeals.length, prLeads.length) : '0.0';
+      // Conversion
+      var scConversion = scLeads.length > 0 ? pctOf(scDealsCount, scLeads.length) : '0.0';
+      var prConversion = prLeads.length > 0 ? pctOf(prDealsCount, prLeads.length) : '0.0';
 
       // ── Render split summary ──
       var splitEl = document.getElementById('ov-split');
@@ -1835,7 +1878,7 @@ exports.showDashboard = async (req, res) => {
             mkMini(scLeads.length, 'Leads') +
             mkMini(scQuotesSent.length, 'Payment Links Sent') +
             mkMini(fmtC(scQuotesValue), 'Sent Value') +
-            mkMini(scDeals.length, 'Deals Accepted') +
+            mkMini(scDealsCount, 'Deals Accepted') +
             mkMini(fmtC(scRevenue), 'Revenue') +
             mkMini(scConversion + '%', 'Conversion Rate') +
           '</div>' +
@@ -1846,7 +1889,7 @@ exports.showDashboard = async (req, res) => {
             mkMini(prLeads.length, 'Leads') +
             mkMini(prPropsSent.length, 'Proposals Sent') +
             mkMini(fmtC(prPropsValue), 'Proposals Value') +
-            mkMini(prDealProps.length + prBankDeals.length, 'Deals Accepted') +
+            mkMini(prDealsCount, 'Deals Accepted') +
             mkMini(fmtC(prRevenue), 'Revenue') +
             mkMini(prConversion + '%', 'Conversion Rate') +
           '</div>' +
@@ -1881,8 +1924,7 @@ exports.showDashboard = async (req, res) => {
       // ── KPI Row ──
       var kpiEl = document.getElementById('ov-kpi-row');
       var totalLeads = scLeads.length + prLeads.length;
-      var totalDeals = scDeals.length + prDealProps.length + prBankDeals.length;
-      var avgDealSize = totalDeals > 0 ? totalRevenue / totalDeals : 0;
+      var totalDeals = scDealsCount + prDealsCount;
       var overallConversion = totalLeads > 0 ? pctOf(totalDeals, totalLeads) : '0.0';
       kpiEl.innerHTML =
         mkKpi(fmtC(totalRevenue), 'Total Revenue', '#00d4ff') +
@@ -1899,9 +1941,9 @@ exports.showDashboard = async (req, res) => {
             ['New Leads', scLeads.length],
             ['Payment Links Sent', scQuotesSent.length],
             ['Sent Value', fmtC(scQuotesValue)],
-            ['Deals Accepted', scDeals.length],
+            ['Deals Accepted', scDealsCount],
             ['Revenue', fmtC(scRevenue)],
-            ['Avg Deal Size', fmtC(scDeals.length > 0 ? scRevenue / scDeals.length : 0)],
+            ['Avg Deal Size', fmtC(scDealsCount > 0 ? scRevenue / scDealsCount : 0)],
           ]) +
         '</div>' +
         '<div class="card">' +
@@ -1910,9 +1952,9 @@ exports.showDashboard = async (req, res) => {
             ['New Leads', prLeads.length],
             ['Proposals Sent', prPropsSent.length],
             ['Proposals Value', fmtC(prPropsValue)],
-            ['Deals Accepted', prDealProps.length + prBankDeals.length],
+            ['Deals Accepted', prDealsCount],
             ['Revenue', fmtC(prRevenue)],
-            ['Avg Deal Size', fmtC((prDealProps.length + prBankDeals.length) > 0 ? prRevenue / (prDealProps.length + prBankDeals.length) : 0)],
+            ['Avg Deal Size', fmtC(prDealsCount > 0 ? prRevenue / prDealsCount : 0)],
           ]) +
         '</div>';
     }
