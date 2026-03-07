@@ -1646,6 +1646,27 @@ exports.showDashboard = async (req, res) => {
     .mini-kpi-value { font-size:22px; font-weight:bold; color:#e0e6ed; display:block; margin-bottom:2px; }
     .mini-kpi-label { font-size:10px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; }
 
+    .funnel { background:#0f1419; border:1px solid #2a3a4a; border-radius:12px; padding:28px 24px 20px; margin-bottom:24px; }
+    .funnel-title { font-size:13px; color:#5a6a7a; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:20px; }
+    .funnel-stages { display:flex; align-items:center; }
+    .funnel-stage { flex:1; text-align:center; }
+    .funnel-stage-count { font-size:40px; font-weight:800; display:block; line-height:1.1; }
+    .funnel-stage-label { font-size:11px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; display:block; }
+    .funnel-stage-sub { font-size:13px; color:#5a6a7a; margin-top:6px; display:block; }
+    .funnel-bar-track { height:8px; background:#1a2332; border-radius:4px; margin:12px auto 0; overflow:hidden; }
+    .funnel-bar-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+    .funnel-arrow { display:flex; flex-direction:column; align-items:center; padding:0 6px; flex-shrink:0; min-width:56px; }
+    .funnel-arrow-pct { font-size:18px; font-weight:800; }
+    .funnel-arrow-icon { color:#3a4a5a; font-size:18px; margin-top:2px; }
+    .funnel-overall { display:flex; justify-content:center; align-items:center; gap:12px; margin-top:20px; padding-top:16px; border-top:1px solid #1e2a3a; }
+    .funnel-overall-label { font-size:12px; color:#5a6a7a; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+    .funnel-overall-pct { font-size:24px; font-weight:800; }
+    .funnel-mini { display:flex; align-items:center; gap:0; }
+    .funnel-mini-stage { flex:1; text-align:center; padding:12px 8px; }
+    .funnel-mini-count { font-size:24px; font-weight:800; display:block; line-height:1.1; }
+    .funnel-mini-label { font-size:10px; color:#8899aa; text-transform:uppercase; letter-spacing:0.3px; margin-top:2px; display:block; }
+    .funnel-mini-arrow { font-size:12px; font-weight:700; flex-shrink:0; text-align:center; min-width:40px; }
+
     @media (max-width:768px) {
       .kpi-row { grid-template-columns:repeat(2,1fr); }
       .kpi-row-3 { grid-template-columns:1fr; }
@@ -1658,6 +1679,11 @@ exports.showDashboard = async (req, res) => {
       .tab-nav { gap:0; }
       .tab-btn { padding:10px 16px; font-size:13px; }
       .month-chart { height:160px; }
+      .funnel { padding:20px 14px 16px; }
+      .funnel-stage-count { font-size:28px; }
+      .funnel-arrow { min-width:36px; padding:0 2px; }
+      .funnel-arrow-pct { font-size:13px; }
+      .funnel-overall-pct { font-size:18px; }
     }
     /* Bank Payment Modal */
     .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center; }
@@ -1897,159 +1923,135 @@ exports.showDashboard = async (req, res) => {
       };
     }
 
+    function buildFunnel(leads, sent, sentLabel, sentValue, paid, revenue, accent) {
+      var leadToSent = leads > 0 ? pctOf(sent, leads) : '0.0';
+      var sentToPaid = sent > 0 ? pctOf(paid, sent) : '0.0';
+      var overallConv = leads > 0 ? pctOf(paid, leads) : '0.0';
+      var sentBarW = leads > 0 ? Math.max(Math.round((sent / leads) * 100), 6) : (sent > 0 ? 50 : 6);
+      var paidBarW = leads > 0 ? Math.max(Math.round((paid / leads) * 100), 6) : (paid > 0 ? 30 : 6);
+
+      return '<div class="funnel">' +
+        '<div class="funnel-stages">' +
+          '<div class="funnel-stage">' +
+            '<span class="funnel-stage-count" style="color:#e0e6ed">' + leads + '</span>' +
+            '<span class="funnel-stage-label">Leads In</span>' +
+            '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:100%;background:' + accent + ';opacity:0.35"></div></div>' +
+          '</div>' +
+          '<div class="funnel-arrow">' +
+            '<span class="funnel-arrow-pct" style="color:#ffa726">' + leadToSent + '%</span>' +
+            '<span class="funnel-arrow-icon">&#10132;</span>' +
+          '</div>' +
+          '<div class="funnel-stage">' +
+            '<span class="funnel-stage-count" style="color:' + accent + '">' + sent + '</span>' +
+            '<span class="funnel-stage-label">' + sentLabel + '</span>' +
+            (sentValue > 0 ? '<span class="funnel-stage-sub">' + fmtC(sentValue) + ' value</span>' : '') +
+            '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:' + sentBarW + '%;background:' + accent + ';opacity:0.55"></div></div>' +
+          '</div>' +
+          '<div class="funnel-arrow">' +
+            '<span class="funnel-arrow-pct" style="color:#ffa726">' + sentToPaid + '%</span>' +
+            '<span class="funnel-arrow-icon">&#10132;</span>' +
+          '</div>' +
+          '<div class="funnel-stage">' +
+            '<span class="funnel-stage-count" style="color:' + accent + '">' + paid + '</span>' +
+            '<span class="funnel-stage-label">Paid</span>' +
+            (revenue > 0 ? '<span class="funnel-stage-sub">' + fmtC(revenue) + '</span>' : '') +
+            '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:' + paidBarW + '%;background:' + accent + '"></div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="funnel-overall">' +
+          '<span class="funnel-overall-label">Lead &#8594; Paid</span>' +
+          '<span class="funnel-overall-pct" style="color:' + accent + '">' + overallConv + '%</span>' +
+        '</div>' +
+      '</div>';
+    }
+
     function renderSingleView(d, type) {
       var issc = type === 'sc';
-      var leads = issc ? d.scLeads : d.prLeads;
+      var leads = issc ? d.scLeads.length : d.prLeads.length;
       var sent = issc ? d.scQuotesSent.length : d.prPropsSent.length;
-      var sentLabel = issc ? 'Payment Links Sent' : 'Proposals Sent';
+      var sentLabel = issc ? 'Quotes Sent' : 'Proposals Sent';
       var sentValue = issc ? d.scQuotesValue : d.prPropsValue;
-      var sentValLabel = issc ? 'Sent Value' : 'Proposals Value';
-      var deals = issc ? d.scDealsCount : d.prDealsCount;
+      var paid = issc ? d.scDealsCount : d.prDealsCount;
       var revenue = issc ? d.scRevenue : d.prRevenue;
       var profit = issc ? d.scProfit : d.prProfit;
-      var conversion = leads.length > 0 ? pctOf(deals, leads.length) : '0.0';
-      var avgDeal = deals > 0 ? revenue / deals : 0;
-      var margin = revenue > 0 ? pctOf(profit, revenue) : '0.0';
       var accent = issc ? '#00d4ff' : '#ce93d8';
-      var badge = issc ? '<span class="type-badge type-badge-sc">Service Calls</span>' : '<span class="type-badge type-badge-proj">Projects</span>';
+      var avgDeal = paid > 0 ? revenue / paid : 0;
+      var margin = revenue > 0 ? pctOf(profit, revenue) : '0.0';
 
-      // KPI row
-      var html = '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
+      var html = buildFunnel(leads, sent, sentLabel, sentValue, paid, revenue, accent);
+
+      html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
         mkKpi(fmtC(revenue), 'Revenue', accent) +
         mkKpi(fmtC(profit), 'Profit', profit >= 0 ? '#66bb6a' : '#ef5350') +
         mkKpi(margin + '%', 'Margin', '#ffa726') +
-        mkKpi(deals, 'Deals Accepted', '#e0e6ed') +
-      '</div>';
-
-      // Donut row — Revenue and Profit donuts with breakdown by status
-      var revSlices = [
-        { label: 'Revenue', value: revenue, color: accent },
-        { label: 'Remaining Sent', value: Math.max(sentValue - revenue, 0), color: '#2a3a4a' }
-      ];
-      var profitSlices = [
-        { label: 'Profit', value: Math.max(profit, 0), color: '#66bb6a' },
-        { label: 'Costs', value: Math.max(revenue - profit, 0), color: '#2a3a4a' }
-      ];
-      html += '<div class="grid" style="margin-bottom:24px">' +
-        '<div class="card" style="text-align:center">' +
-          '<h2>Revenue vs Sent</h2>' +
-          '<div class="donut-chart">' + donutSVG(revSlices, 160) +
-            '<div class="donut-center"><span class="amount">' + fmtC(revenue) + '</span><span class="label">Revenue</span></div>' +
-          '</div>' +
-          '<div class="donut-legend">' +
-            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:' + accent + '"></span>Collected<span class="donut-legend-val">' + fmtC(revenue) + '</span></div>' +
-            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2a3a4a"></span>Outstanding<span class="donut-legend-val">' + fmtC(Math.max(sentValue - revenue, 0)) + '</span></div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="card" style="text-align:center">' +
-          '<h2>Profit vs Costs</h2>' +
-          '<div class="donut-chart">' + donutSVG(profitSlices, 160) +
-            '<div class="donut-center"><span class="amount">' + fmtC(profit) + '</span><span class="label">Profit</span></div>' +
-          '</div>' +
-          '<div class="donut-legend">' +
-            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:#66bb6a"></span>Profit<span class="donut-legend-val">' + fmtC(Math.max(profit, 0)) + '</span></div>' +
-            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2a3a4a"></span>Costs<span class="donut-legend-val">' + fmtC(Math.max(revenue - profit, 0)) + '</span></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-
-      // Activity table
-      html += '<div class="card" style="margin-bottom:24px">' +
-        '<h2>' + badge + ' Activity</h2>' +
-        mkActivityTable([
-          ['New Leads', leads.length],
-          [sentLabel, sent],
-          [sentValLabel, fmtC(sentValue)],
-          ['Deals Accepted', deals],
-          ['Revenue', fmtC(revenue)],
-          ['Profit', fmtC(profit)],
-          ['Margin', margin + '%'],
-          ['Avg Deal Size', fmtC(avgDeal)],
-          ['Conversion Rate', conversion + '%'],
-        ]) +
+        mkKpi(fmtC(avgDeal), 'Avg Deal', '#e0e6ed') +
       '</div>';
 
       return html;
     }
 
+    function buildMiniFunnel(leads, sent, sentLabel, paid, accent) {
+      var leadToSent = leads > 0 ? pctOf(sent, leads) : '0.0';
+      var sentToPaid = sent > 0 ? pctOf(paid, sent) : '0.0';
+      return '<div class="funnel-mini">' +
+        '<div class="funnel-mini-stage">' +
+          '<span class="funnel-mini-count" style="color:#e0e6ed">' + leads + '</span>' +
+          '<span class="funnel-mini-label">Leads</span>' +
+        '</div>' +
+        '<div class="funnel-mini-arrow" style="color:#ffa726">' + leadToSent + '%<br><span style="color:#3a4a5a">&#10132;</span></div>' +
+        '<div class="funnel-mini-stage">' +
+          '<span class="funnel-mini-count" style="color:' + accent + '">' + sent + '</span>' +
+          '<span class="funnel-mini-label">' + sentLabel + '</span>' +
+        '</div>' +
+        '<div class="funnel-mini-arrow" style="color:#ffa726">' + sentToPaid + '%<br><span style="color:#3a4a5a">&#10132;</span></div>' +
+        '<div class="funnel-mini-stage">' +
+          '<span class="funnel-mini-count" style="color:' + accent + '">' + paid + '</span>' +
+          '<span class="funnel-mini-label">Paid</span>' +
+        '</div>' +
+      '</div>';
+    }
+
     function renderAllView(d) {
+      var totalLeads = d.scLeads.length + d.prLeads.length;
+      var totalSent = d.scQuotesSent.length + d.prPropsSent.length;
+      var totalSentValue = d.scQuotesValue + d.prPropsValue;
+      var totalPaid = d.scDealsCount + d.prDealsCount;
       var totalRevenue = d.scRevenue + d.prRevenue;
       var totalProfit = d.scProfit + d.prProfit;
-      var totalLeads = d.scLeads.length + d.prLeads.length;
-      var totalDeals = d.scDealsCount + d.prDealsCount;
-      var overallConversion = totalLeads > 0 ? pctOf(totalDeals, totalLeads) : '0.0';
+      var avgDeal = totalPaid > 0 ? totalRevenue / totalPaid : 0;
       var totalMargin = totalRevenue > 0 ? pctOf(totalProfit, totalRevenue) : '0.0';
 
-      // KPI row
-      var html = '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
-        mkKpi(fmtC(totalRevenue), 'Total Revenue', '#00d4ff') +
-        mkKpi(fmtC(totalProfit), 'Total Profit', totalProfit >= 0 ? '#66bb6a' : '#ef5350') +
-        mkKpi(totalMargin + '%', 'Margin', '#ffa726') +
-        mkKpi(totalDeals, 'Deals Accepted', '#e0e6ed') +
-      '</div>';
+      var html = buildFunnel(totalLeads, totalSent, 'Quotes / Proposals', totalSentValue, totalPaid, totalRevenue, '#00d4ff');
 
-      // Donuts
-      var revSlices = [
-        { label: 'Service Calls', value: d.scRevenue, color: '#00d4ff' },
-        { label: 'Projects', value: d.prRevenue, color: '#ce93d8' }
-      ];
-      var profSlices = [
-        { label: 'Service Calls', value: Math.max(d.scProfit, 0), color: '#00d4ff' },
-        { label: 'Projects', value: Math.max(d.prProfit, 0), color: '#ce93d8' }
-      ];
-      html += '<div class="grid" style="margin-bottom:24px">' +
-        '<div class="card" style="text-align:center">' +
-          '<h2>Revenue Breakdown</h2>' +
-          '<div class="donut-chart">' + donutSVG(revSlices, 160) +
-            '<div class="donut-center"><span class="amount">' + fmtC(totalRevenue) + '</span><span class="label">Total</span></div>' +
-          '</div>' +
-          mkLegend(revSlices) +
-        '</div>' +
-        '<div class="card" style="text-align:center">' +
-          '<h2>Profit Breakdown</h2>' +
-          '<div class="donut-chart">' + donutSVG(profSlices, 160) +
-            '<div class="donut-center"><span class="amount">' + fmtC(totalProfit) + '</span><span class="label">Total</span></div>' +
-          '</div>' +
-          mkLegend(profSlices) +
-        '</div>' +
-      '</div>';
-
-      // Two summary cards side by side
-      var scConversion = d.scLeads.length > 0 ? pctOf(d.scDealsCount, d.scLeads.length) : '0.0';
-      var prConversion = d.prLeads.length > 0 ? pctOf(d.prDealsCount, d.prLeads.length) : '0.0';
-      html += '<div class="grid" style="margin-bottom:24px">' +
-        '<div class="card">' +
-          '<h2><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Calls</h2>' +
-          mkActivityTable([
-            ['Leads', d.scLeads.length],
-            ['Payment Links Sent', d.scQuotesSent.length],
-            ['Sent Value', fmtC(d.scQuotesValue)],
-            ['Deals Accepted', d.scDealsCount],
-            ['Revenue', fmtC(d.scRevenue)],
-            ['Profit', fmtC(d.scProfit)],
-            ['Conversion', scConversion + '%'],
-          ]) +
-        '</div>' +
-        '<div class="card">' +
-          '<h2><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Projects</h2>' +
-          mkActivityTable([
-            ['Leads', d.prLeads.length],
-            ['Proposals Sent', d.prPropsSent.length],
-            ['Proposals Value', fmtC(d.prPropsValue)],
-            ['Deals Accepted', d.prDealsCount],
-            ['Revenue', fmtC(d.prRevenue)],
-            ['Profit', fmtC(d.prProfit)],
-            ['Conversion', prConversion + '%'],
-          ]) +
-        '</div>' +
-      '</div>';
-
-      // Combined KPIs
       html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
-        mkKpi(totalLeads, 'Total Leads', '#e0e6ed') +
-        mkKpi(d.scQuotesSent.length + d.prPropsSent.length, 'Total Sent', '#8899aa') +
-        mkKpi(fmtC(d.scQuotesValue + d.prPropsValue), 'Total Sent Value', '#8899aa') +
-        mkKpi(overallConversion + '%', 'Conversion Rate', '#ffa726') +
+        mkKpi(fmtC(totalRevenue), 'Revenue', '#00d4ff') +
+        mkKpi(fmtC(totalProfit), 'Profit', totalProfit >= 0 ? '#66bb6a' : '#ef5350') +
+        mkKpi(totalMargin + '%', 'Margin', '#ffa726') +
+        mkKpi(fmtC(avgDeal), 'Avg Deal', '#e0e6ed') +
+      '</div>';
+
+      // SC and Projects side by side mini funnels
+      html += '<div class="grid" style="margin-bottom:24px">' +
+        '<div class="card">' +
+          '<h2 style="margin-bottom:12px"><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Calls</h2>' +
+          buildMiniFunnel(d.scLeads.length, d.scQuotesSent.length, 'Sent', d.scDealsCount, '#00d4ff') +
+          '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid #1e2a3a;font-size:13px">' +
+            '<span style="color:#8899aa">Revenue</span><span style="color:#00d4ff;font-weight:700">' + fmtC(d.scRevenue) + '</span>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px">' +
+            '<span style="color:#8899aa">Profit</span><span style="color:' + (d.scProfit >= 0 ? '#66bb6a' : '#ef5350') + ';font-weight:700">' + fmtC(d.scProfit) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card">' +
+          '<h2 style="margin-bottom:12px"><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Projects</h2>' +
+          buildMiniFunnel(d.prLeads.length, d.prPropsSent.length, 'Sent', d.prDealsCount, '#ce93d8') +
+          '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid #1e2a3a;font-size:13px">' +
+            '<span style="color:#8899aa">Revenue</span><span style="color:#ce93d8;font-weight:700">' + fmtC(d.prRevenue) + '</span>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px">' +
+            '<span style="color:#8899aa">Profit</span><span style="color:' + (d.prProfit >= 0 ? '#66bb6a' : '#ef5350') + ';font-weight:700">' + fmtC(d.prProfit) + '</span>' +
+          '</div>' +
+        '</div>' +
       '</div>';
 
       return html;
