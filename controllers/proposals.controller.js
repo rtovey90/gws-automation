@@ -164,8 +164,9 @@ exports.showProposal = async (req, res) => {
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const coverMonthYear = dateObj.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }).toUpperCase();
 
-    // Track every view (fire-and-forget)
-    {
+    // Track views — skip entirely for logged-in admin/VA
+    const isAdmin = req.session && req.session.authenticated;
+    if (!isAdmin) {
       const now = new Date().toISOString();
       const ua = req.headers['user-agent'] || '';
       const device = parseDevice(ua);
@@ -184,7 +185,7 @@ exports.showProposal = async (req, res) => {
       airtableService.updateProposal(proposal.id, viewUpdates)
         .catch(err => console.error('Error tracking proposal view:', err));
 
-      // Push notification when prospect views proposal
+      // Push notification
       const newViewCount = (f['View Count'] || 0) + 1;
       const viewLabel = newViewCount === 1 ? '1st view' : `view #${newViewCount}`;
       pushover.notify(
@@ -1036,6 +1037,9 @@ async function downloadPDF() {
 
 exports.trackProposalView = async (req, res) => {
   try {
+    // Skip for logged-in admin/VA
+    if (req.session && req.session.authenticated) return res.json({ ok: true });
+
     const { projectNumber } = req.params;
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
 
@@ -1057,6 +1061,9 @@ exports.trackProposalView = async (req, res) => {
 
 exports.analyticsHeartbeat = async (req, res) => {
   try {
+    // Skip analytics for logged-in admin/VA
+    if (req.session && req.session.authenticated) return res.json({ ok: true });
+
     const { projectNumber } = req.params;
     const { sessionId, activeTime, scrollDepth, sectionTimes, ctaClicks } = req.body;
 
