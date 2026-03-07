@@ -1666,6 +1666,13 @@ exports.showDashboard = async (req, res) => {
     .funnel-mini-count { font-size:24px; font-weight:800; display:block; line-height:1.1; }
     .funnel-mini-label { font-size:10px; color:#8899aa; text-transform:uppercase; letter-spacing:0.3px; margin-top:2px; display:block; }
     .funnel-mini-arrow { font-size:12px; font-weight:700; flex-shrink:0; text-align:center; min-width:40px; }
+    .funnel-clickable { cursor:pointer; transition:opacity .15s; }
+    .funnel-clickable:hover { opacity:0.7; }
+    .funnel-detail { margin-top:16px; padding-top:16px; border-top:1px solid #1e2a3a; }
+    .funnel-detail-title { font-size:11px; color:#5a6a7a; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:8px; }
+    .funnel-detail-row { display:flex; align-items:center; gap:4px; padding:6px 8px; font-size:12px; color:#c0c8d0; border-radius:4px; text-decoration:none; }
+    .funnel-detail-row:hover { background:#1a2332; }
+    a.funnel-detail-row { cursor:pointer; }
 
     @media (max-width:768px) {
       .kpi-row { grid-template-columns:repeat(2,1fr); }
@@ -1923,17 +1930,37 @@ exports.showDashboard = async (req, res) => {
       };
     }
 
-    function buildFunnel(leads, sent, sentLabel, sentValue, paid, revenue, accent) {
+    var funnelDetailId = 0;
+    function buildFunnel(leadsList, sentList, sentLabel, sentValue, paidCount, revenue, accent, sentItemFormatter) {
+      var leads = leadsList.length;
+      var sent = sentList.length;
       var leadToSent = leads > 0 ? pctOf(sent, leads) : '0.0';
-      var sentToPaid = sent > 0 ? pctOf(paid, sent) : '0.0';
-      var overallConv = leads > 0 ? pctOf(paid, leads) : '0.0';
+      var sentToPaid = sent > 0 ? pctOf(paidCount, sent) : '0.0';
+      var overallConv = leads > 0 ? pctOf(paidCount, leads) : '0.0';
       var sentBarW = leads > 0 ? Math.max(Math.round((sent / leads) * 100), 6) : (sent > 0 ? 50 : 6);
-      var paidBarW = leads > 0 ? Math.max(Math.round((paid / leads) * 100), 6) : (paid > 0 ? 30 : 6);
+      var paidBarW = leads > 0 ? Math.max(Math.round((paidCount / leads) * 100), 6) : (paidCount > 0 ? 30 : 6);
+
+      var id1 = 'fd' + (funnelDetailId++);
+      var id2 = 'fd' + (funnelDetailId++);
+
+      function engRow(e) {
+        var d = e.created ? new Date(e.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+        return '<a href="/engagement/' + e.id + '" class="funnel-detail-row">' +
+          '<span>' + (e.engNumber || '—') + '</span>' +
+          '<span style="flex:1;margin:0 8px">' + e.name + '</span>' +
+          '<span style="color:#5a6a7a;font-size:11px">' + (e.source || '') + '</span>' +
+          '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
+        '</a>';
+      }
+      var fmtSent = sentItemFormatter || engRow;
+
+      var leadsDetail = leadsList.map(engRow).join('');
+      var sentDetail = sentList.map(fmtSent).join('');
 
       return '<div class="funnel">' +
         '<div class="funnel-stages">' +
           '<div class="funnel-stage">' +
-            '<span class="funnel-stage-count" style="color:#e0e6ed">' + leads + '</span>' +
+            '<span class="funnel-stage-count funnel-clickable" style="color:#e0e6ed" onclick="var el=document.getElementById(\'' + id1 + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">' + leads + '</span>' +
             '<span class="funnel-stage-label">Leads In</span>' +
             '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:100%;background:' + accent + ';opacity:0.35"></div></div>' +
           '</div>' +
@@ -1942,7 +1969,7 @@ exports.showDashboard = async (req, res) => {
             '<span class="funnel-arrow-icon">&#10132;</span>' +
           '</div>' +
           '<div class="funnel-stage">' +
-            '<span class="funnel-stage-count" style="color:' + accent + '">' + sent + '</span>' +
+            '<span class="funnel-stage-count funnel-clickable" style="color:' + accent + '" onclick="var el=document.getElementById(\'' + id2 + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">' + sent + '</span>' +
             '<span class="funnel-stage-label">' + sentLabel + '</span>' +
             (sentValue > 0 ? '<span class="funnel-stage-sub">' + fmtC(sentValue) + ' value</span>' : '') +
             '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:' + sentBarW + '%;background:' + accent + ';opacity:0.55"></div></div>' +
@@ -1952,7 +1979,7 @@ exports.showDashboard = async (req, res) => {
             '<span class="funnel-arrow-icon">&#10132;</span>' +
           '</div>' +
           '<div class="funnel-stage">' +
-            '<span class="funnel-stage-count" style="color:' + accent + '">' + paid + '</span>' +
+            '<span class="funnel-stage-count" style="color:' + accent + '">' + paidCount + '</span>' +
             '<span class="funnel-stage-label">Paid</span>' +
             (revenue > 0 ? '<span class="funnel-stage-sub">' + fmtC(revenue) + '</span>' : '') +
             '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:' + paidBarW + '%;background:' + accent + '"></div></div>' +
@@ -1962,13 +1989,15 @@ exports.showDashboard = async (req, res) => {
           '<span class="funnel-overall-label">Lead &#8594; Paid</span>' +
           '<span class="funnel-overall-pct" style="color:' + accent + '">' + overallConv + '%</span>' +
         '</div>' +
+        '<div id="' + id1 + '" class="funnel-detail" style="display:none"><div class="funnel-detail-title">Leads In</div>' + (leadsDetail || '<div style="color:#5a6a7a;padding:8px 0">None</div>') + '</div>' +
+        '<div id="' + id2 + '" class="funnel-detail" style="display:none"><div class="funnel-detail-title">' + sentLabel + '</div>' + (sentDetail || '<div style="color:#5a6a7a;padding:8px 0">None</div>') + '</div>' +
       '</div>';
     }
 
     function renderSingleView(d, type) {
       var issc = type === 'sc';
-      var leads = issc ? d.scLeads.length : d.prLeads.length;
-      var sent = issc ? d.scQuotesSent.length : d.prPropsSent.length;
+      var leadsList = issc ? d.scLeads : d.prLeads;
+      var sentList = issc ? d.scQuotesSent : d.prPropsSent;
       var sentLabel = issc ? 'Quotes Sent' : 'Proposals Sent';
       var sentValue = issc ? d.scQuotesValue : d.prPropsValue;
       var paid = issc ? d.scDealsCount : d.prDealsCount;
@@ -1978,7 +2007,17 @@ exports.showDashboard = async (req, res) => {
       var avgDeal = paid > 0 ? revenue / paid : 0;
       var margin = revenue > 0 ? pctOf(profit, revenue) : '0.0';
 
-      var html = buildFunnel(leads, sent, sentLabel, sentValue, paid, revenue, accent);
+      var propFmt = !issc ? function(p) {
+        var d = p.sentAt ? new Date(p.sentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+        return '<div class="funnel-detail-row">' +
+          '<span>' + p.projectNumber + '</span>' +
+          '<span style="flex:1;margin:0 8px">' + fmtC(p.basePrice) + '</span>' +
+          '<span style="color:#5a6a7a;font-size:11px">' + p.status + '</span>' +
+          '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
+        '</div>';
+      } : null;
+
+      var html = buildFunnel(leadsList, sentList, sentLabel, sentValue, paid, revenue, accent, propFmt);
 
       html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
         mkKpi(fmtC(revenue), 'Revenue', accent) +
@@ -2012,16 +2051,25 @@ exports.showDashboard = async (req, res) => {
     }
 
     function renderAllView(d) {
-      var totalLeads = d.scLeads.length + d.prLeads.length;
-      var totalSent = d.scQuotesSent.length + d.prPropsSent.length;
+      var allLeads = d.scLeads.concat(d.prLeads);
+      var allSent = d.scQuotesSent.concat(d.prPropsSent);
       var totalSentValue = d.scQuotesValue + d.prPropsValue;
+
       var totalPaid = d.scDealsCount + d.prDealsCount;
       var totalRevenue = d.scRevenue + d.prRevenue;
       var totalProfit = d.scProfit + d.prProfit;
       var avgDeal = totalPaid > 0 ? totalRevenue / totalPaid : 0;
       var totalMargin = totalRevenue > 0 ? pctOf(totalProfit, totalRevenue) : '0.0';
 
-      var html = buildFunnel(totalLeads, totalSent, 'Quotes / Proposals', totalSentValue, totalPaid, totalRevenue, '#00d4ff');
+      var mixedFmt = function(item) {
+        if (item.projectNumber) {
+          var d = item.sentAt ? new Date(item.sentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+          return '<div class="funnel-detail-row"><span>' + item.projectNumber + '</span><span style="flex:1;margin:0 8px">' + fmtC(item.basePrice) + ' (proposal)</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span></div>';
+        }
+        var d2 = item.created ? new Date(item.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+        return '<a href="/engagement/' + item.id + '" class="funnel-detail-row"><span>' + (item.engNumber || '—') + '</span><span style="flex:1;margin:0 8px">' + item.name + '</span><span style="color:#5a6a7a;font-size:11px">' + (item.source || '') + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d2 + '</span></a>';
+      };
+      var html = buildFunnel(allLeads, allSent, 'Quotes / Proposals', totalSentValue, totalPaid, totalRevenue, '#00d4ff', mixedFmt);
 
       html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
         mkKpi(fmtC(totalRevenue), 'Revenue', '#00d4ff') +
