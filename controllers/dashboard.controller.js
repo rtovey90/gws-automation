@@ -1889,33 +1889,23 @@ exports.showDashboard = async (req, res) => {
       var prPropsSent = props.filter(function(p) { return inRange(p.sentAt, range); });
       var prPropsValue = prPropsSent.reduce(function(s, p) { return s + p.basePrice; }, 0);
 
+      // Always compute paid lists for detail view
+      var scPaidList = engs.filter(function(e) { return e.type === 'sc' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
+      var prPaidList = engs.filter(function(e) { return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
+
       var pre = OV_DATA.precomputed;
       var periodMap = { today: 'Today', week: 'Week', month: 'Month', year: 'Year' };
       var suffix = periodMap[period] || null;
-      var scDealsCount, prDealsCount, scRevenue, prRevenue;
+      var scRevenue, prRevenue;
 
       if (suffix) {
-        scDealsCount = pre['scDeals' + suffix];
-        prDealsCount = pre['prDeals' + suffix];
         scRevenue = pre['scRevenue' + suffix] || pre['scDealsValue' + suffix] || 0;
         prRevenue = pre['prRevenue' + suffix] || pre['prDealsValue' + suffix] || 0;
         if (period === 'month' && pre.scRevenueMonth > 0) scRevenue = pre.scRevenueMonth;
         if (period === 'month' && pre.prRevenueMonth > 0) prRevenue = pre.prRevenueMonth;
       } else {
-        var scDealsList = engs.filter(function(e) { return e.type === 'sc' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
-        var prDealsList = engs.filter(function(e) { return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
-        var prPaidProps = props.filter(function(p) { return p.status === 'Paid' && inRange(p.paidAt, range); });
-        scDealsCount = scDealsList.length;
-        var prDealIds = {};
-        prDealsList.forEach(function(e) { prDealIds[e.id] = true; });
-        var prPaidPropsUnique = prPaidProps.filter(function(p) {
-          var eng = engs.find(function(e) { return e.engNumber && p.projectNumber && p.projectNumber.startsWith(e.engNumber); });
-          return !eng || !prDealIds[eng.id];
-        });
-        prDealsCount = prDealsList.length + prPaidPropsUnique.length;
-        scRevenue = scDealsList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
-        prRevenue = prDealsList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
-        prRevenue += prPaidPropsUnique.reduce(function(s, p) { return s + p.basePrice; }, 0);
+        scRevenue = scPaidList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+        prRevenue = prPaidList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
       }
 
       var scProfit = 0, prProfit = 0;
@@ -1934,24 +1924,26 @@ exports.showDashboard = async (req, res) => {
         scLeads: scLeads, prLeads: prLeads,
         scQuotesSent: scQuotesSent, scQuotesValue: scQuotesValue,
         prPropsSent: prPropsSent, prPropsValue: prPropsValue,
-        scDealsCount: scDealsCount, prDealsCount: prDealsCount,
+        scPaidList: scPaidList, prPaidList: prPaidList,
         scRevenue: scRevenue, prRevenue: prRevenue,
         scProfit: scProfit, prProfit: prProfit,
       };
     }
 
     var funnelDetailId = 0;
-    function buildFunnel(leadsList, sentList, sentLabel, sentValue, paidCount, revenue, accent, sentItemFormatter) {
+    function buildFunnel(leadsList, sentList, sentLabel, sentValue, paidList, revenue, accent, sentItemFormatter) {
       var leads = leadsList.length;
       var sent = sentList.length;
+      var paid = paidList.length;
       var leadToSent = leads > 0 ? pctOf(sent, leads) : '0.0';
-      var sentToPaid = sent > 0 ? pctOf(paidCount, sent) : '0.0';
-      var overallConv = leads > 0 ? pctOf(paidCount, leads) : '0.0';
+      var sentToPaid = sent > 0 ? pctOf(paid, sent) : '0.0';
+      var overallConv = leads > 0 ? pctOf(paid, leads) : '0.0';
       var sentBarW = leads > 0 ? Math.max(Math.round((sent / leads) * 100), 6) : (sent > 0 ? 50 : 6);
-      var paidBarW = leads > 0 ? Math.max(Math.round((paidCount / leads) * 100), 6) : (paidCount > 0 ? 30 : 6);
+      var paidBarW = leads > 0 ? Math.max(Math.round((paid / leads) * 100), 6) : (paid > 0 ? 30 : 6);
 
       var id1 = 'fd' + (funnelDetailId++);
       var id2 = 'fd' + (funnelDetailId++);
+      var id3 = 'fd' + (funnelDetailId++);
 
       function engRow(e) {
         var d = e.created ? new Date(e.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
@@ -1971,6 +1963,17 @@ exports.showDashboard = async (req, res) => {
 
       var leadsDetail = leadsList.map(engRow).join('');
       var sentDetail = sentList.map(fmtSent).join('');
+      function paidRow(e) {
+        var d = e.paymentDate ? new Date(e.paymentDate).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+        return '<a href="/engagement/' + e.id + '" class="funnel-detail-row">' +
+          '<span style="min-width:65px;font-weight:600;color:#00d4ff">' + (e.engNumber || '—') + '</span>' +
+          '<span style="min-width:120px">' + e.name + '</span>' +
+          '<span style="flex:1;color:#5a6a7a;font-size:11px">' + (e.address || '') + '</span>' +
+          '<span style="color:#66bb6a;font-weight:600;font-size:12px;min-width:60px;text-align:right">' + fmtC(e.totalInvoiced) + '</span>' +
+          '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
+        '</a>';
+      }
+      var paidDetail = paidList.map(paidRow).join('');
 
       return '<div class="funnel">' +
         '<div class="funnel-stages">' +
@@ -1994,7 +1997,7 @@ exports.showDashboard = async (req, res) => {
             '<span class="funnel-arrow-icon">&#10132;</span>' +
           '</div>' +
           '<div class="funnel-stage">' +
-            '<span class="funnel-stage-count" style="color:' + accent + '">' + paidCount + '</span>' +
+            '<span class="funnel-stage-count funnel-clickable" style="color:' + accent + '" data-toggle="' + id3 + '">' + paid + '</span>' +
             '<span class="funnel-stage-label">Paid</span>' +
             (revenue > 0 ? '<span class="funnel-stage-sub">' + fmtC(revenue) + '</span>' : '') +
             '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:' + paidBarW + '%;background:' + accent + '"></div></div>' +
@@ -2006,6 +2009,7 @@ exports.showDashboard = async (req, res) => {
         '</div>' +
         '<div id="' + id1 + '" class="funnel-detail" style="display:none"><div class="funnel-detail-title">Leads In</div>' + (leadsDetail || '<div style="color:#5a6a7a;padding:8px 0">None</div>') + '</div>' +
         '<div id="' + id2 + '" class="funnel-detail" style="display:none"><div class="funnel-detail-title">' + sentLabel + '</div>' + (sentDetail || '<div style="color:#5a6a7a;padding:8px 0">None</div>') + '</div>' +
+        '<div id="' + id3 + '" class="funnel-detail" style="display:none"><div class="funnel-detail-title">Paid</div>' + (paidDetail || '<div style="color:#5a6a7a;padding:8px 0">None</div>') + '</div>' +
       '</div>';
     }
 
@@ -2015,11 +2019,11 @@ exports.showDashboard = async (req, res) => {
       var sentList = issc ? d.scQuotesSent : d.prPropsSent;
       var sentLabel = issc ? 'Quotes Sent' : 'Proposals Sent';
       var sentValue = issc ? d.scQuotesValue : d.prPropsValue;
-      var paid = issc ? d.scDealsCount : d.prDealsCount;
+      var paidList = issc ? d.scPaidList : d.prPaidList;
       var revenue = issc ? d.scRevenue : d.prRevenue;
       var profit = issc ? d.scProfit : d.prProfit;
       var accent = issc ? '#00d4ff' : '#ce93d8';
-      var avgDeal = paid > 0 ? revenue / paid : 0;
+      var avgDeal = paidList.length > 0 ? revenue / paidList.length : 0;
       var margin = revenue > 0 ? pctOf(profit, revenue) : '0.0';
 
       var propFmt = !issc ? function(p) {
@@ -2032,7 +2036,7 @@ exports.showDashboard = async (req, res) => {
         '</div>';
       } : null;
 
-      var html = buildFunnel(leadsList, sentList, sentLabel, sentValue, paid, revenue, accent, propFmt);
+      var html = buildFunnel(leadsList, sentList, sentLabel, sentValue, paidList, revenue, accent, propFmt);
 
       html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
         mkKpi(fmtC(revenue), 'Revenue', accent) +
@@ -2070,10 +2074,10 @@ exports.showDashboard = async (req, res) => {
       var allSent = d.scQuotesSent.concat(d.prPropsSent);
       var totalSentValue = d.scQuotesValue + d.prPropsValue;
 
-      var totalPaid = d.scDealsCount + d.prDealsCount;
+      var allPaid = d.scPaidList.concat(d.prPaidList);
       var totalRevenue = d.scRevenue + d.prRevenue;
       var totalProfit = d.scProfit + d.prProfit;
-      var avgDeal = totalPaid > 0 ? totalRevenue / totalPaid : 0;
+      var avgDeal = allPaid.length > 0 ? totalRevenue / allPaid.length : 0;
       var totalMargin = totalRevenue > 0 ? pctOf(totalProfit, totalRevenue) : '0.0';
 
       var mixedFmt = function(item) {
@@ -2084,7 +2088,7 @@ exports.showDashboard = async (req, res) => {
         var d2 = item.created ? new Date(item.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
         return '<a href="/engagement/' + item.id + '" class="funnel-detail-row"><span>' + (item.engNumber || '—') + '</span><span style="flex:1;margin:0 8px">' + item.name + '</span><span style="color:#5a6a7a;font-size:11px">' + (item.source || '') + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d2 + '</span></a>';
       };
-      var html = buildFunnel(allLeads, allSent, 'Quotes / Proposals', totalSentValue, totalPaid, totalRevenue, '#00d4ff', mixedFmt);
+      var html = buildFunnel(allLeads, allSent, 'Quotes / Proposals', totalSentValue, allPaid, totalRevenue, '#00d4ff', mixedFmt);
 
       html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
         mkKpi(fmtC(totalRevenue), 'Revenue', '#00d4ff') +
@@ -2097,7 +2101,7 @@ exports.showDashboard = async (req, res) => {
       html += '<div class="grid" style="margin-bottom:24px">' +
         '<div class="card">' +
           '<h2 style="margin-bottom:12px"><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Calls</h2>' +
-          buildMiniFunnel(d.scLeads.length, d.scQuotesSent.length, 'Sent', d.scDealsCount, '#00d4ff') +
+          buildMiniFunnel(d.scLeads.length, d.scQuotesSent.length, 'Sent', d.scPaidList.length, '#00d4ff') +
           '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid #1e2a3a;font-size:13px">' +
             '<span style="color:#8899aa">Revenue</span><span style="color:#00d4ff;font-weight:700">' + fmtC(d.scRevenue) + '</span>' +
           '</div>' +
@@ -2107,7 +2111,7 @@ exports.showDashboard = async (req, res) => {
         '</div>' +
         '<div class="card">' +
           '<h2 style="margin-bottom:12px"><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Projects</h2>' +
-          buildMiniFunnel(d.prLeads.length, d.prPropsSent.length, 'Sent', d.prDealsCount, '#ce93d8') +
+          buildMiniFunnel(d.prLeads.length, d.prPropsSent.length, 'Sent', d.prPaidList.length, '#ce93d8') +
           '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid #1e2a3a;font-size:13px">' +
             '<span style="color:#8899aa">Revenue</span><span style="color:#ce93d8;font-weight:700">' + fmtC(d.prRevenue) + '</span>' +
           '</div>' +
