@@ -185,7 +185,7 @@ exports.showDashboard = async (req, res) => {
       const f = e.fields;
       const created = new Date(e._rawJson?.createdTime || Date.now());
       const quoteAmount = parseFloat(f['Quote Amount']) || 0;
-      const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+      const totalInvoiced = parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0;
 
       // Leads counted by creation date
       const periods = [];
@@ -248,7 +248,7 @@ exports.showDashboard = async (req, res) => {
         const f = e.fields;
         const created = new Date(e._rawJson?.createdTime || Date.now());
         const quoteAmount = parseFloat(f['Quote Amount']) || 0;
-        const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+        const totalInvoiced = parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0;
         const dealAmount = totalInvoiced > 0 ? totalInvoiced
           : (parseFloat(f['Service Call Amount']) || 0) + (parseFloat(f['Project Value']) || 0);
 
@@ -400,7 +400,7 @@ exports.showDashboard = async (req, res) => {
         const name = e.fields['Customer Name'] || (linkedCustomer && [linkedCustomer.fields['First Name'], linkedCustomer.fields['Last Name']].filter(Boolean).join(' ')) || e.fields['First Name'] || 'Unknown';
         const address = e.fields['Address/Location'] || (linkedCustomer && linkedCustomer.fields['Address']) || '';
         const engNum = e.fields['Engagement Number'] || '';
-        const invoiced = parseFloat(e.fields['Total Invoiced']) || 0;
+        const invoiced = parseFloat(e.fields['Total Invoiced']) || parseFloat(e.fields['Bank Payment Amount']) || 0;
         return {
           id: e.id,
           name,
@@ -466,7 +466,7 @@ exports.showDashboard = async (req, res) => {
     engagements.forEach(e => {
       const f = e.fields;
       const name = f['Customer Name'] || f['First Name'] || 'Unknown';
-      const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+      const totalInvoiced = parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0;
       const totalCost = parseFloat(f['Total Cost']) || 0;
       if (f.Status === 'Completed ✨' && totalInvoiced > 0 && totalCost === 0) {
         attentionItems.push({ icon: '&#9888;', color: '#ff7043', text: `${name} — completed, no costs recorded` });
@@ -485,7 +485,7 @@ exports.showDashboard = async (req, res) => {
 
     engagements.forEach(e => {
       const f = e.fields;
-      const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+      const totalInvoiced = parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0;
       const totalCost = parseFloat(f['Total Cost']) || 0;
       const profit = parseFloat(f['Profit']) || 0;
       const profitMargin = parseFloat(f['Profit Margin']) || 0;
@@ -529,10 +529,10 @@ exports.showDashboard = async (req, res) => {
 
     // ── Per-job profit list (all jobs with invoiced revenue) ──
     const jobProfitList = engagements
-      .filter(e => (parseFloat(e.fields['Total Invoiced']) || 0) > 0)
+      .filter(e => (parseFloat(e.fields['Total Invoiced']) || parseFloat(e.fields['Bank Payment Amount']) || 0) > 0)
       .map(e => {
         const ef = e.fields;
-        const invoiced = parseFloat(ef['Total Invoiced']) || 0;
+        const invoiced = parseFloat(ef['Total Invoiced']) || parseFloat(ef['Bank Payment Amount']) || 0;
         const cost = parseFloat(ef['Total Cost']) || 0;
         const quoted = parseFloat(ef['Quote Amount']) || 0;
         const profit = invoiced - cost;
@@ -552,12 +552,12 @@ exports.showDashboard = async (req, res) => {
     const missingCostsList = engagements
       .filter(e => {
         const ef = e.fields;
-        return (parseFloat(ef['Total Invoiced']) || 0) > 0 && (parseFloat(ef['Total Cost']) || 0) === 0;
+        return (parseFloat(ef['Total Invoiced']) || parseFloat(ef['Bank Payment Amount']) || 0) > 0 && (parseFloat(ef['Total Cost']) || 0) === 0;
       })
       .map(e => ({
         id: e.id,
         name: e.fields['Customer Name'] || e.fields['First Name'] || 'Job',
-        invoiced: parseFloat(e.fields['Total Invoiced']) || 0,
+        invoiced: parseFloat(e.fields['Total Invoiced']) || parseFloat(e.fields['Bank Payment Amount']) || 0,
       }))
       .sort((a, b) => b.invoiced - a.invoiced);
 
@@ -566,7 +566,7 @@ exports.showDashboard = async (req, res) => {
     engagements.forEach(e => {
       const ef = e.fields;
       const techIdArr = ef['Assigned Tech'] || [];
-      const invoiced = parseFloat(ef['Total Invoiced']) || 0;
+      const invoiced = parseFloat(ef['Total Invoiced']) || parseFloat(ef['Bank Payment Amount']) || 0;
       const cost = parseFloat(ef['Total Cost']) || 0;
       if (invoiced > 0 && techIdArr.length > 0) {
         const techId = techIdArr[0];
@@ -596,7 +596,7 @@ exports.showDashboard = async (req, res) => {
         return {
           name: f['Customer Name'] || f['First Name'] || 'Job',
           quoted: parseFloat(f['Quote Amount']) || 0,
-          invoiced: parseFloat(f['Total Invoiced']) || 0,
+          invoiced: parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0,
           cost: parseFloat(f['Total Cost']) || 0,
         };
       })
@@ -1145,7 +1145,7 @@ exports.showDashboard = async (req, res) => {
           quoteSentAt: f['Quote Sent At'] || null,
           scAmount: parseFloat(f['Service Call Amount']) || 0,
           projectValue: parseFloat(f['Project Value']) || 0,
-          totalInvoiced: parseFloat(f['Total Invoiced']) || 0,
+          totalInvoiced: parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0,
           totalCost: parseFloat(f['Total Cost']) || 0,
           profit: parseFloat(f['Profit']) || 0,
           bankPaymentAmount: parseFloat(f['Bank Payment Amount']) || 0,
@@ -2572,7 +2572,7 @@ exports.reconcileStripe = async (req, res) => {
 
           // Find engagements with matching Total Invoiced amount (or Quote Amount)
           const candidates = engagements.filter(e => {
-            const invoiced = parseFloat(e.fields['Total Invoiced']) || 0;
+            const invoiced = parseFloat(e.fields['Total Invoiced']) || parseFloat(e.fields['Bank Payment Amount']) || 0;
             const quoted = parseFloat(e.fields['Quote Amount']) || 0;
             // Amount must match within $0.01
             const amountMatch = Math.abs(invoiced - charge.amount) < 0.02 || Math.abs(quoted - charge.amount) < 0.02;
@@ -2632,6 +2632,11 @@ exports.reconcileStripe = async (req, res) => {
           if (!existingChargeId) updates['Stripe Charge ID'] = charge.id;
           if (charge.fee > 0 && !(parseFloat(eng.fields['Stripe Fee']) > 0)) {
             updates['Stripe Fee'] = charge.fee;
+          }
+          // Set Total Invoiced from charge amount if missing
+          const existingInvoiced = parseFloat(eng.fields['Total Invoiced']) || 0;
+          if (existingInvoiced === 0 && charge.amount > 0) {
+            updates['Total Invoiced'] = charge.amount;
           }
 
           if (Object.keys(updates).length > 0) {
