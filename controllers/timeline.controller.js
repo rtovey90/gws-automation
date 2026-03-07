@@ -468,9 +468,6 @@ exports.updateCosts = async (req, res) => {
       'Labor Cost': labor,
       'Travel Cost': travel,
       'Other Costs': other,
-      'Total Cost': totalCost,
-      'Profit': Math.round(profit * 100) / 100,
-      'Profit Margin': Math.round(profitMargin * 10) / 10,
     };
 
     if (quoteAmount !== undefined && parseFloat(quoteAmount) > 0) {

@@ -469,7 +469,6 @@ exports.saveQuote = async (req, res) => {
     const updates = {
       'Quote Data': JSON.stringify(quoteData),
       'Quote Amount': Math.round(totalPriceIncGST * 100) / 100,
-      'Total Cost': Math.round(totalCost * 100) / 100,
     };
 
     await airtableService.updateEngagement(engagementId, updates);
@@ -555,9 +554,6 @@ exports.saveActuals = async (req, res) => {
       'Labor Cost': labor,
       'Travel Cost': travel,
       'Other Costs': other,
-      'Total Cost': Math.round(totalCost * 100) / 100,
-      'Profit': Math.round(profit * 100) / 100,
-      'Profit Margin': Math.round(profitMargin * 10) / 10,
     };
 
     if (actualsData) {
