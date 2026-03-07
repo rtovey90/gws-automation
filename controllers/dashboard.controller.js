@@ -1734,8 +1734,9 @@ exports.showDashboard = async (req, res) => {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const overviewDataJSON = JSON.stringify(overviewData).replace(/</g, '\\u003c');
-    const engOptionsJSON = JSON.stringify(engagementOptions.map(e => ({ id: e.id, name: e.name, engNum: e.engNum, invoiced: e.invoiced, status: e.status }))).replace(/</g, '\\u003c');
+    const safeJSON = (obj) => JSON.stringify(obj).replace(/`/g, '\\u0060').replace(/\$\{/g, '\\u0024{').replace(/</g, '\\u003c');
+    const overviewDataJSON = safeJSON(overviewData);
+    const engOptionsJSON = safeJSON(engagementOptions.map(e => ({ id: e.id, name: e.name, engNum: e.engNum, invoiced: e.invoiced, status: e.status })));
 
     const dashboardScripts = `
   <script>
@@ -2098,7 +2099,7 @@ exports.showDashboard = async (req, res) => {
     });
 
     // Initial render
-    renderOverview('month');
+    try { renderOverview('month'); } catch(e) { console.error('Overview render error:', e); document.getElementById('ov-content').innerHTML = '<div style="color:#ef5350;padding:20px">JS Error: ' + e.message + '</div>'; }
 
     function openBankPaymentModal() {
       document.getElementById('bankPaymentModal').classList.add('open');
