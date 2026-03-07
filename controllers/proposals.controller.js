@@ -2,6 +2,7 @@ const airtableService = require('../services/airtable.service');
 const stripeService = require('../services/stripe.service');
 const twilioService = require('../services/twilio.service');
 const shortLinkService = require('../services/shortlink.service');
+const pushover = require('../services/pushover.service');
 const { wrapInLayout } = require('../utils/layout');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
@@ -182,6 +183,14 @@ exports.showProposal = async (req, res) => {
       }
       airtableService.updateProposal(proposal.id, viewUpdates)
         .catch(err => console.error('Error tracking proposal view:', err));
+
+      // Push notification when prospect views proposal
+      const newViewCount = (f['View Count'] || 0) + 1;
+      const viewLabel = newViewCount === 1 ? '1st view' : `view #${newViewCount}`;
+      pushover.notify(
+        `Proposal Viewed — ${clientName}`,
+        `#${f['Project Number']} ($${Number(f['Base Price'] || 0).toLocaleString()})\n${viewLabel} — ${device} / ${browser}\n\nCall them now while it's on their mind.`
+      );
     }
 
     // Build scope rows

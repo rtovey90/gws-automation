@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const { tables } = require('../config/airtable');
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const pushover = require('../services/pushover.service');
 
 /**
  * Scheduled Jobs - Background tasks that run on a schedule
@@ -224,8 +225,114 @@ function startEngagementNumberCheck() {
   console.log('Engagement number checker started (every 5 min)');
 }
 
+/**
+ * Proposal follow-up reminders.
+ * Runs 8:30am Perth time, Monday–Friday.
+ *
+ * Cadence (days since proposal sent):
+ *   Day 1  — Warm intro call / walk-through offer
+ *   Day 3  — Haven't-opened nudge (or value-add if viewed)
+ *   Day 7  — Social proof + scarcity
+ *   Day 14 — Direct ask + urgency
+ *   Day 21 — Breakup text — last chance before file closed
+ */
+function startProposalFollowUpJob() {
+  const followUps = [
+    {
+      day: 1,
+      title: 'Day 1 Follow-up',
+      message: (p) =>
+        `Call ${p.name} and offer to walk them through the proposal. ` +
+        `"Hey ${p.firstName}, just wanted to make sure you received the proposal and see if you had any questions. Happy to jump on a quick call to walk you through it."`
+    },
+    {
+      day: 3,
+      title: 'Day 3 Follow-up',
+      message: (p) => p.viewCount > 0
+        ? `${p.name} has viewed the proposal ${p.viewCount} time(s) — they're interested but haven't committed. ` +
+          `Call and ask: "Hey ${p.firstName}, noticed you've had a look at the proposal — was there anything you wanted me to clarify or adjust?"`
+        : `${p.name} hasn't opened the proposal yet. Call or text: ` +
+          `"Hey ${p.firstName}, just checking the proposal came through OK — sometimes they land in spam. Want me to resend or talk you through it over the phone?"`
+    },
+    {
+      day: 7,
+      title: 'Day 7 Follow-up',
+      message: (p) =>
+        `Text ${p.name}: "Hey ${p.firstName}, just finished a similar install in your area — turned out great. ` +
+        `Happy to share some photos if you're interested. Also worth mentioning our suppliers have flagged some lead time changes coming, ` +
+        `so sooner is better if you'd like to lock in current pricing."`
+    },
+    {
+      day: 14,
+      title: 'Day 14 Follow-up',
+      message: (p) =>
+        `Call ${p.name} — be direct: "Hey ${p.firstName}, wanted to check in on the security proposal. ` +
+        `We've got availability in the next couple of weeks which is rare — if you'd like to go ahead, ` +
+        `I can lock that in for you. Is there anything holding you back that I can help with?"`
+    },
+    {
+      day: 21,
+      title: 'Final Follow-up',
+      message: (p) =>
+        `Last chance — text ${p.name}: "Hey ${p.firstName}, haven't heard back so I'll assume the timing isn't right ` +
+        `and close off your file for now. If anything changes down the track, feel free to reach out — ` +
+        `happy to put together a fresh quote. All the best!"\n\n` +
+        `(The breakup text often gets a reply — people don't like losing the option.)`
+    },
+  ];
+
+  cron.schedule('30 8 * * 1-5', async () => {
+    try {
+      console.log('📊 Checking proposals for follow-up reminders...');
+
+      const proposals = await airtableService.getAllProposals();
+      const now = new Date();
+      let sent = 0;
+
+      for (const p of proposals) {
+        const f = p.fields;
+        if (f.Status !== 'Sent' && f.Status !== 'Viewed') continue;
+
+        const sentAt = f['Sent At'] ? new Date(f['Sent At']) : null;
+        if (!sentAt) continue;
+
+        const daysAgo = Math.floor((now - sentAt) / (1000 * 60 * 60 * 24));
+        const clientName = f['Client Name'] || 'Unknown';
+        const firstName = clientName.split(/[\s&,]/)[0];
+        const price = Number(f['Base Price'] || 0);
+        const viewCount = f['View Count'] || 0;
+
+        // Check if today matches any follow-up day (allow +/- 0 days for exact match)
+        const match = followUps.find(fu => daysAgo === fu.day);
+        if (!match) continue;
+
+        const ctx = { name: clientName, firstName, price, viewCount };
+        pushover.notify(
+          `${match.title} — ${clientName} ($${price.toLocaleString()})`,
+          `#${f['Project Number']} — sent ${daysAgo}d ago | ${viewCount} view(s)\n\n${match.message(ctx)}`
+        );
+        sent++;
+        console.log(`📊 ${match.title}: ${clientName} #${f['Project Number']}`);
+      }
+
+      if (sent > 0) {
+        console.log(`✓ Sent ${sent} proposal follow-up reminder(s)`);
+      } else {
+        console.log('✓ No proposal follow-ups due today');
+      }
+    } catch (error) {
+      console.error('Proposal follow-up error:', error);
+    }
+  }, {
+    timezone: 'Australia/Perth',
+  });
+
+  console.log('Proposal follow-up job started (8:30am Perth, Mon-Fri)');
+}
+
 module.exports = {
   startScheduledJobChecker,
   startScheduleReminderJob,
   startEngagementNumberCheck,
+  startProposalFollowUpJob,
 };

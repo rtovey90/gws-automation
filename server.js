@@ -31,7 +31,7 @@ const estimatorApiController = require('./controllers/estimator-api.controller')
 const proposalsController = require('./controllers/proposals.controller');
 const previewController = require('./controllers/preview.controller');
 const vaController = require('./controllers/va.controller');
-const { startScheduledJobChecker, startScheduleReminderJob, startEngagementNumberCheck } = require('./jobs/scheduled-jobs');
+const { startScheduledJobChecker, startScheduleReminderJob, startEngagementNumberCheck, startProposalFollowUpJob } = require('./jobs/scheduled-jobs');
 
 const app = express();
 
@@ -310,6 +310,7 @@ Press Ctrl+C to stop
   startScheduledJobChecker();
   startScheduleReminderJob();
   startEngagementNumberCheck();
+  startProposalFollowUpJob();
 
   // Start email monitoring (lazy-load to avoid build-time env var access)
   if (process.env.EMAIL_IMAP_PASS) {
