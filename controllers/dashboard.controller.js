@@ -2189,7 +2189,11 @@ exports.showDashboard = async (req, res) => {
         var data = await resp.json();
         if (data.success) {
           row.style.borderColor = '#34c759';
-          row.innerHTML = '<span style="color:#34c759">Linked $' + data.amount.toFixed(2) + ' to ' + (data.engagementNumber || engId) + '</span>';
+          var msg = 'Linked $' + data.amount.toFixed(2) + ' to ' + (data.engagementNumber || engId);
+          if (data.customerUpdated && Object.keys(data.customerUpdated).length > 0) {
+            msg += ' | Customer updated: ' + Object.keys(data.customerUpdated).join(', ');
+          }
+          row.innerHTML = '<span style="color:#34c759">' + msg + '</span>';
         } else {
           throw new Error(data.error || 'Failed');
         }
@@ -2406,8 +2410,21 @@ exports.reconcileStripe = async (req, res) => {
     const customerById = {};
     customers.forEach(c => { customerById[c.id] = c; });
 
+    // Build set of charge IDs already linked to any engagement
+    const linkedChargeIds = new Set();
+    engagements.forEach(e => {
+      const cid = e.fields['Stripe Charge ID'];
+      if (cid) linkedChargeIds.add(cid);
+    });
+
     for (const charge of charges) {
       try {
+        // Skip charges already linked to an engagement
+        if (linkedChargeIds.has(charge.id)) {
+          results.skipped++;
+          continue;
+        }
+
         let engagementId = null;
         let matchType = '';
 
@@ -2573,7 +2590,36 @@ exports.manualReconcile = async (req, res) => {
       author: req.session?.userEmail || 'Admin',
     });
 
-    res.json({ success: true, amount, fee, paymentDate, engagementNumber: engNum });
+    // Auto-update customer record with Stripe billing details if missing
+    let customerUpdated = {};
+    const customerIds = engagement.fields['Customer'];
+    if (customerIds && customerIds.length > 0) {
+      const customer = await airtableService.getCustomer(customerIds[0]);
+      if (customer) {
+        const cf = customer.fields;
+        const bd = charge.billing_details || {};
+        const addr = bd.address || {};
+        const custUpdates = {};
+
+        const nameParts = (bd.name || '').trim().split(/\s+/);
+        const stripeFirst = nameParts[0] || '';
+        const stripeLast = nameParts.slice(1).join(' ') || '';
+
+        if (stripeFirst && !cf['First Name']) custUpdates['First Name'] = stripeFirst;
+        if (stripeLast && !cf['Last Name']) custUpdates['Last Name'] = stripeLast;
+        if (bd.email && !cf['Email']) custUpdates['Email'] = bd.email;
+        if (bd.phone && !cf['Phone'] && !cf['Mobile Phone']) custUpdates['Phone'] = bd.phone;
+        const fullAddr = [addr.line1, addr.line2, addr.city, addr.state, addr.postal_code].filter(Boolean).join(', ');
+        if (fullAddr && !cf['Address']) custUpdates['Address'] = fullAddr;
+
+        if (Object.keys(custUpdates).length > 0) {
+          await airtableService.updateCustomer(customerIds[0], custUpdates);
+          customerUpdated = custUpdates;
+        }
+      }
+    }
+
+    res.json({ success: true, amount, fee, paymentDate, engagementNumber: engNum, customerUpdated });
   } catch (error) {
     console.error('Manual reconcile error:', error);
     res.status(500).json({ error: error.message });
