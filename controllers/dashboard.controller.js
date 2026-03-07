@@ -2883,7 +2883,7 @@ exports.approveCustomerData = async (req, res) => {
 exports.excludeFromFunnel = async (req, res) => {
   try {
     const { id } = req.params;
-    await airtableService.updateEngagement(id, { ' Source': '' });
+    await airtableService.updateEngagement(id, { ' Source': null });
     res.json({ success: true });
   } catch (error) {
     console.error('Exclude from funnel error:', error);
