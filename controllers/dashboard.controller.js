@@ -2122,7 +2122,22 @@ exports.showDashboard = async (req, res) => {
         if (data.success) {
           btn.textContent = 'Done! Matched: ' + data.matched + ' | Skipped: ' + data.skipped;
           btn.style.color = '#34c759';
-          setTimeout(function() { location.reload(); }, 3000);
+          // Show details below button
+          var detailsHtml = '';
+          if (data.details && data.details.length > 0) {
+            var skipped = data.details.filter(function(d) { return d.reason; });
+            if (skipped.length > 0) {
+              detailsHtml += '<div style="margin-top:12px;max-height:300px;overflow-y:auto">';
+              detailsHtml += '<div style="font-size:11px;color:#8899aa;margin-bottom:6px">Unmatched charges (' + skipped.length + '):</div>';
+              skipped.forEach(function(d) {
+                detailsHtml += '<div style="font-size:11px;color:#556677;padding:2px 0;border-bottom:1px solid #1e2a3a">' +
+                  '$' + (d.amount || 0).toFixed(2) + ' — ' + (d.customer || 'Unknown') + ' <span style="color:#3a4a5a">(' + d.charge + ')</span></div>';
+              });
+              detailsHtml += '</div>';
+            }
+          }
+          btn.insertAdjacentHTML('afterend', detailsHtml);
+          if (data.matched > 0) setTimeout(function() { location.reload(); }, 5000);
         } else {
           btn.textContent = 'Error: ' + (data.error || 'Unknown');
           btn.style.color = '#ef5350';
@@ -2329,14 +2344,18 @@ exports.reconcileStripe = async (req, res) => {
 
     const results = { matched: 0, skipped: 0, errors: 0, details: [] };
 
+    // Build lookup helpers for fuzzy matching
+    const customers = await airtableService.getAllCustomers();
+    const customerById = {};
+    customers.forEach(c => { customerById[c.id] = c; });
+
     for (const charge of charges) {
       try {
         let engagementId = null;
         let matchType = '';
 
-        // Match by metadata
+        // 1. Match by metadata
         if (charge.metadata?.type === 'proposal' && charge.metadata.proposal_id) {
-          // Find engagement via proposal
           const proposal = proposals.find(p => p.id === charge.metadata.proposal_id);
           if (proposal && proposal.fields['Engagement']?.length > 0) {
             engagementId = proposal.fields['Engagement'][0];
@@ -2351,6 +2370,48 @@ exports.reconcileStripe = async (req, res) => {
         } else if (charge.metadata?.lead_id) {
           engagementId = charge.metadata.lead_id;
           matchType = 'engagement';
+        }
+
+        // 2. Fallback: match by amount + customer name against Total Invoiced
+        if (!engagementId && charge.amount > 0) {
+          const chargeName = (charge.customerName || '').toLowerCase().trim();
+          const chargeEmail = (charge.customerEmail || '').toLowerCase().trim();
+
+          // Find engagements with matching Total Invoiced amount (or Quote Amount)
+          const candidates = engagements.filter(e => {
+            const invoiced = parseFloat(e.fields['Total Invoiced']) || 0;
+            const quoted = parseFloat(e.fields['Quote Amount']) || 0;
+            // Amount must match within $0.01
+            const amountMatch = Math.abs(invoiced - charge.amount) < 0.02 || Math.abs(quoted - charge.amount) < 0.02;
+            if (!amountMatch) return false;
+            // Must not already have a Stripe Charge ID
+            if (e.fields['Stripe Charge ID']) return false;
+            return true;
+          });
+
+          if (candidates.length === 1) {
+            // Exact single match by amount — use it
+            engagementId = candidates[0].id;
+            matchType = 'amount-unique';
+          } else if (candidates.length > 1 && (chargeName || chargeEmail)) {
+            // Multiple amount matches — try to narrow by customer name/email
+            const nameMatch = candidates.find(e => {
+              const custIds = e.fields['Customer'] || [];
+              if (custIds.length === 0) return false;
+              const cust = customerById[custIds[0]];
+              if (!cust) return false;
+              const cf = cust.fields;
+              const fullName = [cf['First Name'], cf['Last Name']].filter(Boolean).join(' ').toLowerCase();
+              const email = (cf['Email'] || '').toLowerCase();
+              if (chargeName && fullName && fullName.includes(chargeName.split(' ')[0])) return true;
+              if (chargeEmail && email && email === chargeEmail) return true;
+              return false;
+            });
+            if (nameMatch) {
+              engagementId = nameMatch.id;
+              matchType = 'amount-name';
+            }
+          }
         }
 
         if (!engagementId) {
