@@ -1161,6 +1161,8 @@ exports.showDashboard = async (req, res) => {
           id: p.id,
           projectNumber: f['Project Number'] || '',
           clientName: f['Client Name'] || '',
+          clientAddress: f['Client Address'] || '',
+          packageDesc: f['Package Description'] || '',
           status: f.Status || 'Draft',
           sentAt: f['Sent At'] || null,
           paidAt: f['Paid At'] || null,
@@ -2029,11 +2031,13 @@ exports.showDashboard = async (req, res) => {
 
       var propFmt = !issc ? function(p) {
         var d = p.sentAt ? new Date(p.sentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+        var detail = p.clientAddress || p.packageDesc || '';
+        if (detail.length > 50) detail = detail.substring(0, 50) + '...';
         return '<div class="funnel-detail-row">' +
           '<span style="min-width:65px;font-weight:600;color:#ce93d8">' + p.projectNumber + '</span>' +
           '<span style="min-width:120px">' + (p.clientName || '') + '</span>' +
-          '<span style="flex:1;color:#5a6a7a;font-size:11px">' + fmtC(p.basePrice) + '</span>' +
-          '<span style="color:#5a6a7a;font-size:11px">' + p.status + '</span>' +
+          '<span style="flex:1;color:#5a6a7a;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detail + '</span>' +
+          '<span style="color:#66bb6a;font-weight:600;font-size:12px;min-width:60px;text-align:right">' + fmtC(p.basePrice) + '</span>' +
           '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
         '</div>';
       } : null;
@@ -2085,10 +2089,14 @@ exports.showDashboard = async (req, res) => {
       var mixedFmt = function(item) {
         if (item.projectNumber) {
           var d = item.sentAt ? new Date(item.sentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
-          return '<div class="funnel-detail-row"><span style="min-width:65px;font-weight:600;color:#ce93d8">' + item.projectNumber + '</span><span style="min-width:120px">' + (item.clientName || '') + '</span><span style="flex:1;color:#5a6a7a;font-size:11px">' + fmtC(item.basePrice) + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span></div>';
+          var detail = item.clientAddress || item.packageDesc || '';
+          if (detail.length > 50) detail = detail.substring(0, 50) + '...';
+          return '<div class="funnel-detail-row"><span style="min-width:65px;font-weight:600;color:#ce93d8">' + item.projectNumber + '</span><span style="min-width:120px">' + (item.clientName || '') + '</span><span style="flex:1;color:#5a6a7a;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detail + '</span><span style="color:#66bb6a;font-weight:600;font-size:12px;min-width:60px;text-align:right">' + fmtC(item.basePrice) + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span></div>';
         }
-        var d2 = item.created ? new Date(item.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
-        return '<a href="/engagement/' + item.id + '" class="funnel-detail-row"><span>' + (item.engNumber || '—') + '</span><span style="flex:1;margin:0 8px">' + item.name + '</span><span style="color:#5a6a7a;font-size:11px">' + (item.source || '') + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d2 + '</span></a>';
+        var d2 = item.quoteSentAt ? new Date(item.quoteSentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
+        var info = item.address || item.scope || '';
+        if (info.length > 50) info = info.substring(0, 50) + '...';
+        return '<a href="/engagement/' + item.id + '" class="funnel-detail-row"><span style="min-width:65px;font-weight:600;color:#00d4ff">' + (item.engNumber || '—') + '</span><span style="min-width:120px">' + item.name + '</span><span style="flex:1;color:#5a6a7a;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + info + '</span><span style="color:#5a6a7a;font-size:11px;min-width:36px">' + (item.source || '') + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d2 + '</span></a>';
       };
       var html = buildFunnel(allLeads, allSent, 'Quotes / Proposals', totalSentValue, allPaid, totalRevenue, '#00d4ff', mixedFmt);
 
