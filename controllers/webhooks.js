@@ -345,16 +345,34 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       console.log(`✓ Proposal payment received: #${projectNumber} (${proposalId})`);
 
       try {
+        const proposalAmount = (paymentObject.amount_total || 0) / 100;
+
         await airtableService.updateProposal(proposalId, {
           Status: 'Paid',
           'Paid At': new Date().toISOString(),
         });
         console.log('✓ Proposal status updated to Paid');
 
+        // Write payment amount to linked Engagement
+        try {
+          const proposal = await airtableService.getProposal(proposalId);
+          const engagementIds = proposal.fields['Engagement'];
+          if (engagementIds && engagementIds.length > 0) {
+            await airtableService.updateEngagement(engagementIds[0], {
+              'Total Invoiced': proposalAmount,
+              Status: 'Payment Received ✅',
+            });
+            airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} paid: $${proposalAmount.toFixed(2)}`);
+            console.log(`✓ Engagement ${engagementIds[0]} updated with $${proposalAmount}`);
+          }
+        } catch (engErr) {
+          console.error('Error updating engagement after proposal payment:', engErr);
+        }
+
         // Notify admin
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
-          `💰 PROPOSAL PAID! Project #${projectNumber}\n\nCustomer: ${paymentObject.metadata.customer_name || 'Unknown'}\nAmount: $${(paymentObject.amount_total || 0) / 100}\n\nTime to order equipment!`
+          `💰 PROPOSAL PAID! Project #${projectNumber}\n\nCustomer: ${paymentObject.metadata.customer_name || 'Unknown'}\nAmount: $${proposalAmount}\n\nTime to order equipment!`
         );
       } catch (err) {
         console.error('Error updating proposal after payment:', err);
@@ -371,10 +389,29 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       console.log(`✓ OTO payment received: ${otoType} for #${projectNumber}`);
 
       try {
+        const otoAmount = (paymentObject.amount_total || paymentObject.amount || 0) / 100;
+
+        // Add OTO amount to linked Engagement's Total Invoiced
+        try {
+          const proposal = await airtableService.getProposal(proposalId);
+          const engagementIds = proposal.fields['Engagement'];
+          if (engagementIds && engagementIds.length > 0) {
+            const engagement = await airtableService.getEngagement(engagementIds[0]);
+            const existingInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+            await airtableService.updateEngagement(engagementIds[0], {
+              'Total Invoiced': existingInvoiced + otoAmount,
+            });
+            airtableService.logActivity(engagementIds[0], `OTO upgrade paid (${otoType}): $${otoAmount.toFixed(2)}`);
+            console.log(`✓ Engagement ${engagementIds[0]} Total Invoiced updated: $${existingInvoiced} + $${otoAmount}`);
+          }
+        } catch (engErr) {
+          console.error('Error updating engagement after OTO payment:', engErr);
+        }
+
         // Notify admin
         await twilioService.sendSMS(
           process.env.ADMIN_PHONE,
-          `🎉 OTO UPGRADE PURCHASED!\n\nProject #${projectNumber}\nType: ${otoType}\nAmount: $${(paymentObject.amount_total || 0) / 100}`
+          `🎉 OTO UPGRADE PURCHASED!\n\nProject #${projectNumber}\nType: ${otoType}\nAmount: $${otoAmount}`
         );
       } catch (err) {
         console.error('Error handling OTO payment:', err);
@@ -398,14 +435,16 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       const customerName = engagement.fields['First Name (from Customer)'] || 'Unknown';
       console.log(`✓ Found engagement: ${customerName}`);
 
-      // Update engagement status to Payment Received
+      // Update engagement status and record payment amount
+      const paymentAmount = (paymentObject.amount_total || paymentObject.amount || 0) / 100;
       await airtableService.updateEngagement(engagementId, {
-        Status: 'Payment Received ✅'
+        Status: 'Payment Received ✅',
+        'Total Invoiced': paymentAmount,
       });
-      console.log(`✓ Engagement status updated to Payment Received (Payment ID: ${paymentId})`);
+      console.log(`✓ Engagement updated: Payment Received, $${paymentAmount} (Payment ID: ${paymentId})`);
 
       // Log activity
-      airtableService.logActivity(engagementId, 'Payment received via Stripe');
+      airtableService.logActivity(engagementId, `Payment received via Stripe: $${paymentAmount.toFixed(2)}`);
 
       return;
     }

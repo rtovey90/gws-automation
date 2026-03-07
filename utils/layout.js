@@ -7,14 +7,21 @@
  * @returns {string} Complete HTML document
  */
 function wrapInLayout(title, bodyHtml, activePage, options = {}) {
-  const { customStyles = '', customScripts = '' } = options;
+  const { customStyles = '', customScripts = '', role = 'admin' } = options;
 
-  const navItems = [
+  const adminNavItems = [
     { id: 'dashboard', label: 'Dashboard', href: '/dashboard' },
     { id: 'messages', label: 'Messages', href: '/messages' },
     { id: 'estimator', label: 'Estimator', href: '/estimator' },
     { id: 'proposals', label: 'Proposals', href: '/admin/proposals' },
   ];
+
+  const vaNavItems = [
+    { id: 'queue', label: 'Queue', href: '/va' },
+    { id: 'messages', label: 'Messages', href: '/messages' },
+  ];
+
+  const navItems = role === 'va' ? vaNavItems : adminNavItems;
 
   const navLinks = navItems.map(item => {
     const activeClass = item.id === activePage ? ' active' : '';
@@ -61,7 +68,7 @@ function wrapInLayout(title, bodyHtml, activePage, options = {}) {
 </head>
 <body>
   <nav class="app-nav">
-    <a href="/dashboard" class="nav-brand"><img src="/gws-logo.webp" alt="GWS"><span class="nav-brand-text"><span>GWS</span> Hub</span></a>
+    <a href="${role === 'va' ? '/va' : '/dashboard'}" class="nav-brand"><img src="/gws-logo.webp" alt="GWS"><span class="nav-brand-text"><span>GWS</span> Hub</span></a>
     <button class="nav-hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
     <div class="nav-links">
       ${navLinks}

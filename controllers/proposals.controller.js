@@ -2080,6 +2080,7 @@ exports.showCreateFormForEngagement = async (req, res) => {
         clientPhone: phone,
         clientEmail: email,
         projectNumber: eng['Proposal Number'] ? String(eng['Proposal Number']).padStart(6, '0') : '',
+        quoteAmount: parseFloat(eng['Quote Amount']) || 0,
       };
     }
 
@@ -2298,17 +2299,23 @@ exports.sendProposal = async (req, res) => {
       'Sent At': new Date().toISOString(),
     });
 
-    // Stamp Quote Sent At on the linked engagement (first send only)
+    // Stamp Quote Sent At and Quote Amount on the linked engagement
     const engagementIds = f['Engagement'];
     if (engagementIds && engagementIds.length > 0) {
       const eng = await airtableService.getEngagement(engagementIds[0]);
+      const engUpdate = {};
       if (eng && !eng.fields['Quote Sent At']) {
-        await airtableService.updateEngagement(engagementIds[0], {
-          'Quote Sent At': new Date().toISOString(),
-        });
+        engUpdate['Quote Sent At'] = new Date().toISOString();
+      }
+      const basePrice = parseFloat(f['Base Price']) || 0;
+      if (basePrice > 0) {
+        engUpdate['Quote Amount'] = basePrice;
+      }
+      if (Object.keys(engUpdate).length > 0) {
+        await airtableService.updateEngagement(engagementIds[0], engUpdate);
       }
       // Log activity
-      airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} sent`);
+      airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} sent${basePrice > 0 ? ' ($' + basePrice.toFixed(2) + ')' : ''}`);
     }
 
     res.json({ success: true, shortUrl });
@@ -2598,7 +2605,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const letterNote = f['Letter Note'] || '';
   const packageName = f['Package Name'] || (isClone ? (cf['Package Name'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].name : ''));
   const packageDesc = f['Package Description'] || (isClone ? (cf['Package Description'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].description : ''));
-  const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].price : ''));
+  const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : (pf.quoteAmount || (defaultTemplate.packages[0] ? defaultTemplate.packages[0].price : '')));
   const discountName = f['Discount Name'] || (isClone ? (cf['Discount Name'] || '') : '');
   const discountType = f['Discount Type'] || (isClone ? (cf['Discount Type'] || '') : '');
   const discountValue = f['Discount Value'] || (isClone ? (cf['Discount Value'] || '') : '');

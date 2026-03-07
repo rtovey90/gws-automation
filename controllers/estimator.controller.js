@@ -278,6 +278,34 @@ const engagementPickerHTML = `
             <button onclick="loadQuoteFromEngagement()" class="load-btn" style="white-space:nowrap;">Load from Engagement</button>
             <span id="engagement-status" style="color:#34c759; font-weight:600; font-size:13px;"></span>
           </div>
+          <div id="mode-toggle-row" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #2a3a4a;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-weight:700; font-size:13px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px;">Mode:</label>
+              <div style="display:flex; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px; overflow:hidden;">
+                <button id="mode-estimate" onclick="switchMode('estimate')" style="padding:8px 20px; background:#00d4ff; color:#0a0e27; border:none; font-weight:700; font-size:13px; cursor:pointer;">Estimate</button>
+                <button id="mode-actuals" onclick="switchMode('actuals')" style="padding:8px 20px; background:transparent; color:#8899aa; border:none; font-weight:700; font-size:13px; cursor:pointer;">Actuals</button>
+              </div>
+              <button id="save-actuals-btn" onclick="saveActualsToEngagement()" class="save-btn" style="display:none; white-space:nowrap; background:linear-gradient(135deg,#ff6b6b,#ee5a5a);">Save Actuals</button>
+              <span id="actuals-status" style="color:#34c759; font-weight:600; font-size:13px;"></span>
+            </div>
+          </div>
+          <div id="comparison-panel" style="display:none; margin-top:15px; padding:15px; background:#0f1419; border:1px solid #2a3a4a; border-radius:8px;">
+            <label style="display:block; font-weight:700; margin-bottom:10px; font-size:13px; color:#00d4ff; text-transform:uppercase; letter-spacing:0.5px;">Estimated vs Actual</label>
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead><tr style="border-bottom:1px solid #2a3a4a;">
+                <th style="text-align:left; padding:6px 8px; color:#8899aa;">Category</th>
+                <th style="text-align:right; padding:6px 8px; color:#8899aa;">Estimated</th>
+                <th style="text-align:right; padding:6px 8px; color:#8899aa;">Actual</th>
+                <th style="text-align:right; padding:6px 8px; color:#8899aa;">Variance</th>
+              </tr></thead>
+              <tbody id="comparison-body"></tbody>
+            </table>
+            <div id="comparison-summary" style="margin-top:12px; padding-top:12px; border-top:1px solid #2a3a4a; display:flex; gap:20px; flex-wrap:wrap;"></div>
+          </div>
+          <div id="supplier-docs-panel" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #2a3a4a;">
+            <label style="display:block; font-weight:700; margin-bottom:8px; font-size:13px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px;">Supplier Documents</label>
+            <div id="supplier-docs-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+          </div>
         </div>
 `;
 
@@ -357,6 +385,17 @@ const engagementJS = `
         statusEl.textContent = 'Saved! Quote: $' + result.summary.quoteAmount.toLocaleString();
         statusEl.style.color = '#34c759';
         setTimeout(() => { statusEl.textContent = ''; }, 5000);
+
+        // Show "Create Proposal" button
+        let proposalBtn = document.getElementById('create-proposal-btn');
+        if (!proposalBtn) {
+          proposalBtn = document.createElement('a');
+          proposalBtn.id = 'create-proposal-btn';
+          proposalBtn.style.cssText = 'display:inline-block; margin-left:10px; padding:10px 18px; background:linear-gradient(135deg,#00d4ff,#00a7e1); color:#0a0e27; font-weight:700; border-radius:8px; text-decoration:none; font-size:13px; vertical-align:middle;';
+          statusEl.parentElement.appendChild(proposalBtn);
+        }
+        proposalBtn.href = '/admin/proposals/new/' + engagementId;
+        proposalBtn.textContent = 'Create Proposal';
       } catch (error) {
         statusEl.textContent = 'Error: ' + error.message;
         statusEl.style.color = '#ff6b6b';
@@ -402,12 +441,272 @@ const engagementJS = `
         statusEl.textContent = 'Loaded!';
         statusEl.style.color = '#34c759';
         setTimeout(() => { statusEl.textContent = ''; }, 3000);
+
+        // Show mode toggle (estimate has been loaded, actuals mode now available)
+        document.getElementById('mode-toggle-row').style.display = 'block';
+
+        // Load supplier docs for this engagement
+        loadSupplierDocs(engagementId);
       } catch (error) {
         statusEl.textContent = 'Error: ' + error.message;
         statusEl.style.color = '#ff6b6b';
         setTimeout(() => { statusEl.textContent = ''; }, 5000);
       }
     }
+
+    // ========== MODE SWITCHING (ESTIMATE vs ACTUALS) ==========
+    window.estimatorMode = 'estimate';
+    let estimateSnapshot = null; // Saved estimate data for comparison
+
+    function switchMode(mode) {
+      const engagementId = document.getElementById('engagement-select').value;
+      if (mode === 'actuals' && !engagementId) {
+        alert('Please select an engagement first');
+        return;
+      }
+
+      window.estimatorMode = mode;
+
+      // Update toggle buttons
+      const estBtn = document.getElementById('mode-estimate');
+      const actBtn = document.getElementById('mode-actuals');
+      estBtn.style.background = mode === 'estimate' ? '#00d4ff' : 'transparent';
+      estBtn.style.color = mode === 'estimate' ? '#0a0e27' : '#8899aa';
+      actBtn.style.background = mode === 'actuals' ? '#ff6b6b' : 'transparent';
+      actBtn.style.color = mode === 'actuals' ? '#fff' : '#8899aa';
+
+      // Show/hide actuals controls
+      document.getElementById('save-actuals-btn').style.display = mode === 'actuals' ? 'inline-block' : 'none';
+
+      // Hide markup controls in actuals mode
+      const markupControls = document.querySelector('.markup-controls');
+      if (markupControls) markupControls.style.display = mode === 'actuals' ? 'none' : '';
+
+      if (mode === 'actuals') {
+        // Save current estimate data as snapshot for comparison
+        if (activeTabId) saveTabState(activeTabId);
+        estimateSnapshot = JSON.parse(JSON.stringify(tabs));
+
+        // Load actuals data
+        loadActualsFromEngagement(engagementId);
+      } else {
+        // Switch back to estimate - restore saved estimate
+        document.getElementById('comparison-panel').style.display = 'none';
+        if (estimateSnapshot) {
+          tabs = JSON.parse(JSON.stringify(estimateSnapshot));
+          if (activeTabId && tabs[activeTabId]) loadTabState(activeTabId);
+          else { activeTabId = Object.keys(tabs)[0]; loadTabState(activeTabId); }
+          renderTabs();
+        }
+      }
+    }
+
+    async function loadActualsFromEngagement(engagementId) {
+      const statusEl = document.getElementById('actuals-status');
+      statusEl.textContent = 'Loading actuals...';
+      statusEl.style.color = '#ffd93d';
+
+      try {
+        const response = await fetch('/api/estimator/load-actuals/' + engagementId);
+        if (!response.ok) throw new Error('Failed to load actuals');
+        const data = await response.json();
+
+        if (data.actualsData && data.actualsData.tabs) {
+          // Load existing actuals into the UI
+          tabs = data.actualsData.tabs;
+          tabCounter = Object.keys(tabs).length;
+          activeTabId = data.actualsData.activeTabId || Object.keys(tabs)[0];
+          loadTabState(activeTabId);
+          renderTabs();
+          statusEl.textContent = 'Actuals loaded';
+        } else {
+          // No actuals yet — start fresh with empty tabs matching estimate structure
+          if (estimateSnapshot) {
+            const freshTabs = {};
+            Object.keys(estimateSnapshot).forEach(tabId => {
+              freshTabs[tabId] = {
+                name: estimateSnapshot[tabId].name,
+                labourMarkup: 0,
+                materialsMarkup: 0,
+                paymentTerm: estimateSnapshot[tabId].paymentTerm || 24,
+                items: { parts: [], labour: [], cable: [], misc: [] }
+              };
+            });
+            tabs = freshTabs;
+            activeTabId = Object.keys(tabs)[0];
+            loadTabState(activeTabId);
+            renderTabs();
+          }
+          statusEl.textContent = 'Enter actual costs';
+        }
+        statusEl.style.color = '#34c759';
+        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+
+        // Show comparison panel
+        window._lastFinancialData = data;
+        updateComparison(data);
+      } catch (error) {
+        statusEl.textContent = 'Error: ' + error.message;
+        statusEl.style.color = '#ff6b6b';
+      }
+    }
+
+    function updateComparison(financialData) {
+      const panel = document.getElementById('comparison-panel');
+      const tbody = document.getElementById('comparison-body');
+      const summary = document.getElementById('comparison-summary');
+
+      if (!estimateSnapshot) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+
+      // Calculate estimated costs per category from snapshot
+      const estimated = { parts: 0, labour: 0, cable: 0, misc: 0 };
+      Object.values(estimateSnapshot).forEach(tab => {
+        ['parts', 'labour', 'cable', 'misc'].forEach(section => {
+          (tab.items[section] || []).forEach(item => {
+            estimated[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
+          });
+        });
+      });
+
+      // Calculate actual costs from current tabs
+      const actual = { parts: 0, labour: 0, cable: 0, misc: 0 };
+      Object.values(tabs).forEach(tab => {
+        ['parts', 'labour', 'cable', 'misc'].forEach(section => {
+          (tab.items[section] || []).forEach(item => {
+            actual[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
+          });
+        });
+      });
+
+      const labels = { parts: 'Parts', labour: 'Labour', cable: 'Cable', misc: 'Misc' };
+      let totalEst = 0, totalAct = 0;
+
+      tbody.innerHTML = ['parts', 'labour', 'cable', 'misc'].map(cat => {
+        const est = estimated[cat];
+        const act = actual[cat];
+        totalEst += est;
+        totalAct += act;
+        const diff = act - est;
+        const pct = est > 0 ? ((diff / est) * 100).toFixed(1) : '0.0';
+        const color = diff > 0 ? '#ff6b6b' : diff < 0 ? '#34c759' : '#8899aa';
+        const sign = diff > 0 ? '+' : '';
+        return '<tr style="border-bottom:1px solid #1a2332;">' +
+          '<td style="padding:6px 8px;color:#e0e6ed;">' + labels[cat] + '</td>' +
+          '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + est.toFixed(2) + '</td>' +
+          '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + act.toFixed(2) + '</td>' +
+          '<td style="padding:6px 8px;text-align:right;color:' + color + ';">' + sign + '$' + diff.toFixed(2) + ' (' + sign + pct + '%)</td>' +
+          '</tr>';
+      }).join('') +
+        '<tr style="border-top:2px solid #00d4ff;font-weight:700;">' +
+        '<td style="padding:8px;color:#00d4ff;">TOTAL</td>' +
+        '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalEst.toFixed(2) + '</td>' +
+        '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalAct.toFixed(2) + '</td>' +
+        '<td style="padding:8px;text-align:right;color:' + (totalAct > totalEst ? '#ff6b6b' : '#34c759') + ';">' + (totalAct > totalEst ? '+' : '') + '$' + (totalAct - totalEst).toFixed(2) + '</td>' +
+        '</tr>';
+
+      // Financial summary
+      const invoiced = financialData.totalInvoiced || 0;
+      const quoted = financialData.quoteAmount || 0;
+      const profit = invoiced - totalAct;
+      const margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
+
+      summary.innerHTML =
+        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Quoted</div><div style="color:#e0e6ed;font-size:18px;font-weight:700;">$' + quoted.toLocaleString() + '</div></div>' +
+        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Invoiced</div><div style="color:#00d4ff;font-size:18px;font-weight:700;">$' + invoiced.toLocaleString() + '</div></div>' +
+        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Actual Cost</div><div style="color:#e0e6ed;font-size:18px;font-weight:700;">$' + totalAct.toFixed(0) + '</div></div>' +
+        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Profit</div><div style="color:' + (profit >= 0 ? '#34c759' : '#ff6b6b') + ';font-size:18px;font-weight:700;">$' + profit.toFixed(0) + '</div></div>' +
+        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Margin</div><div style="color:' + (parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b') + ';font-size:18px;font-weight:700;">' + margin + '%</div></div>';
+    }
+
+    async function saveActualsToEngagement() {
+      const engagementId = document.getElementById('engagement-select').value;
+      if (!engagementId) { alert('Please select an engagement first'); return; }
+
+      // Save current tab state
+      if (activeTabId) saveTabState(activeTabId);
+
+      // Calculate costs per category
+      const costs = { parts: 0, labour: 0, cable: 0, misc: 0 };
+      Object.values(tabs).forEach(tab => {
+        ['parts', 'labour', 'cable', 'misc'].forEach(section => {
+          (tab.items[section] || []).forEach(item => {
+            costs[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
+          });
+        });
+      });
+
+      const statusEl = document.getElementById('actuals-status');
+      statusEl.textContent = 'Saving...';
+      statusEl.style.color = '#ffd93d';
+
+      try {
+        const response = await fetch('/api/estimator/save-actuals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            engagementId,
+            actualsData: {
+              tabs: tabs,
+              activeTabId: activeTabId,
+              savedDate: new Date().toISOString()
+            },
+            partsCost: costs.parts,
+            laborCost: costs.labour,
+            travelCost: costs.cable, // cable maps to travel in the financial fields
+            otherCosts: costs.misc,
+          })
+        });
+
+        if (!response.ok) throw new Error((await response.json()).error || 'Save failed');
+
+        const result = await response.json();
+        statusEl.textContent = 'Actuals saved! Profit: $' + result.summary.profit.toFixed(0);
+        statusEl.style.color = '#34c759';
+
+        // Update comparison panel with fresh data
+        updateComparison(result.summary);
+
+        setTimeout(() => { statusEl.textContent = ''; }, 5000);
+      } catch (error) {
+        statusEl.textContent = 'Error: ' + error.message;
+        statusEl.style.color = '#ff6b6b';
+      }
+    }
+
+    async function loadSupplierDocs(engagementId) {
+      const panel = document.getElementById('supplier-docs-panel');
+      const list = document.getElementById('supplier-docs-list');
+      if (!panel || !list) return;
+
+      try {
+        const response = await fetch('/api/estimator/supplier-docs/' + engagementId);
+        if (!response.ok) { panel.style.display = 'none'; return; }
+        const docs = await response.json();
+
+        if (docs.length === 0) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        list.innerHTML = docs.map(doc => {
+          const date = new Date(doc.parsedAt).toLocaleDateString('en-AU', { day:'numeric', month:'short' });
+          const type = doc.mode === 'actuals' ? '<span style="color:#ff6b6b;font-size:11px;margin-left:6px;">ACTUAL</span>' : '';
+          return '<a href="' + doc.cloudinaryUrl + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;text-decoration:none;font-size:13px;">' +
+            '<span style="color:#ff6b6b;">PDF</span>' +
+            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (doc.supplier || doc.filename) + type + '</span>' +
+            '<span style="color:#8899aa;font-size:11px;">' + date + '</span>' +
+            '</a>';
+        }).join('');
+      } catch (e) {
+        panel.style.display = 'none';
+      }
+    }
+
+    // Load supplier docs when engagement changes
+    document.getElementById('engagement-select').addEventListener('change', function() {
+      const engId = this.value;
+      if (engId) loadSupplierDocs(engId);
+      else document.getElementById('supplier-docs-panel').style.display = 'none';
+    });
 
     // Load engagements list on page load
     loadEngagementsList();

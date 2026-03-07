@@ -28,6 +28,19 @@ exports.showTimeline = async (req, res) => {
     const clientAddress = f['Address (from Customer)']?.[0] || customer?.fields?.Address || '';
     const status = f.Status || 'Unknown';
 
+    // Financial data
+    const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+    const totalCost = parseFloat(f['Total Cost']) || 0;
+    const partsCost = parseFloat(f['Parts Cost']) || 0;
+    const laborCost = parseFloat(f['Labor Cost']) || 0;
+    const travelCost = parseFloat(f['Travel Cost']) || 0;
+    const otherCosts = parseFloat(f['Other Costs']) || 0;
+    const quoteAmount = parseFloat(f['Quote Amount']) || 0;
+    const profit = totalInvoiced - totalCost;
+    const margin = totalInvoiced > 0 ? ((profit / totalInvoiced) * 100).toFixed(1) : '0.0';
+    const hasCosts = totalCost > 0;
+    const needsCosts = totalInvoiced > 0 && !hasCosts;
+
     // Filter messages for this engagement
     const engMessages = allMessages.filter(m => {
       const linked = m.fields['Related Lead'];
@@ -188,10 +201,37 @@ exports.showTimeline = async (req, res) => {
     .tl-send-btn:hover { background:#00b8d9; }
     .tl-send-btn:disabled { background:#2a3a4a; color:#5a6a7a; cursor:not-allowed; }
 
+    /* Financial card */
+    .fin-card { background:#0f1419; border:1px solid #2a3a4a; border-radius:10px; padding:16px 20px; margin-bottom:20px; }
+    .fin-card.fin-warning { border-color:#ffa72660; }
+    .fin-row { display:flex; gap:16px; flex-wrap:wrap; }
+    .fin-stat { flex:1; min-width:80px; }
+    .fin-label { font-size:11px; color:#6a7a8a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px; }
+    .fin-val { font-size:18px; font-weight:700; color:#c0c8d0; }
+    .fin-green { color:#66bb6a; }
+    .fin-red { color:#ef5350; }
+    .fin-alert { font-size:12px; color:#ffa726; margin-top:10px; padding:6px 10px; background:#2a201060; border-radius:6px; display:inline-block; }
+    .fin-toggle { background:none; border:1px solid #2a3a4a; color:#8899aa; font-size:12px; padding:6px 14px; border-radius:6px; cursor:pointer; margin-top:12px; transition:all .2s; }
+    .fin-toggle:hover { border-color:#00d4ff; color:#00d4ff; }
+    .cost-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+    .cost-field label { display:block; font-size:11px; color:#6a7a8a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .cost-field input { width:100%; padding:8px 12px; background:#1a2332; border:1px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:14px; outline:none; }
+    .cost-field input:focus { border-color:#00d4ff; }
+    .cost-summary { font-size:13px; color:#8899aa; margin-top:12px; padding:10px; background:#1a233280; border-radius:6px; }
+    .cost-summary strong { color:#e0e6ed; }
+    .cost-summary .cs-profit { font-weight:700; }
+    .fin-save-btn { background:#00d4ff; color:#0f1419; border:none; border-radius:6px; padding:8px 20px; font-weight:bold; font-size:13px; cursor:pointer; margin-top:12px; transition:background .2s; }
+    .fin-save-btn:hover { background:#00b8d9; }
+    .fin-save-btn:disabled { background:#2a3a4a; color:#5a6a7a; cursor:not-allowed; }
+
     @media (max-width:768px) {
       .tl-container { padding:16px; }
       .tl-bubble-out, .tl-bubble-in, .tl-bubble-note { max-width:90%; }
       .tl-header-meta { flex-direction:column; gap:4px; }
+      .cost-grid { grid-template-columns:1fr; }
+      .fin-row { gap:10px; }
+      .fin-stat { min-width:60px; }
+      .fin-val { font-size:15px; }
     }
     `;
 
@@ -211,6 +251,29 @@ exports.showTimeline = async (req, res) => {
     </div>
 
     <div class="tl-container">
+      ${totalInvoiced > 0 || hasCosts || quoteAmount > 0 ? `
+      <div class="fin-card ${needsCosts ? 'fin-warning' : ''}">
+        <div class="fin-row">
+          ${quoteAmount > 0 ? `<div class="fin-stat"><div class="fin-label">Quoted</div><div class="fin-val">$${quoteAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div></div>` : ''}
+          <div class="fin-stat"><div class="fin-label">Invoiced</div><div class="fin-val ${totalInvoiced > 0 ? 'fin-green' : ''}">$${totalInvoiced.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div></div>
+          <div class="fin-stat"><div class="fin-label">Cost</div><div class="fin-val">${hasCosts ? '$' + totalCost.toLocaleString('en-AU', { minimumFractionDigits: 2 }) : '--'}</div></div>
+          <div class="fin-stat"><div class="fin-label">Profit</div><div class="fin-val ${hasCosts ? (profit > 0 ? 'fin-green' : 'fin-red') : ''}">${hasCosts ? '$' + profit.toLocaleString('en-AU', { minimumFractionDigits: 2 }) : '--'}</div></div>
+          <div class="fin-stat"><div class="fin-label">Margin</div><div class="fin-val">${hasCosts ? margin + '%' : '--'}</div></div>
+        </div>
+        ${needsCosts ? '<div class="fin-alert">Costs not entered yet</div>' : ''}
+        <button class="fin-toggle" onclick="document.getElementById('cost-form').style.display=document.getElementById('cost-form').style.display==='none'?'block':'none'">${hasCosts ? 'Edit Costs' : 'Enter Costs'}</button>
+        <div id="cost-form" style="display:none">
+          <div class="cost-grid">
+            <div class="cost-field"><label>Quote Amount</label><input type="number" id="cf-quote" step="0.01" min="0" value="${quoteAmount || ''}" placeholder="0.00" oninput="calcProfit()"></div>
+            <div class="cost-field"><label>Subcontractor / Labour</label><input type="number" id="cf-labor" step="0.01" min="0" value="${laborCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
+            <div class="cost-field"><label>Parts</label><input type="number" id="cf-parts" step="0.01" min="0" value="${partsCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
+            <div class="cost-field"><label>Travel</label><input type="number" id="cf-travel" step="0.01" min="0" value="${travelCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
+            <div class="cost-field"><label>Other</label><input type="number" id="cf-other" step="0.01" min="0" value="${otherCosts || ''}" placeholder="0.00" oninput="calcProfit()"></div>
+          </div>
+          <div class="cost-summary" id="cost-summary"></div>
+          <button class="fin-save-btn" id="save-costs-btn" onclick="saveCosts()">Save Costs</button>
+        </div>
+      </div>` : ''}
       <div class="tl-feed" id="tl-feed">
         ${timelineItems || '<div class="tl-empty">No activity yet</div>'}
       </div>
@@ -245,6 +308,51 @@ exports.showTimeline = async (req, res) => {
           addNote();
         }
       });
+
+      function calcProfit() {
+        var labor = parseFloat(document.getElementById('cf-labor')?.value) || 0;
+        var parts = parseFloat(document.getElementById('cf-parts')?.value) || 0;
+        var travel = parseFloat(document.getElementById('cf-travel')?.value) || 0;
+        var other = parseFloat(document.getElementById('cf-other')?.value) || 0;
+        var total = labor + parts + travel + other;
+        var invoiced = ${totalInvoiced};
+        var profit = invoiced - total;
+        var margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
+        var el = document.getElementById('cost-summary');
+        if (el) {
+          var profitClass = profit > 0 ? 'fin-green' : (profit < 0 ? 'fin-red' : '');
+          el.innerHTML = '<strong>Total Cost:</strong> $' + total.toFixed(2) +
+            (invoiced > 0 ? ' &nbsp;|&nbsp; <strong>Profit:</strong> <span class="cs-profit ' + profitClass + '">$' + profit.toFixed(2) + '</span> &nbsp;|&nbsp; <strong>Margin:</strong> ' + margin + '%' : '');
+        }
+      }
+      if (document.getElementById('cf-labor')) calcProfit();
+
+      async function saveCosts() {
+        var btn = document.getElementById('save-costs-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        try {
+          var body = {
+            laborCost: parseFloat(document.getElementById('cf-labor')?.value) || 0,
+            partsCost: parseFloat(document.getElementById('cf-parts')?.value) || 0,
+            travelCost: parseFloat(document.getElementById('cf-travel')?.value) || 0,
+            otherCosts: parseFloat(document.getElementById('cf-other')?.value) || 0,
+          };
+          var quote = parseFloat(document.getElementById('cf-quote')?.value);
+          if (quote > 0) body.quoteAmount = quote;
+          var resp = await fetch('/api/engagement/${engagementId}/costs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (!resp.ok) throw new Error('Failed');
+          location.reload();
+        } catch (err) {
+          alert('Failed to save costs. Please try again.');
+          btn.disabled = false;
+          btn.textContent = 'Save Costs';
+        }
+      }
 
       async function addNote() {
         var input = document.getElementById('note-input');
@@ -330,6 +438,53 @@ exports.addNote = async (req, res) => {
   } catch (error) {
     console.error('Error adding note:', error);
     res.status(500).json({ error: 'Failed to add note' });
+  }
+};
+
+/**
+ * Update costs for an engagement
+ * POST /api/engagement/:id/costs
+ */
+exports.updateCosts = async (req, res) => {
+  try {
+    const engagementId = req.params.id;
+    const { laborCost, partsCost, travelCost, otherCosts, quoteAmount } = req.body;
+
+    const labor = parseFloat(laborCost) || 0;
+    const parts = parseFloat(partsCost) || 0;
+    const travel = parseFloat(travelCost) || 0;
+    const other = parseFloat(otherCosts) || 0;
+    const totalCost = labor + parts + travel + other;
+
+    const engagement = await airtableService.getEngagement(engagementId);
+    const totalInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+    const profit = totalInvoiced - totalCost;
+    const profitMargin = totalInvoiced > 0 ? ((profit / totalInvoiced) * 100) : 0;
+
+    const updateFields = {
+      'Parts Cost': parts,
+      'Labor Cost': labor,
+      'Travel Cost': travel,
+      'Other Costs': other,
+      'Total Cost': totalCost,
+      'Profit': Math.round(profit * 100) / 100,
+      'Profit Margin': Math.round(profitMargin * 10) / 10,
+    };
+
+    if (quoteAmount !== undefined && parseFloat(quoteAmount) > 0) {
+      updateFields['Quote Amount'] = parseFloat(quoteAmount);
+    }
+
+    await airtableService.updateEngagement(engagementId, updateFields);
+
+    airtableService.logActivity(engagementId, `Costs recorded: Labour $${labor}, Parts $${parts}, Travel $${travel}, Other $${other} | Total $${totalCost.toFixed(2)} | Profit $${profit.toFixed(2)}`, {
+      author: req.session?.userEmail || 'Admin',
+    });
+
+    res.json({ success: true, totalCost, profit, profitMargin: profitMargin.toFixed(1) });
+  } catch (error) {
+    console.error('Error updating costs:', error);
+    res.status(500).json({ error: 'Failed to update costs' });
   }
 };
 

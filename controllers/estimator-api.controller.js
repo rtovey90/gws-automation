@@ -4,6 +4,36 @@
  * Also provides save/load quote endpoints for Airtable integration.
  */
 const airtableService = require('../services/airtable.service');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary (same pattern as uploads.js)
+const cloudinaryUrl = process.env.CLOUDINARY_URL;
+let cloudinaryConfig = null;
+
+if (cloudinaryUrl) {
+  try {
+    const parsed = new URL(cloudinaryUrl);
+    cloudinaryConfig = {
+      cloud_name: parsed.hostname,
+      api_key: decodeURIComponent(parsed.username),
+      api_secret: decodeURIComponent(parsed.password),
+      secure: true,
+    };
+  } catch (error) {
+    console.error('Invalid CLOUDINARY_URL format.');
+  }
+}
+
+if (!cloudinaryConfig) {
+  cloudinaryConfig = {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  };
+}
+
+cloudinary.config(cloudinaryConfig);
 
 // POST /api/estimator/ai-pricing
 exports.aiPricing = async (req, res) => {
@@ -197,7 +227,7 @@ When including JSON, output it raw without markdown code blocks.`,
 // POST /api/estimator/parse-invoice
 exports.parseInvoice = async (req, res) => {
   try {
-    const { pdfBase64 } = req.body;
+    const { pdfBase64, engagementId, filename, mode } = req.body;
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
@@ -267,6 +297,66 @@ Important rules:
     }
 
     const data = await response.json();
+
+    // If engagementId provided, save PDF to Cloudinary + Airtable
+    if (engagementId && cloudinaryConfig.cloud_name) {
+      try {
+        // Parse the Claude response to get items
+        const jsonText = data.content[0].text.trim();
+        const cleanJson = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsedInvoice = JSON.parse(cleanJson);
+
+        // Upload PDF to Cloudinary
+        const folder = mode === 'actuals' ? 'actual-invoices' : 'supplier-docs';
+        const uploadResult = await cloudinary.uploader.upload(
+          `data:application/pdf;base64,${pdfBase64}`,
+          { resource_type: 'raw', folder: `gws/${folder}`, public_id: `${Date.now()}_${(filename || 'invoice').replace(/[^a-z0-9.-]/gi, '_')}` }
+        );
+
+        // Determine which Airtable fields to use based on mode
+        const attachmentField = mode === 'actuals' ? 'Actual Invoices' : 'Supplier Documents';
+        const parsedDataField = 'Supplier Parsed Data';
+
+        // Fetch existing engagement to append (not overwrite) attachments
+        const engagement = await airtableService.getEngagement(engagementId);
+        const existingAttachments = engagement.fields[attachmentField] || [];
+
+        // Build new attachment entry (Airtable format)
+        const newAttachment = { url: uploadResult.secure_url, filename: filename || 'invoice.pdf' };
+        const updatedAttachments = [...existingAttachments.map(a => ({ url: a.url, filename: a.filename })), newAttachment];
+
+        // Append parsed data
+        let existingParsed = [];
+        try {
+          existingParsed = JSON.parse(engagement.fields[parsedDataField] || '[]');
+        } catch (e) { /* start fresh */ }
+
+        existingParsed.push({
+          filename: filename || 'invoice.pdf',
+          parsedAt: new Date().toISOString(),
+          supplier: parsedInvoice.supplier,
+          items: parsedInvoice.items,
+          cloudinaryUrl: uploadResult.secure_url,
+          mode: mode || 'estimate',
+        });
+
+        // Save to Airtable
+        await airtableService.updateEngagement(engagementId, {
+          [attachmentField]: updatedAttachments,
+          [parsedDataField]: JSON.stringify(existingParsed),
+        });
+
+        // Add saved info to response
+        data.saved = {
+          cloudinaryUrl: uploadResult.secure_url,
+          attachmentField,
+        };
+      } catch (saveError) {
+        console.error('Error saving supplier doc (non-fatal):', saveError.message);
+        data.saveError = saveError.message;
+      }
+    }
+
     res.json(data);
   } catch (error) {
     console.error('Parse Invoice Error:', error);
@@ -403,6 +493,96 @@ exports.loadQuote = async (req, res) => {
     res.json(quoteData);
   } catch (error) {
     console.error('Load Quote Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/estimator/supplier-docs/:engagementId — list saved supplier documents
+exports.getSupplierDocs = async (req, res) => {
+  try {
+    const { engagementId } = req.params;
+    const engagement = await airtableService.getEngagement(engagementId);
+    const parsedDataStr = engagement.fields['Supplier Parsed Data'] || '[]';
+    const docs = JSON.parse(parsedDataStr);
+    res.json(docs);
+  } catch (error) {
+    console.error('Get Supplier Docs Error:', error);
+    res.json([]);
+  }
+};
+
+// POST /api/estimator/save-actuals — save actual costs to engagement
+exports.saveActuals = async (req, res) => {
+  try {
+    const { engagementId, actualsData, partsCost, laborCost, travelCost, otherCosts } = req.body;
+
+    if (!engagementId) {
+      return res.status(400).json({ error: 'Missing engagementId' });
+    }
+
+    const parts = parseFloat(partsCost) || 0;
+    const labor = parseFloat(laborCost) || 0;
+    const travel = parseFloat(travelCost) || 0;
+    const other = parseFloat(otherCosts) || 0;
+    const totalCost = parts + labor + travel + other;
+
+    // Get Total Invoiced to calculate profit
+    const engagement = await airtableService.getEngagement(engagementId);
+    const totalInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+    const profit = totalInvoiced - totalCost;
+    const profitMargin = totalInvoiced > 0 ? (profit / totalInvoiced) * 100 : 0;
+
+    const updates = {
+      'Parts Cost': parts,
+      'Labor Cost': labor,
+      'Travel Cost': travel,
+      'Other Costs': other,
+      'Total Cost': Math.round(totalCost * 100) / 100,
+      'Profit': Math.round(profit * 100) / 100,
+      'Profit Margin': Math.round(profitMargin * 10) / 10,
+    };
+
+    if (actualsData) {
+      updates['Actuals Data'] = JSON.stringify(actualsData);
+    }
+
+    await airtableService.updateEngagement(engagementId, updates);
+    airtableService.logActivity(engagementId, `Actual costs entered: $${totalCost.toFixed(2)} total`);
+
+    res.json({
+      success: true,
+      summary: { totalCost, profit, profitMargin: updates['Profit Margin'], totalInvoiced },
+    });
+  } catch (error) {
+    console.error('Save Actuals Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/estimator/load-actuals/:engagementId — load actuals data
+exports.loadActuals = async (req, res) => {
+  try {
+    const { engagementId } = req.params;
+    const engagement = await airtableService.getEngagement(engagementId);
+    const f = engagement.fields;
+
+    const actualsDataStr = f['Actuals Data'];
+    const actualsData = actualsDataStr ? JSON.parse(actualsDataStr) : null;
+
+    res.json({
+      actualsData,
+      partsCost: parseFloat(f['Parts Cost']) || 0,
+      laborCost: parseFloat(f['Labor Cost']) || 0,
+      travelCost: parseFloat(f['Travel Cost']) || 0,
+      otherCosts: parseFloat(f['Other Costs']) || 0,
+      totalCost: parseFloat(f['Total Cost']) || 0,
+      totalInvoiced: parseFloat(f['Total Invoiced']) || 0,
+      quoteAmount: parseFloat(f['Quote Amount']) || 0,
+      profit: parseFloat(f['Profit']) || 0,
+      profitMargin: parseFloat(f['Profit Margin']) || 0,
+    });
+  } catch (error) {
+    console.error('Load Actuals Error:', error);
     res.status(500).json({ error: error.message });
   }
 };

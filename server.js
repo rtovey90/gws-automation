@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 
 // Import auth middleware
-const { sessionMiddleware, requireAuth } = require('./middleware/auth');
+const { sessionMiddleware, requireAuth, requireRole } = require('./middleware/auth');
 const authController = require('./controllers/auth.controller');
 
 // Import controllers
@@ -30,6 +30,7 @@ const estimatorController = require('./controllers/estimator.controller');
 const estimatorApiController = require('./controllers/estimator-api.controller');
 const proposalsController = require('./controllers/proposals.controller');
 const previewController = require('./controllers/preview.controller');
+const vaController = require('./controllers/va.controller');
 const { startScheduledJobChecker, startScheduleReminderJob } = require('./jobs/scheduled-jobs');
 
 const app = express();
@@ -190,24 +191,28 @@ app.post('/api/create-test-contact', requireAuth, messagesController.createTestC
 
 // Engagement routes
 app.get('/api/create-engagement', engagementsController.createEngagement);
-// Dashboard route
-app.get('/dashboard', requireAuth, dashboardController.showDashboard);
+// Dashboard route (admin only)
+app.get('/dashboard', requireRole('admin'), dashboardController.showDashboard);
 
 // Engagement timeline routes
 app.get('/engagement/:id', requireAuth, timelineController.showTimeline);
 app.post('/api/engagement/:id/note', requireAuth, timelineController.addNote);
-app.post('/api/engagement/:id/bank-payment', requireAuth, dashboardController.addBankPayment);
+app.post('/api/engagement/:id/costs', requireRole('admin'), timelineController.updateCosts);
+app.post('/api/engagement/:id/bank-payment', requireRole('admin'), dashboardController.addBankPayment);
 
 // Design preview routes (dummy data, no Airtable writes)
 app.get('/preview/availability-yes', requireAuth, previewController.availabilityYes);
 app.get('/preview/availability-no', requireAuth, previewController.availabilityNo);
 
 // Estimator routes
-app.get('/estimator', requireAuth, estimatorController.showEstimator);
-app.post('/api/estimator/ai-pricing', requireAuth, estimatorApiController.aiPricing);
-app.get('/api/estimator/engagements', requireAuth, estimatorApiController.listEngagements);
-app.post('/api/estimator/save-quote', requireAuth, estimatorApiController.saveQuote);
-app.get('/api/estimator/load-quote/:engagementId', requireAuth, estimatorApiController.loadQuote);
+app.get('/estimator', requireRole('admin'), estimatorController.showEstimator);
+app.post('/api/estimator/ai-pricing', requireRole('admin'), estimatorApiController.aiPricing);
+app.get('/api/estimator/engagements', requireRole('admin'), estimatorApiController.listEngagements);
+app.post('/api/estimator/save-quote', requireRole('admin'), estimatorApiController.saveQuote);
+app.get('/api/estimator/load-quote/:engagementId', requireRole('admin'), estimatorApiController.loadQuote);
+app.get('/api/estimator/supplier-docs/:engagementId', requireRole('admin'), estimatorApiController.getSupplierDocs);
+app.post('/api/estimator/save-actuals', requireRole('admin'), estimatorApiController.saveActuals);
+app.get('/api/estimator/load-actuals/:engagementId', requireRole('admin'), estimatorApiController.loadActuals);
 // Note: /api/estimator/parse-invoice is defined earlier (before bodyParser) for larger body limit
 
 // Proposal routes - PUBLIC (no auth)
@@ -219,22 +224,28 @@ app.post('/api/proposals/:projectNumber/analytics', proposalsController.analytic
 app.post('/api/proposals/:projectNumber/checkout', proposalsController.createProposalCheckout);
 app.post('/api/proposals/:projectNumber/oto-charge', proposalsController.chargeOTODirect);
 
-// Proposal routes - ADMIN (require auth)
-app.get('/admin/proposals', requireAuth, proposalsController.listProposals);
-app.get('/admin/proposals/new', requireAuth, proposalsController.showCreateForm);
-app.get('/admin/proposals/new/:engagementId', requireAuth, proposalsController.showCreateFormForEngagement);
-app.get('/admin/proposals/clone/:proposalId', requireAuth, proposalsController.showCloneForm);
-app.get('/admin/proposals/edit/:proposalId', requireAuth, proposalsController.showEditForm);
-app.post('/api/admin/proposals', requireAuth, proposalsController.createProposal);
-app.put('/api/admin/proposals/:proposalId', requireAuth, proposalsController.updateProposal);
-app.post('/api/admin/proposals/upload-photos', requireAuth, proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
-app.post('/api/admin/proposals/:proposalId/send', requireAuth, proposalsController.sendProposal);
-app.post('/api/admin/proposals/:proposalId/preview-checkout', requireAuth, proposalsController.previewCheckout);
-app.post('/api/admin/proposals/:proposalId/toggle-pause', requireAuth, proposalsController.togglePause);
-app.get('/api/admin/proposals/check-number', requireAuth, proposalsController.checkProjectNumber);
-app.get('/api/admin/proposals/next-number', requireAuth, proposalsController.getNextProjectNumber);
-app.get('/api/admin/customers', requireAuth, proposalsController.listCustomers);
-app.get('/api/admin/customers/:customerId/engagements', requireAuth, proposalsController.getCustomerEngagements);
+// Proposal routes - ADMIN only
+app.get('/admin/proposals', requireRole('admin'), proposalsController.listProposals);
+app.get('/admin/proposals/new', requireRole('admin'), proposalsController.showCreateForm);
+app.get('/admin/proposals/new/:engagementId', requireRole('admin'), proposalsController.showCreateFormForEngagement);
+app.get('/admin/proposals/clone/:proposalId', requireRole('admin'), proposalsController.showCloneForm);
+app.get('/admin/proposals/edit/:proposalId', requireRole('admin'), proposalsController.showEditForm);
+app.post('/api/admin/proposals', requireRole('admin'), proposalsController.createProposal);
+app.put('/api/admin/proposals/:proposalId', requireRole('admin'), proposalsController.updateProposal);
+app.post('/api/admin/proposals/upload-photos', requireRole('admin'), proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
+app.post('/api/admin/proposals/:proposalId/send', requireRole('admin'), proposalsController.sendProposal);
+app.post('/api/admin/proposals/:proposalId/preview-checkout', requireRole('admin'), proposalsController.previewCheckout);
+app.post('/api/admin/proposals/:proposalId/toggle-pause', requireRole('admin'), proposalsController.togglePause);
+app.get('/api/admin/proposals/check-number', requireRole('admin'), proposalsController.checkProjectNumber);
+app.get('/api/admin/proposals/next-number', requireRole('admin'), proposalsController.getNextProjectNumber);
+app.get('/api/admin/customers', requireRole('admin'), proposalsController.listCustomers);
+app.get('/api/admin/customers/:customerId/engagements', requireRole('admin'), proposalsController.getCustomerEngagements);
+
+// VA routes (accessible to both admin and VA roles)
+app.get('/va', requireRole('admin', 'va'), vaController.showQueue);
+app.post('/va/confirm-lead', requireRole('admin', 'va'), vaController.confirmLead);
+app.post('/va/dismiss-lead', requireRole('admin', 'va'), vaController.dismissLead);
+app.post('/va/send-followup', requireRole('admin', 'va'), vaController.sendFollowUp);
 
 // Tech availability short link routes (must come before /:code catch-all)
 app.get('/ty/:code', techAvailabilityShortController.techYes);

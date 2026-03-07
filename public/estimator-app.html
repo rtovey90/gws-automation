@@ -2417,6 +2417,15 @@
             });
 
             calculateGrandTotals();
+
+            // Update comparison panel if in actuals mode (debounced)
+            if (window.estimatorMode === 'actuals' && typeof updateComparison === 'function') {
+                clearTimeout(window._comparisonTimer);
+                window._comparisonTimer = setTimeout(() => {
+                    if (activeTabId) saveTabState(activeTabId);
+                    updateComparison(window._lastFinancialData || {});
+                }, 300);
+            }
         }
 
         function adjustMarkupsToPrice() {
@@ -3299,13 +3308,23 @@
                 // Convert PDF to base64
                 const base64Pdf = await fileToBase64(file);
 
-                // Call Claude API
-                const invoiceData = await parseInvoiceWithClaude(base64Pdf);
+                // Get engagement ID if available (injected by estimator controller)
+                const engSelect = document.getElementById('engagement-select');
+                const engagementId = engSelect ? engSelect.value : '';
+
+                // Call Claude API (with optional save)
+                const invoiceData = await parseInvoiceWithClaude(base64Pdf, engagementId, file.name);
 
                 // Populate the calculator
                 populateFromInvoice(invoiceData);
 
-                showStatus(`Successfully imported ${invoiceData.items.length} items from ${invoiceData.supplier || 'invoice'}!`, 'success');
+                const savedMsg = invoiceData._saved ? ' (saved to engagement)' : '';
+                showStatus(`Successfully imported ${invoiceData.items.length} items from ${invoiceData.supplier || 'invoice'}!${savedMsg}`, 'success');
+
+                // Refresh supplier docs list if saved
+                if (invoiceData._saved && engagementId) {
+                    loadSupplierDocs(engagementId);
+                }
 
                 // Clear file input
                 event.target.value = '';
@@ -3327,16 +3346,20 @@
             });
         }
 
-        async function parseInvoiceWithClaude(base64Pdf) {
-            // Call Netlify serverless function to avoid CORS issues
+        async function parseInvoiceWithClaude(base64Pdf, engagementId, filename) {
+            const payload = { pdfBase64: base64Pdf };
+            if (engagementId) {
+                payload.engagementId = engagementId;
+                payload.filename = filename || 'invoice.pdf';
+                payload.mode = window.estimatorMode || 'estimate';
+            }
+
             const response = await fetch('/api/estimator/parse-invoice', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    pdfBase64: base64Pdf
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -3361,7 +3384,9 @@
             // Remove markdown code blocks if present
             const cleanJson = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-            return JSON.parse(cleanJson);
+            const result = JSON.parse(cleanJson);
+            if (data.saved) result._saved = true;
+            return result;
         }
 
         function populateFromInvoice(invoiceData) {

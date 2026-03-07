@@ -509,6 +509,64 @@ exports.showDashboard = async (req, res) => {
 
     const avgMargin = marginCount > 0 ? (marginSum / marginCount).toFixed(1) : '0.0';
 
+    // ── Per-job profit list (all jobs with invoiced revenue) ──
+    const jobProfitList = engagements
+      .filter(e => (parseFloat(e.fields['Total Invoiced']) || 0) > 0)
+      .map(e => {
+        const ef = e.fields;
+        const invoiced = parseFloat(ef['Total Invoiced']) || 0;
+        const cost = parseFloat(ef['Total Cost']) || 0;
+        const quoted = parseFloat(ef['Quote Amount']) || 0;
+        const profit = invoiced - cost;
+        const margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
+        return {
+          id: e.id,
+          name: ef['Customer Name'] || ef['First Name'] || 'Job',
+          quoted, invoiced, cost, profit, margin: parseFloat(margin),
+          hasCosts: cost > 0,
+          techIds: ef['Assigned Tech'] || [],
+        };
+      })
+      .sort((a, b) => b.invoiced - a.invoiced)
+      .slice(0, 20);
+
+    // ── Missing costs list (clickable) ──
+    const missingCostsList = engagements
+      .filter(e => {
+        const ef = e.fields;
+        return (parseFloat(ef['Total Invoiced']) || 0) > 0 && (parseFloat(ef['Total Cost']) || 0) === 0;
+      })
+      .map(e => ({
+        id: e.id,
+        name: e.fields['Customer Name'] || e.fields['First Name'] || 'Job',
+        invoiced: parseFloat(e.fields['Total Invoiced']) || 0,
+      }))
+      .sort((a, b) => b.invoiced - a.invoiced);
+
+    // ── Profit by tech ──
+    const techProfitMap = {};
+    engagements.forEach(e => {
+      const ef = e.fields;
+      const techIdArr = ef['Assigned Tech'] || [];
+      const invoiced = parseFloat(ef['Total Invoiced']) || 0;
+      const cost = parseFloat(ef['Total Cost']) || 0;
+      if (invoiced > 0 && techIdArr.length > 0) {
+        const techId = techIdArr[0];
+        if (!techProfitMap[techId]) techProfitMap[techId] = { invoiced: 0, cost: 0, profit: 0, count: 0 };
+        techProfitMap[techId].invoiced += invoiced;
+        techProfitMap[techId].cost += cost;
+        techProfitMap[techId].profit += (invoiced - cost);
+        techProfitMap[techId].count++;
+      }
+    });
+    const techProfitList = Object.entries(techProfitMap)
+      .map(([techId, data]) => {
+        const tech = techs.find(t => t.id === techId);
+        const margin = data.invoiced > 0 ? ((data.profit / data.invoiced) * 100).toFixed(1) : '0.0';
+        return { name: tech?.fields?.Name || 'Unknown', ...data, margin: parseFloat(margin) };
+      })
+      .sort((a, b) => b.profit - a.profit);
+
     // Quoted vs Actual: recent completed engagements for comparison chart
     const quotedVsActual = engagements
       .filter(e => {
@@ -993,6 +1051,54 @@ exports.showDashboard = async (req, res) => {
         }).join('')
       : '<p class="empty-state">No cost data recorded yet</p>';
 
+    // ── Per-Job Profit Table HTML ──
+    const jobProfitTableHtml = jobProfitList.length > 0
+      ? `<table class="profit-table">
+          <thead><tr><th>Customer</th><th>Quoted</th><th>Invoiced</th><th>Cost</th><th>Profit</th><th>Margin</th><th></th></tr></thead>
+          <tbody>${jobProfitList.map(j => {
+            const marginColor = !j.hasCosts ? '#5a6a7a' : j.margin > 30 ? '#66bb6a' : j.margin > 15 ? '#ffa726' : '#ef5350';
+            return `<tr>
+              <td>${j.name.length > 20 ? j.name.substring(0, 20) + '...' : j.name}</td>
+              <td>${j.quoted > 0 ? fmtCurrency(j.quoted) : '--'}</td>
+              <td style="color:#66bb6a">${fmtCurrency(j.invoiced)}</td>
+              <td>${j.hasCosts ? fmtCurrency(j.cost) : '<span style="color:#ff7043">--</span>'}</td>
+              <td style="color:${j.hasCosts ? (j.profit >= 0 ? '#66bb6a' : '#ef5350') : '#5a6a7a'}">${j.hasCosts ? fmtCurrency(j.profit) : '--'}</td>
+              <td style="color:${marginColor};font-weight:600">${j.hasCosts ? j.margin + '%' : '--'}</td>
+              <td><a href="/engagement/${j.id}" style="color:#00d4ff;text-decoration:none;font-size:12px">${j.hasCosts ? 'View' : 'Add Costs'}</a></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`
+      : '<p class="empty-state">No invoiced jobs yet</p>';
+
+    // ── Missing Costs List HTML ──
+    const missingCostsHtml = missingCostsList.length > 0
+      ? missingCostsList.slice(0, 10).map(m =>
+          `<div class="missing-cost-item">
+            <span>${m.name}</span>
+            <span style="color:#66bb6a">${fmtCurrency(m.invoiced)} invoiced</span>
+            <a href="/engagement/${m.id}" style="color:#ff7043;text-decoration:none;font-size:12px;font-weight:600">Enter Costs &rarr;</a>
+          </div>`
+        ).join('')
+      : '<p class="empty-state" style="color:#66bb6a">All costs entered</p>';
+
+    // ── Tech Profit Table HTML ──
+    const techProfitHtml = techProfitList.length > 0
+      ? `<table class="profit-table">
+          <thead><tr><th>Tech</th><th>Jobs</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th></tr></thead>
+          <tbody>${techProfitList.map(t => {
+            const marginColor = t.margin > 30 ? '#66bb6a' : t.margin > 15 ? '#ffa726' : '#ef5350';
+            return `<tr>
+              <td>${t.name}</td>
+              <td>${t.count}</td>
+              <td style="color:#66bb6a">${fmtCurrency(t.invoiced)}</td>
+              <td>${fmtCurrency(t.cost)}</td>
+              <td style="color:${t.profit >= 0 ? '#66bb6a' : '#ef5350'}">${fmtCurrency(t.profit)}</td>
+              <td style="color:${marginColor};font-weight:600">${t.margin}%</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`
+      : '<p class="empty-state">No tech profit data yet</p>';
+
     // ── Build Tab HTML ──
 
     // Tab 1: Overview
@@ -1381,6 +1487,29 @@ exports.showDashboard = async (req, res) => {
 
       ${profitabilityKpis}
 
+      <div class="card" style="margin-bottom:24px">
+        <h2>Per-Job Profit</h2>
+        <div style="overflow-x:auto">${jobProfitTableHtml}</div>
+      </div>
+
+      ${missingCostsList.length > 0 ? `
+      <div class="card" style="margin-bottom:24px;border:1px solid #ff704340">
+        <h2 style="color:#ff7043">Missing Costs (${missingCostsList.length})</h2>
+        <p style="font-size:12px;color:#6a7a8a;margin-bottom:12px">These jobs have been paid but no costs recorded. Click to enter costs.</p>
+        ${missingCostsHtml}
+      </div>` : ''}
+
+      <div class="grid" style="margin-bottom:24px">
+        <div class="card">
+          <h2>Profit by Tech</h2>
+          <div style="overflow-x:auto">${techProfitHtml}</div>
+        </div>
+        <div class="card">
+          <h2>Cost Breakdown</h2>
+          ${costBreakdownHtml}
+        </div>
+      </div>
+
       <div class="grid" style="margin-bottom:24px">
         <div class="card">
           <h2>Quoted vs Invoiced vs Cost</h2>
@@ -1390,10 +1519,6 @@ exports.showDashboard = async (req, res) => {
             <span><span style="display:inline-block;width:10px;height:10px;background:#ef5350;border-radius:2px;margin-right:4px"></span>Cost</span>
           </div>
           ${quotedVsActualHtml}
-        </div>
-        <div class="card">
-          <h2>Cost Breakdown</h2>
-          ${costBreakdownHtml}
         </div>
       </div>`;
 
@@ -1531,6 +1656,14 @@ exports.showDashboard = async (req, res) => {
     .grouped-bar-item { display:flex; align-items:center; gap:8px; }
     .grouped-bar-item .bar-track { flex:1; height:14px; }
     .grouped-bar-val { font-size:11px; color:#8899aa; width:65px; flex-shrink:0; }
+
+    .profit-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .profit-table th { text-align:left; color:#6a7a8a; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; padding:8px 10px; border-bottom:1px solid #2a3a4a; font-weight:600; }
+    .profit-table td { padding:10px; border-bottom:1px solid #1a2332; color:#c0c8d0; }
+    .profit-table tbody tr:hover { background:#1a2332; }
+    .missing-cost-item { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #1a2332; font-size:13px; }
+    .missing-cost-item:last-child { border-bottom:none; }
+    .missing-cost-item span:first-child { flex:1; color:#e0e6ed; }
 
     .stripe-unavailable { background:#0f1419; border:1px solid #2a3a4a; border-radius:10px; padding:12px 20px; margin-bottom:24px; color:#5a6a7a; font-size:13px; font-style:italic; text-align:center; }
 
@@ -1771,9 +1904,14 @@ exports.addBankPayment = async (req, res) => {
     const paymentAmount = parseFloat(amount);
     const paymentDate = date || new Date().toISOString().split('T')[0];
 
+    // Get existing Total Invoiced to add bank payment on top
+    const engagement = await airtableService.getEngagement(engagementId);
+    const existingInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+
     const updateFields = {
       'Bank Payment Amount': paymentAmount,
       'Bank Payment Date': paymentDate,
+      'Total Invoiced': existingInvoiced + paymentAmount,
     };
     if (paymentType === 'Service Call' || paymentType === 'Project') {
       updateFields['Bank Payment Type'] = paymentType;

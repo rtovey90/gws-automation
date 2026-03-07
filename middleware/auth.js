@@ -20,14 +20,41 @@ function requireAuth(req, res, next) {
   res.redirect('/login');
 }
 
-async function verifyLogin(email, password) {
-  const validEmail = (process.env.APP_LOGIN_EMAIL || '').toLowerCase();
-  const passwordHash = process.env.APP_PASSWORD_HASH || '';
-
-  if (!validEmail || !passwordHash) return false;
-  if (email.toLowerCase() !== validEmail) return false;
-
-  return bcrypt.compare(password, passwordHash);
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session || !req.session.authenticated) {
+      req.session.returnTo = req.originalUrl;
+      return res.redirect('/login');
+    }
+    const userRole = req.session.role || 'admin';
+    if (roles.includes(userRole)) return next();
+    // VA trying to access admin-only page → redirect to VA queue
+    if (userRole === 'va') return res.redirect('/va');
+    res.redirect('/dashboard');
+  };
 }
 
-module.exports = { sessionMiddleware, requireAuth, verifyLogin };
+async function verifyLogin(email, password) {
+  const adminEmail = (process.env.APP_LOGIN_EMAIL || '').toLowerCase();
+  const adminHash = process.env.APP_PASSWORD_HASH || '';
+  const vaEmail = (process.env.VA_LOGIN_EMAIL || '').toLowerCase();
+  const vaHash = process.env.VA_PASSWORD_HASH || '';
+
+  const inputEmail = email.toLowerCase();
+
+  // Check admin credentials
+  if (adminEmail && adminHash && inputEmail === adminEmail) {
+    const match = await bcrypt.compare(password, adminHash);
+    if (match) return 'admin';
+  }
+
+  // Check VA credentials
+  if (vaEmail && vaHash && inputEmail === vaEmail) {
+    const match = await bcrypt.compare(password, vaHash);
+    if (match) return 'va';
+  }
+
+  return false;
+}
+
+module.exports = { sessionMiddleware, requireAuth, requireRole, verifyLogin };
