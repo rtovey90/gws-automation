@@ -1131,12 +1131,15 @@ exports.showDashboard = async (req, res) => {
         const isSC = !!f['Confirmed Service Call Lead'];
         const isPR = !!f['Confirmed Project Lead'];
         const linkedCustId = f.Customer && f.Customer[0];
+        const linkedCust = linkedCustId && customers.find(c => c.id === linkedCustId);
         return {
           id: e.id,
           type: isSC ? 'sc' : isPR ? 'pr' : 'unknown',
           created: e._rawJson?.createdTime || null,
           status: f.Status || '',
           name: f['Customer Name'] || (linkedCustId && customerMap[linkedCustId]) || f['First Name'] || 'Unknown',
+          address: f['Address/Location'] || (linkedCust && linkedCust.fields['Address']) || '',
+          scope: f['Job Scope'] || f['Client intake info'] || '',
           engNumber: f['Engagement Number'] || '',
           quoteAmount: parseFloat(f['Quote Amount']) || 0,
           quoteSentAt: f['Quote Sent At'] || null,
@@ -1671,9 +1674,12 @@ exports.showDashboard = async (req, res) => {
     .funnel-clickable:hover { opacity:0.7; }
     .funnel-detail { margin-top:16px; padding-top:16px; border-top:1px solid #1e2a3a; }
     .funnel-detail-title { font-size:11px; color:#5a6a7a; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:8px; }
-    .funnel-detail-row { display:flex; align-items:center; gap:4px; padding:6px 8px; font-size:12px; color:#c0c8d0; border-radius:4px; text-decoration:none; }
+    .funnel-detail-item { display:flex; align-items:center; gap:0; }
+    .funnel-detail-row { display:flex; align-items:center; gap:4px; padding:6px 8px; font-size:12px; color:#c0c8d0; border-radius:4px; text-decoration:none; flex:1; min-width:0; }
     .funnel-detail-row:hover { background:#1a2332; }
     a.funnel-detail-row { cursor:pointer; }
+    .funnel-remove-btn { background:none; border:none; color:#3a4a5a; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:4px; flex-shrink:0; }
+    .funnel-remove-btn:hover { color:#ef5350; background:#1a2332; }
 
     @media (max-width:768px) {
       .kpi-row { grid-template-columns:repeat(2,1fr); }
@@ -1949,12 +1955,17 @@ exports.showDashboard = async (req, res) => {
 
       function engRow(e) {
         var d = e.created ? new Date(e.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
-        return '<a href="/engagement/' + e.id + '" class="funnel-detail-row">' +
-          '<span>' + (e.engNumber || '—') + '</span>' +
-          '<span style="flex:1;margin:0 8px">' + e.name + '</span>' +
-          '<span style="color:#5a6a7a;font-size:11px">' + (e.source || '') + '</span>' +
-          '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
-        '</a>';
+        var scope = e.scope ? e.scope.substring(0, 60) + (e.scope.length > 60 ? '...' : '') : '';
+        return '<div class="funnel-detail-item" data-eid="' + e.id + '">' +
+          '<a href="/engagement/' + e.id + '" class="funnel-detail-row">' +
+            '<span style="min-width:65px;font-weight:600;color:#00d4ff">' + (e.engNumber || '—') + '</span>' +
+            '<span style="min-width:120px">' + e.name + '</span>' +
+            '<span style="flex:1;color:#5a6a7a;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (e.address || scope || '') + '</span>' +
+            '<span style="color:#5a6a7a;font-size:11px;min-width:36px">' + (e.source || '') + '</span>' +
+            '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
+          '</a>' +
+          '<button class="funnel-remove-btn" data-remove="' + e.id + '" title="Remove from funnel">&times;</button>' +
+        '</div>';
       }
       var fmtSent = sentItemFormatter || engRow;
 
@@ -2126,6 +2137,24 @@ exports.showDashboard = async (req, res) => {
       if (tgt) {
         var el = document.getElementById(tgt.dataset.toggle);
         if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      }
+      var rmBtn = ev.target.closest('[data-remove]');
+      if (rmBtn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var eid = rmBtn.dataset.remove;
+        if (!confirm('Remove this from the funnel? (Clears the source field)')) return;
+        rmBtn.textContent = '...';
+        fetch('/api/engagement/' + eid + '/exclude-funnel', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function() {
+            var item = rmBtn.closest('.funnel-detail-item');
+            if (item) item.remove();
+            var eng = OV_DATA.engagements.find(function(e) { return e.id === eid; });
+            if (eng) eng.source = '';
+            renderOverview(getActivePeriod());
+          })
+          .catch(function() { rmBtn.textContent = 'x'; alert('Failed to remove'); });
       }
     });
 
@@ -2828,6 +2857,17 @@ exports.approveCustomerData = async (req, res) => {
     res.json({ success: true, updated: safeUpdates });
   } catch (error) {
     console.error('Approve customer data error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.excludeFromFunnel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await airtableService.updateEngagement(id, { ' Source': '' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Exclude from funnel error:', error);
     res.status(500).json({ error: error.message });
   }
 };

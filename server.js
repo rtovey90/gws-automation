@@ -202,6 +202,7 @@ app.post('/api/engagement/:id/note', requireAuth, timelineController.addNote);
 app.post('/api/engagement/:id/payment', requireRole('admin'), timelineController.addPayment);
 app.post('/api/engagement/:id/costs', requireRole('admin'), timelineController.updateCosts);
 app.post('/api/engagement/:id/bank-payment', requireRole('admin'), dashboardController.addBankPayment);
+app.post('/api/engagement/:id/exclude-funnel', requireRole('admin'), dashboardController.excludeFromFunnel);
 app.post('/api/reconcile-stripe', requireRole('admin'), dashboardController.reconcileStripe);
 app.post('/api/manual-reconcile', requireRole('admin'), dashboardController.manualReconcile);
 app.get('/api/stripe-customer-suggestions', requireRole('admin'), dashboardController.getCustomerSuggestions);
