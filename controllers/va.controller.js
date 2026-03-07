@@ -440,8 +440,8 @@ exports.confirmLead = async (req, res) => {
   try {
     const { engagementId, type } = req.body;
     const updates = type === 'sc'
-      ? { 'Confirmed Service Call Lead': true }
-      : { 'Confirmed Project Lead': true };
+      ? { 'Confirmed Service Call Lead': true, 'Lead Type': 'Service Call' }
+      : { 'Confirmed Project Lead': true, 'Lead Type': 'Project' };
     await airtableService.updateEngagement(engagementId, updates);
 
     // Assign engagement number

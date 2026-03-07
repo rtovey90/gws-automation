@@ -202,9 +202,15 @@ function startEngagementNumberCheck() {
         if (f['Engagement Number']) continue;
 
         if (f['Confirmed Service Call Lead']) {
+          if (f['Lead Type'] !== 'Service Call') {
+            await airtableService.updateEngagement(e.id, { 'Lead Type': 'Service Call' });
+          }
           const num = await airtableService.assignEngagementNumber(e.id, 'sc');
           console.log(`Backfill: assigned ${num} to ${e.id}`);
         } else if (f['Confirmed Project Lead']) {
+          if (f['Lead Type'] !== 'Project') {
+            await airtableService.updateEngagement(e.id, { 'Lead Type': 'Project' });
+          }
           const num = await airtableService.assignEngagementNumber(e.id, 'project');
           console.log(`Backfill: assigned ${num} to ${e.id}`);
         }

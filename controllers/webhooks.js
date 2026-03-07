@@ -930,6 +930,10 @@ exports.handleConfirmationWebhook = async (req, res) => {
       return res.status(400).json({ error: 'Missing engagementId or type' });
     }
 
+    // Set Lead Type based on confirmation type
+    const leadType = type === 'sc' ? 'Service Call' : 'Project';
+    await airtableService.updateEngagement(engagementId, { 'Lead Type': leadType });
+
     const engNumber = await airtableService.assignEngagementNumber(engagementId, type);
     console.log(`Airtable automation: assigned ${engNumber} to ${engagementId}`);
 
