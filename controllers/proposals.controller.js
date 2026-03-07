@@ -1980,7 +1980,10 @@ exports.listProposals = async (req, res) => {
         <td>
           <button onclick="event.stopPropagation(); togglePause('${p.id}', this)" style="background:${paused ? '#e05252' : '#4caf50'};color:white;border:none;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;min-width:60px;">${paused ? 'Paused' : 'Live'}</button>
         </td>
-        <td><a href="/admin/proposals/clone/${p.id}" onclick="event.stopPropagation();" style="color:#ff9800;text-decoration:none;font-size:12px;font-weight:600;">Clone</a></td>
+        <td style="white-space:nowrap;">
+          <a href="/proposals/${encodeURIComponent(f['Project Number'] || '')}" target="_blank" onclick="event.stopPropagation();" style="color:#00d4ff;text-decoration:none;font-size:12px;font-weight:600;margin-right:10px;">View</a>
+          <a href="/admin/proposals/clone/${p.id}" onclick="event.stopPropagation();" style="color:#ff9800;text-decoration:none;font-size:12px;font-weight:600;">Clone</a>
+        </td>
       </tr>`;
     }).join('');
 
