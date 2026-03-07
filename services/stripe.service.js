@@ -462,6 +462,61 @@ class StripeService {
       throw error;
     }
   }
+  /**
+   * Get Stripe fee from a charge's balance transaction
+   * @param {string} chargeId - Stripe charge ID (ch_xxx)
+   * @returns {number} fee in dollars
+   */
+  async getStripeFee(chargeId) {
+    try {
+      const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
+      if (charge.balance_transaction && typeof charge.balance_transaction === 'object') {
+        return charge.balance_transaction.fee / 100;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error fetching Stripe fee:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get all successful AUD charges (for reconciliation)
+   * @param {number} months - How many months back to look
+   * @returns {Array} charges with metadata, amounts, fees
+   */
+  async getAllChargesForReconciliation(months = 6) {
+    try {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - months, 1);
+      const results = [];
+
+      for await (const c of stripe.charges.list({
+        created: { gte: Math.floor(start.getTime() / 1000) },
+        limit: 100,
+        expand: ['data.balance_transaction'],
+      })) {
+        if (c.status === 'succeeded' && c.currency === 'aud') {
+          const fee = (c.balance_transaction && typeof c.balance_transaction === 'object')
+            ? c.balance_transaction.fee / 100 : 0;
+          results.push({
+            id: c.id,
+            amount: c.amount / 100,
+            fee,
+            net: (c.amount / 100) - fee,
+            created: new Date(c.created * 1000),
+            metadata: c.metadata || {},
+            customerName: c.billing_details?.name || '',
+            customerEmail: c.billing_details?.email || '',
+          });
+        }
+      }
+      return results;
+    } catch (error) {
+      console.error('Error fetching charges for reconciliation:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new StripeService();

@@ -1128,6 +1128,8 @@ exports.showDashboard = async (req, res) => {
           profit: parseFloat(f['Profit']) || 0,
           bankPaymentAmount: parseFloat(f['Bank Payment Amount']) || 0,
           bankPaymentDate: f['Bank Payment Date'] || null,
+          paymentDate: f['Payment Date'] || f['Bank Payment Date'] || null,
+          stripeFee: parseFloat(f['Stripe Fee']) || 0,
           source: f[' Source'] || 'Unknown',
         };
       }),
@@ -1826,28 +1828,27 @@ exports.showDashboard = async (req, res) => {
         if (period === 'month' && pre.scRevenueMonth > 0) scRevenue = pre.scRevenueMonth;
         if (period === 'month' && pre.prRevenueMonth > 0) prRevenue = pre.prRevenueMonth;
       } else {
-        // Custom/allTime/lastMonth/yesterday — calculate from engagement data
-        var closedSet = ['Initial Parts Ordered', 'Completed \\u2728', 'Positive Review Received', 'Negative Review Received', 'Payment Received \\u2705'];
+        // Custom/allTime/lastMonth/yesterday — use paymentDate for accurate filtering
         var scDealsList = engs.filter(function(e) {
-          return e.type === 'sc' && inRange(e.created, range) && (closedSet.indexOf(e.status) !== -1 || e.totalInvoiced > 0);
+          return e.type === 'sc' && e.totalInvoiced > 0 && inRange(e.paymentDate, range);
         });
         var prDealsList = engs.filter(function(e) {
-          return e.type === 'pr' && inRange(e.created, range) && (closedSet.indexOf(e.status) !== -1 || e.totalInvoiced > 0);
+          return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range);
         });
         // Also count proposals paid in range
         var prPaidProps = props.filter(function(p) { return p.status === 'Paid' && inRange(p.paidAt, range); });
         scDealsCount = scDealsList.length;
-        prDealsCount = prDealsList.length + prPaidProps.length;
-        scRevenue = scDealsList.reduce(function(s, e) { return s + (e.totalInvoiced || e.scAmount || 0); }, 0);
-        prRevenue = prDealsList.reduce(function(s, e) { return s + (e.totalInvoiced || e.projectValue || 0); }, 0);
-        prRevenue += prPaidProps.reduce(function(s, p) { return s + p.basePrice; }, 0);
-        // Add bank payments in range
-        engs.forEach(function(e) {
-          if (e.bankPaymentAmount > 0 && inRange(e.bankPaymentDate, range)) {
-            if (e.type === 'sc') scRevenue += e.bankPaymentAmount;
-            if (e.type === 'pr') prRevenue += e.bankPaymentAmount;
-          }
+        // Avoid double-counting PR deals that have both paymentDate and proposal paidAt
+        var prDealIds = {};
+        prDealsList.forEach(function(e) { prDealIds[e.id] = true; });
+        var prPaidPropsUnique = prPaidProps.filter(function(p) {
+          var eng = engs.find(function(e) { return e.engNumber && p.projectNumber && p.projectNumber.startsWith(e.engNumber); });
+          return !eng || !prDealIds[eng.id];
         });
+        prDealsCount = prDealsList.length + prPaidPropsUnique.length;
+        scRevenue = scDealsList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+        prRevenue = prDealsList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+        prRevenue += prPaidPropsUnique.reduce(function(s, p) { return s + p.basePrice; }, 0);
       }
 
       var totalRevenue = scRevenue + prRevenue;
@@ -2088,6 +2089,7 @@ exports.addBankPayment = async (req, res) => {
     const updateFields = {
       'Bank Payment Amount': paymentAmount,
       'Bank Payment Date': paymentDate,
+      'Payment Date': paymentDate,
       'Total Invoiced': existingInvoiced + paymentAmount,
     };
     if (paymentType === 'Service Call' || paymentType === 'Project') {
@@ -2105,5 +2107,92 @@ exports.addBankPayment = async (req, res) => {
   } catch (error) {
     console.error('Error recording bank payment:', error);
     res.status(500).json({ error: 'Failed to record bank payment' });
+  }
+};
+
+/**
+ * Reconcile Stripe payments — backfill Payment Date, Stripe Fee, Stripe Charge ID
+ * POST /api/reconcile-stripe
+ */
+exports.reconcileStripe = async (req, res) => {
+  try {
+    const stripeService = require('../services/stripe.service');
+    const charges = await stripeService.getAllChargesForReconciliation(12);
+    const engagements = await airtableService.getAllEngagements();
+    const proposals = await airtableService.getAllProposals();
+
+    const results = { matched: 0, skipped: 0, errors: 0, details: [] };
+
+    for (const charge of charges) {
+      try {
+        let engagementId = null;
+        let matchType = '';
+
+        // Match by metadata
+        if (charge.metadata?.type === 'proposal' && charge.metadata.proposal_id) {
+          // Find engagement via proposal
+          const proposal = proposals.find(p => p.id === charge.metadata.proposal_id);
+          if (proposal && proposal.fields['Engagement']?.length > 0) {
+            engagementId = proposal.fields['Engagement'][0];
+            matchType = 'proposal';
+          }
+        } else if (charge.metadata?.type === 'oto' && charge.metadata.proposal_id) {
+          const proposal = proposals.find(p => p.id === charge.metadata.proposal_id);
+          if (proposal && proposal.fields['Engagement']?.length > 0) {
+            engagementId = proposal.fields['Engagement'][0];
+            matchType = 'oto';
+          }
+        } else if (charge.metadata?.lead_id) {
+          engagementId = charge.metadata.lead_id;
+          matchType = 'engagement';
+        }
+
+        if (!engagementId) {
+          results.skipped++;
+          results.details.push({ charge: charge.id, amount: charge.amount, reason: 'no matching engagement', customer: charge.customerName });
+          continue;
+        }
+
+        // Check if engagement exists and needs updating
+        const eng = engagements.find(e => e.id === engagementId);
+        if (!eng) {
+          results.skipped++;
+          continue;
+        }
+
+        const existingPaymentDate = eng.fields['Payment Date'];
+        const existingChargeId = eng.fields['Stripe Charge ID'];
+
+        // Only update if missing Payment Date or Stripe Fee
+        if (!existingPaymentDate || !existingChargeId) {
+          const paymentDate = charge.created.toISOString().split('T')[0];
+          const updates = {};
+
+          if (!existingPaymentDate) updates['Payment Date'] = paymentDate;
+          if (!existingChargeId) updates['Stripe Charge ID'] = charge.id;
+          if (charge.fee > 0 && !(parseFloat(eng.fields['Stripe Fee']) > 0)) {
+            updates['Stripe Fee'] = charge.fee;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await airtableService.updateEngagement(engagementId, updates);
+            results.matched++;
+            results.details.push({ charge: charge.id, engagement: eng.fields['Engagement Number'] || engagementId, matchType, updates });
+          } else {
+            results.skipped++;
+          }
+        } else {
+          results.skipped++;
+        }
+      } catch (err) {
+        results.errors++;
+        results.details.push({ charge: charge.id, error: err.message });
+      }
+    }
+
+    res.json({ success: true, totalCharges: charges.length, ...results });
+  } catch (error) {
+    console.error('Reconciliation error:', error);
+    res.status(500).json({ error: error.message });
   }
 };

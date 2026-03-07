@@ -1,5 +1,6 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const airtableService = require('../services/airtable.service');
+const stripeService = require('../services/stripe.service');
 const twilioService = require('../services/twilio.service');
 const pushover = require('../services/pushover.service');
 const cloudinary = require('cloudinary').v2;
@@ -352,10 +353,22 @@ async function handlePaymentSuccess(paymentObject, eventType) {
           const proposal = await airtableService.getProposal(proposalId);
           const engagementIds = proposal.fields['Engagement'];
           if (engagementIds && engagementIds.length > 0) {
-            await airtableService.updateEngagement(engagementIds[0], {
+            const chargeId = paymentObject.payment_intent || paymentObject.id || '';
+            const engUpdate = {
               'Total Invoiced': proposalAmount,
               Status: 'Payment Received ✅',
-            });
+              'Payment Date': new Date().toISOString().split('T')[0],
+              'Stripe Charge ID': chargeId,
+            };
+            // Get Stripe fee
+            try {
+              if (chargeId) {
+                const fee = await stripeService.getStripeFee(chargeId);
+                if (fee > 0) engUpdate['Stripe Fee'] = fee;
+              }
+            } catch (feeErr) { console.error('Fee fetch error:', feeErr); }
+
+            await airtableService.updateEngagement(engagementIds[0], engUpdate);
             airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} paid: $${proposalAmount.toFixed(2)}`);
             console.log(`✓ Engagement ${engagementIds[0]} updated with $${proposalAmount}`);
           }
@@ -392,9 +405,20 @@ async function handlePaymentSuccess(paymentObject, eventType) {
           if (engagementIds && engagementIds.length > 0) {
             const engagement = await airtableService.getEngagement(engagementIds[0]);
             const existingInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
-            await airtableService.updateEngagement(engagementIds[0], {
+            const existingFee = parseFloat(engagement.fields['Stripe Fee']) || 0;
+            const chargeId = paymentObject.payment_intent || paymentObject.id || '';
+            const engUpdate = {
               'Total Invoiced': existingInvoiced + otoAmount,
-            });
+            };
+            // Get OTO Stripe fee and add to existing
+            try {
+              if (chargeId) {
+                const fee = await stripeService.getStripeFee(chargeId);
+                if (fee > 0) engUpdate['Stripe Fee'] = existingFee + fee;
+              }
+            } catch (feeErr) { console.error('OTO fee fetch error:', feeErr); }
+
+            await airtableService.updateEngagement(engagementIds[0], engUpdate);
             airtableService.logActivity(engagementIds[0], `OTO upgrade paid (${otoType}): $${otoAmount.toFixed(2)}`);
             console.log(`✓ Engagement ${engagementIds[0]} Total Invoiced updated: $${existingInvoiced} + $${otoAmount}`);
           }
@@ -431,10 +455,22 @@ async function handlePaymentSuccess(paymentObject, eventType) {
 
       // Update engagement status and record payment amount
       const paymentAmount = (paymentObject.amount_total || paymentObject.amount || 0) / 100;
-      await airtableService.updateEngagement(engagementId, {
+      const chargeId = paymentId || '';
+      const engUpdate = {
         Status: 'Payment Received ✅',
         'Total Invoiced': paymentAmount,
-      });
+        'Payment Date': new Date().toISOString().split('T')[0],
+        'Stripe Charge ID': chargeId,
+      };
+      // Get Stripe fee
+      try {
+        if (chargeId) {
+          const fee = await stripeService.getStripeFee(chargeId);
+          if (fee > 0) engUpdate['Stripe Fee'] = fee;
+        }
+      } catch (feeErr) { console.error('Fee fetch error:', feeErr); }
+
+      await airtableService.updateEngagement(engagementId, engUpdate);
       console.log(`✓ Engagement updated: Payment Received, $${paymentAmount} (Payment ID: ${paymentId})`);
 
       // Log activity
