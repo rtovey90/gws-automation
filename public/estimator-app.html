@@ -3389,6 +3389,14 @@
             return result;
         }
 
+        function categoriseItem(description, code) {
+            const desc = (description + ' ' + (code || '')).toLowerCase();
+            if (/hour|labour|labor|contractor|install|commission|call.?out|travel|mileage|fuel/.test(desc)) return 'labour';
+            if (/cable|cat[56]|rg[56]|coax|conduit|trunking|flex|wire|reel/.test(desc)) return 'cable';
+            if (/misc|sundry|consumable|tape|clip|tie|screw|anchor|silicone|glue/.test(desc)) return 'misc';
+            return 'parts';
+        }
+
         function populateFromInvoice(invoiceData) {
             if (!invoiceData.items || invoiceData.items.length === 0) {
                 throw new Error('No items found in invoice');
@@ -3396,10 +3404,11 @@
 
             removeEmptyPartsRows();
 
-            // Add all items from invoice
+            // Add items to appropriate sections based on description
             invoiceData.items.forEach(item => {
+                const section = categoriseItem(item.description, item.code);
                 addRow(
-                    'parts',
+                    section,
                     item.quantity || 1,
                     item.description || '',
                     invoiceData.supplier || '',
