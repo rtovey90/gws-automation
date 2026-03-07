@@ -371,19 +371,23 @@ exports.listEngagements = async (req, res) => {
 
     const list = engagements.map(eng => {
       const f = eng.fields;
-      // Build display name from customer name + system type
+      const engNumber = f['Engagement Number'] || '';
       const firstName = (f['First Name (from Customer)'] || [])[0] || '';
       const lastName = (f['Last Name (from Customer)'] || [])[0] || '';
       const customerName = [firstName, lastName].filter(Boolean).join(' ');
+      const address = (f['Address (from Customer)'] || [])[0] || '';
       const systemType = Array.isArray(f['System Type']) ? f['System Type'].join(', ') : (f['System Type'] || '');
-      const name = customerName
-        ? (systemType ? `${customerName} — ${systemType}` : customerName)
-        : `Engagement ${eng.id.slice(-4)}`;
+      const status = f.Status || '';
+
+      // Format: "SC-1042 — Luke Chapman — 14 Smith St, Perth — CCTV (Scheduled)"
+      const parts = [engNumber, customerName, address, systemType].filter(Boolean);
+      const name = parts.length > 0 ? parts.join(' — ') : `Engagement ${eng.id.slice(-4)}`;
+      const statusSuffix = status ? ` (${status.replace(/ [^\w]/g, '')})` : '';
 
       return {
         id: eng.id,
-        name,
-        status: f.Status || '',
+        name: name + statusSuffix,
+        status,
       };
     });
 
