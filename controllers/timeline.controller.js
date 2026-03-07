@@ -9,10 +9,11 @@ exports.showTimeline = async (req, res) => {
   try {
     const engagementId = req.params.id;
 
-    // Fetch engagement, customer, and all messages in parallel
-    const [engData, allMessages] = await Promise.all([
+    // Fetch engagement, customer, messages, and techs in parallel
+    const [engData, allMessages, allTechs] = await Promise.all([
       airtableService.getEngagementWithCustomer(engagementId),
       airtableService.getAllMessages(),
+      airtableService.getAllTechs(),
     ]);
 
     if (!engData || !engData.engagement) {
@@ -42,6 +43,17 @@ exports.showTimeline = async (req, res) => {
     const margin = totalInvoiced > 0 ? ((profit / totalInvoiced) * 100).toFixed(1) : '0.0';
     const hasCosts = totalCost > 0;
     const needsCosts = totalInvoiced > 0 && !hasCosts;
+
+    // Tech data
+    const assignedTechIds = f['Assigned Tech Name'] || [];
+    const assignedTechId = assignedTechIds[0] || '';
+    const assignedTech = assignedTechId ? allTechs.find(t => t.id === assignedTechId) : null;
+    const assignedTechName = assignedTech ? [assignedTech.fields['First Name'], assignedTech.fields['Last Name']].filter(Boolean).join(' ') : '';
+    const techOptions = allTechs.map(t => {
+      const tName = [t.fields['First Name'], t.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
+      const selected = t.id === assignedTechId ? ' selected' : '';
+      return `<option value="${t.id}"${selected}>${tName}</option>`;
+    }).join('');
 
     // Filter messages for this engagement
     const engMessages = allMessages.filter(m => {
@@ -249,6 +261,7 @@ exports.showTimeline = async (req, res) => {
       <div class="tl-header-meta">
         ${clientPhone ? `<span>&#128222; ${escapeHtml(clientPhone)}</span>` : ''}
         ${clientAddress ? `<span>&#128205; ${escapeHtml(clientAddress)}</span>` : ''}
+        ${assignedTechName ? `<span>&#128119; ${escapeHtml(assignedTechName)}</span>` : ''}
       </div>
     </div>
 
@@ -266,6 +279,7 @@ exports.showTimeline = async (req, res) => {
         <button class="fin-toggle" onclick="document.getElementById('cost-form').style.display=document.getElementById('cost-form').style.display==='none'?'block':'none'">${hasCosts ? 'Edit Costs' : 'Enter Costs'}</button>
         <div id="cost-form" style="display:none">
           <div class="cost-grid">
+            <div class="cost-field"><label>Tech / Subcontractor</label><select id="cf-tech" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:14px"><option value="">-- Select tech --</option>${techOptions}</select></div>
             <div class="cost-field"><label>Quote Amount</label><input type="number" id="cf-quote" step="0.01" min="0" value="${quoteAmount || ''}" placeholder="0.00" oninput="calcProfit()"></div>
             <div class="cost-field"><label>Subcontractor / Labour</label><input type="number" id="cf-labor" step="0.01" min="0" value="${laborCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
             <div class="cost-field"><label>Parts</label><input type="number" id="cf-parts" step="0.01" min="0" value="${partsCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
@@ -342,6 +356,8 @@ exports.showTimeline = async (req, res) => {
           };
           var quote = parseFloat(document.getElementById('cf-quote')?.value);
           if (quote > 0) body.quoteAmount = quote;
+          var techId = document.getElementById('cf-tech')?.value;
+          if (techId) body.techId = techId;
           var resp = await fetch('/api/engagement/${engagementId}/costs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -450,7 +466,7 @@ exports.addNote = async (req, res) => {
 exports.updateCosts = async (req, res) => {
   try {
     const engagementId = req.params.id;
-    const { laborCost, partsCost, travelCost, otherCosts, quoteAmount } = req.body;
+    const { laborCost, partsCost, travelCost, otherCosts, quoteAmount, techId } = req.body;
 
     const labor = parseFloat(laborCost) || 0;
     const parts = parseFloat(partsCost) || 0;
@@ -472,6 +488,9 @@ exports.updateCosts = async (req, res) => {
 
     if (quoteAmount !== undefined && parseFloat(quoteAmount) > 0) {
       updateFields['Quote Amount'] = parseFloat(quoteAmount);
+    }
+    if (techId) {
+      updateFields['Assigned Tech Name'] = [techId];
     }
 
     await airtableService.updateEngagement(engagementId, updateFields);
