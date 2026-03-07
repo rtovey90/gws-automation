@@ -1874,7 +1874,7 @@ exports.showDashboard = async (req, res) => {
 
     var currentView = 'all';
 
-    var INBOUND_SOURCES = ['Form', 'Call', 'Google Ads', 'Facebook', 'Referral', 'Website'];
+    var INBOUND_SOURCES = ['Form', 'Call', 'Email', 'Trello', 'Google Ads', 'Facebook', 'Referral', 'Website'];
     function isRealLead(e) { return INBOUND_SOURCES.indexOf(e.source) !== -1; }
 
     function computeData(period) {
