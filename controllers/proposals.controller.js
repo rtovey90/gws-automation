@@ -1959,18 +1959,22 @@ exports.listProposals = async (req, res) => {
       // Engagement score color
       const scoreColor = engScore >= 7 ? '#4caf50' : engScore >= 4 ? '#ff9800' : engScore >= 1 ? '#e05252' : '#3a4a5a';
 
-      // Parse last device from Views Log (last line)
+      // Parse device/browser from Views Log (last line format: "timestamp | Device | Browser")
       const viewsLog = f['Views Log'] || '';
-      const lastLogLine = viewsLog.split('\n').filter(Boolean).pop() || '';
-      const lastDevice = lastLogLine.includes('iPhone') || lastLogLine.includes('iPad') || lastLogLine.includes('Android') ? '📱' : lastLogLine.includes('Windows') || lastLogLine.includes('Mac') ? '💻' : '';
+      const logLines = viewsLog.split('\n').filter(Boolean);
+      const lastLogLine = logLines[logLines.length - 1] || '';
+      const logParts = lastLogLine.split(' | ').map(s => s.trim());
+      const lastDevice = logParts[1] || '';
+      const lastBrowser = logParts[2] || '';
+      const deviceEmoji = ['iPhone', 'iPad', 'Android'].includes(lastDevice) ? '📱' : ['Windows', 'Mac'].includes(lastDevice) ? '💻' : '';
 
       // Engagement cell content
       let engHtml = '<span style="color:#3a4a5a">–</span>';
       if (viewCount > 0) {
-        engHtml = `<span style="display:inline-flex;align-items:center;gap:6px;">
+        engHtml = `<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${scoreColor};color:#fff;font-size:10px;font-weight:700;">${engScore}</span>
           <span style="font-size:11px;color:#8899aa;">👁${viewCount} · ${fmtTime(totalTime)} · ${maxScroll}%</span>
-          ${lastDevice ? `<span style="font-size:12px">${lastDevice}</span>` : ''}
+          ${lastDevice ? `<span style="font-size:11px;color:#8899aa;">${deviceEmoji} ${lastDevice} / ${lastBrowser}</span>` : ''}
         </span>`;
       }
 
