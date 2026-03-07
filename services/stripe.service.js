@@ -499,6 +499,8 @@ class StripeService {
         if (c.status === 'succeeded' && c.currency === 'aud') {
           const fee = (c.balance_transaction && typeof c.balance_transaction === 'object')
             ? c.balance_transaction.fee / 100 : 0;
+          const bd = c.billing_details || {};
+          const addr = bd.address || {};
           results.push({
             id: c.id,
             amount: c.amount / 100,
@@ -506,8 +508,10 @@ class StripeService {
             net: (c.amount / 100) - fee,
             created: new Date(c.created * 1000),
             metadata: c.metadata || {},
-            customerName: c.billing_details?.name || '',
-            customerEmail: c.billing_details?.email || '',
+            customerName: bd.name || '',
+            customerEmail: bd.email || '',
+            customerPhone: bd.phone || '',
+            customerAddress: [addr.line1, addr.line2, addr.city, addr.state, addr.postal_code].filter(Boolean).join(', '),
           });
         }
       }

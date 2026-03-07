@@ -1382,6 +1382,14 @@ exports.showDashboard = async (req, res) => {
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #2a3a4a">
+          <h2 style="margin:0;border:none;padding:0">Customer Data from Stripe</h2>
+          <button id="load-suggestions-btn" onclick="loadCustomerSuggestions()" style="background:#00d4ff;color:#0f1419;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px">Scan for Missing Data</button>
+        </div>
+        <div id="customer-suggestions" style="color:#8899aa;font-size:13px;font-style:italic">Click "Scan" to check Stripe payments for customer data that's missing in Airtable.</div>
+      </div>
+
       <div style="border-top:2px solid #2a3a4a;margin:32px 0 24px;padding-top:24px">
         <h2 style="color:#fff;font-size:18px;margin-bottom:16px">Job Profitability</h2>
       </div>
@@ -2036,6 +2044,90 @@ exports.showDashboard = async (req, res) => {
       }
     }
 
+    async function loadCustomerSuggestions() {
+      var btn = document.getElementById('load-suggestions-btn');
+      var container = document.getElementById('customer-suggestions');
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+      container.innerHTML = '<span style="color:#ffd93d">Scanning Stripe charges...</span>';
+      try {
+        var resp = await fetch('/api/stripe-customer-suggestions');
+        var data = await resp.json();
+        if (!data.suggestions || data.suggestions.length === 0) {
+          container.innerHTML = '<span style="color:#34c759">All customer records are up to date — no missing data found.</span>';
+          btn.textContent = 'Scan Complete';
+          return;
+        }
+        var html = '';
+        data.suggestions.forEach(function(s, idx) {
+          var fieldRows = '';
+          Object.keys(s.updates).forEach(function(field) {
+            fieldRows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #1e2a3a">' +
+              '<span style="color:#8899aa;width:100px;flex-shrink:0">' + field + '</span>' +
+              '<span style="color:#ef5350;text-decoration:line-through;flex:1;padding:0 8px">' + (s.current[field] || '(empty)') + '</span>' +
+              '<span style="color:#34c759;flex:1">' + s.updates[field] + '</span>' +
+              '</div>';
+          });
+          html += '<div id="suggestion-' + idx + '" style="background:#0f1419;border:1px solid #1e2a3a;border-radius:8px;padding:12px;margin-bottom:8px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+              '<div><strong style="color:#e0e6ed">' + s.customerName + '</strong>' +
+                (s.engagementNumber ? ' <span style="color:#8899aa">(' + s.engagementNumber + ')</span>' : '') +
+                ' <span style="color:#556677;font-size:11px">$' + s.stripeAmount.toFixed(2) + ' on ' + s.stripeDate + '</span></div>' +
+              '<div>' +
+                '<button onclick="approveCustomerSuggestion(' + idx + ')" style="background:#34c759;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px">Approve</button>' +
+                '<button onclick="dismissCustomerSuggestion(' + idx + ')" style="background:transparent;color:#8899aa;border:1px solid #2a3a4a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">Skip</button>' +
+              '</div>' +
+            '</div>' +
+            fieldRows +
+          '</div>';
+        });
+        container.innerHTML = html;
+        container.dataset.suggestions = JSON.stringify(data.suggestions);
+        btn.textContent = data.suggestions.length + ' suggestion' + (data.suggestions.length === 1 ? '' : 's') + ' found';
+      } catch (err) {
+        container.innerHTML = '<span style="color:#ef5350">Error: ' + err.message + '</span>';
+        btn.textContent = 'Scan for Missing Data';
+        btn.disabled = false;
+      }
+    }
+
+    async function approveCustomerSuggestion(idx) {
+      var container = document.getElementById('customer-suggestions');
+      var suggestions = JSON.parse(container.dataset.suggestions || '[]');
+      var s = suggestions[idx];
+      if (!s) return;
+      var el = document.getElementById('suggestion-' + idx);
+      var approveBtn = el.querySelector('button');
+      approveBtn.disabled = true;
+      approveBtn.textContent = 'Saving...';
+      try {
+        var resp = await fetch('/api/approve-customer-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerId: s.customerId, updates: s.updates }),
+        });
+        var data = await resp.json();
+        if (data.success) {
+          el.style.borderColor = '#34c759';
+          el.innerHTML = '<span style="color:#34c759">Updated ' + s.customerName + ': ' + Object.keys(data.updated).join(', ') + '</span>';
+        } else {
+          throw new Error(data.error || 'Failed');
+        }
+      } catch (err) {
+        approveBtn.textContent = 'Error';
+        approveBtn.style.background = '#ef5350';
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function dismissCustomerSuggestion(idx) {
+      var el = document.getElementById('suggestion-' + idx);
+      if (el) {
+        el.style.opacity = '0.3';
+        el.style.pointerEvents = 'none';
+      }
+    }
+
     async function submitBankPayment() {
       var engId = document.getElementById('bp-engagement').value;
       var paymentType = document.getElementById('bp-type').value;
@@ -2218,6 +2310,136 @@ exports.reconcileStripe = async (req, res) => {
     res.json({ success: true, totalCharges: charges.length, ...results });
   } catch (error) {
     console.error('Reconciliation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Get customer data suggestions from Stripe charges
+ * GET /api/stripe-customer-suggestions
+ * Compares Stripe billing_details against Airtable customer records
+ */
+exports.getCustomerSuggestions = async (req, res) => {
+  try {
+    const stripeService = require('../services/stripe.service');
+    const charges = await stripeService.getAllChargesForReconciliation(12);
+    const engagements = await airtableService.getAllEngagements();
+    const customers = await airtableService.getAllCustomers();
+    const proposals = await airtableService.getAllProposals();
+
+    const suggestions = [];
+    const seen = new Set(); // track customer IDs already processed
+
+    for (const charge of charges) {
+      // Skip if no useful data from Stripe
+      if (!charge.customerName && !charge.customerEmail && !charge.customerAddress) continue;
+
+      // Find linked engagement
+      let engagementId = null;
+      if (charge.metadata?.type === 'proposal' && charge.metadata.proposal_id) {
+        const proposal = proposals.find(p => p.id === charge.metadata.proposal_id);
+        if (proposal?.fields['Engagement']?.length > 0) engagementId = proposal.fields['Engagement'][0];
+      } else if (charge.metadata?.type === 'oto' && charge.metadata.proposal_id) {
+        const proposal = proposals.find(p => p.id === charge.metadata.proposal_id);
+        if (proposal?.fields['Engagement']?.length > 0) engagementId = proposal.fields['Engagement'][0];
+      } else if (charge.metadata?.lead_id) {
+        engagementId = charge.metadata.lead_id;
+      }
+      if (!engagementId) continue;
+
+      // Find engagement and linked customer
+      const eng = engagements.find(e => e.id === engagementId);
+      if (!eng) continue;
+
+      const customerIds = eng.fields['Customer'];
+      if (!customerIds || customerIds.length === 0) continue;
+      const customerId = customerIds[0];
+
+      // Skip if already processed this customer
+      if (seen.has(customerId)) continue;
+      seen.add(customerId);
+
+      const customer = customers.find(c => c.id === customerId);
+      if (!customer) continue;
+
+      const cf = customer.fields;
+      const updates = {};
+      const current = {};
+
+      // Parse Stripe name into first/last
+      const nameParts = (charge.customerName || '').trim().split(/\s+/);
+      const stripeFirst = nameParts[0] || '';
+      const stripeLast = nameParts.slice(1).join(' ') || '';
+
+      if (stripeFirst && !cf['First Name']) {
+        updates['First Name'] = stripeFirst;
+        current['First Name'] = cf['First Name'] || '';
+      }
+      if (stripeLast && !cf['Last Name']) {
+        updates['Last Name'] = stripeLast;
+        current['Last Name'] = cf['Last Name'] || '';
+      }
+      if (charge.customerEmail && !cf['Email']) {
+        updates['Email'] = charge.customerEmail;
+        current['Email'] = cf['Email'] || '';
+      }
+      if (charge.customerPhone && !cf['Phone'] && !cf['Mobile Phone']) {
+        updates['Phone'] = charge.customerPhone;
+        current['Phone'] = cf['Phone'] || '';
+      }
+      if (charge.customerAddress && !cf['Address']) {
+        updates['Address'] = charge.customerAddress;
+        current['Address'] = cf['Address'] || '';
+      }
+
+      if (Object.keys(updates).length > 0) {
+        suggestions.push({
+          customerId,
+          customerName: [cf['First Name'], cf['Last Name']].filter(Boolean).join(' ') || 'Unknown',
+          engagementNumber: eng.fields['Engagement Number'] || '',
+          stripeCharge: charge.id,
+          stripeAmount: charge.amount,
+          stripeDate: charge.created.toISOString().split('T')[0],
+          updates,
+          current,
+        });
+      }
+    }
+
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Customer suggestions error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Apply approved customer data updates
+ * POST /api/approve-customer-data
+ * Body: { customerId, updates: { 'First Name': 'John', ... } }
+ */
+exports.approveCustomerData = async (req, res) => {
+  try {
+    const { customerId, updates } = req.body;
+    if (!customerId || !updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Missing customerId or updates' });
+    }
+
+    // Only allow safe fields
+    const allowedFields = ['First Name', 'Last Name', 'Email', 'Phone', 'Mobile Phone', 'Address'];
+    const safeUpdates = {};
+    for (const [key, val] of Object.entries(updates)) {
+      if (allowedFields.includes(key) && val) safeUpdates[key] = val;
+    }
+
+    if (Object.keys(safeUpdates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    await airtableService.updateCustomer(customerId, safeUpdates);
+    res.json({ success: true, updated: safeUpdates });
+  } catch (error) {
+    console.error('Approve customer data error:', error);
     res.status(500).json({ error: error.message });
   }
 };
