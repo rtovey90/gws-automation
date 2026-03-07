@@ -212,6 +212,7 @@ app.get('/api/estimator/engagements', requireRole('admin'), estimatorApiControll
 app.post('/api/estimator/save-quote', requireRole('admin'), estimatorApiController.saveQuote);
 app.get('/api/estimator/load-quote/:engagementId', requireRole('admin'), estimatorApiController.loadQuote);
 app.get('/api/estimator/supplier-docs/:engagementId', requireRole('admin'), estimatorApiController.getSupplierDocs);
+app.delete('/api/estimator/supplier-docs/:engagementId/:index', requireRole('admin'), estimatorApiController.deleteSupplierDoc);
 app.post('/api/estimator/save-actuals', requireRole('admin'), estimatorApiController.saveActuals);
 app.get('/api/estimator/load-actuals/:engagementId', requireRole('admin'), estimatorApiController.loadActuals);
 // Note: /api/estimator/parse-invoice is defined earlier (before bodyParser) for larger body limit

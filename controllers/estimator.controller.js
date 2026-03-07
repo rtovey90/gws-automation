@@ -687,17 +687,33 @@ const engagementJS = `
         if (docs.length === 0) { panel.style.display = 'none'; return; }
 
         panel.style.display = 'block';
-        list.innerHTML = docs.map(doc => {
+        list.innerHTML = docs.map((doc, idx) => {
           const date = new Date(doc.parsedAt).toLocaleDateString('en-AU', { day:'numeric', month:'short' });
           const type = doc.mode === 'actuals' ? '<span style="color:#ff6b6b;font-size:11px;margin-left:6px;">ACTUAL</span>' : '';
-          return '<a href="' + doc.cloudinaryUrl + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;text-decoration:none;font-size:13px;">' +
+          return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;font-size:13px;">' +
+            '<a href="' + doc.cloudinaryUrl + '" target="_blank" style="display:flex;align-items:center;gap:8px;flex:1;color:#e0e6ed;text-decoration:none;overflow:hidden;">' +
             '<span style="color:#ff6b6b;">PDF</span>' +
             '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (doc.supplier || doc.filename) + type + '</span>' +
             '<span style="color:#8899aa;font-size:11px;">' + date + '</span>' +
-            '</a>';
+            '</a>' +
+            '<button onclick="deleteSupplierDoc(' + idx + ')" style="background:none;border:none;color:#5a6a7a;cursor:pointer;font-size:16px;padding:2px 6px;line-height:1;" title="Remove">&times;</button>' +
+            '</div>';
         }).join('');
       } catch (e) {
         panel.style.display = 'none';
+      }
+    }
+
+    async function deleteSupplierDoc(index) {
+      if (!confirm('Remove this document?')) return;
+      const engagementId = document.getElementById('engagement-select').value;
+      if (!engagementId) return;
+      try {
+        const resp = await fetch('/api/estimator/supplier-docs/' + engagementId + '/' + index, { method: 'DELETE' });
+        if (!resp.ok) throw new Error('Delete failed');
+        loadSupplierDocs(engagementId);
+      } catch (e) {
+        alert('Failed to remove document');
       }
     }
 

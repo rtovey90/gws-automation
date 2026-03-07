@@ -528,6 +528,30 @@ exports.getSupplierDocs = async (req, res) => {
   }
 };
 
+// DELETE /api/estimator/supplier-docs/:engagementId/:index — remove a supplier document
+exports.deleteSupplierDoc = async (req, res) => {
+  try {
+    const { engagementId, index } = req.params;
+    const idx = parseInt(index);
+    const engagement = await airtableService.getEngagement(engagementId);
+    const docs = JSON.parse(engagement.fields['Supplier Parsed Data'] || '[]');
+
+    if (idx < 0 || idx >= docs.length) {
+      return res.status(400).json({ error: 'Invalid index' });
+    }
+
+    docs.splice(idx, 1);
+    await airtableService.updateEngagement(engagementId, {
+      'Supplier Parsed Data': JSON.stringify(docs),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete Supplier Doc Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // POST /api/estimator/save-actuals — save actual costs to engagement
 exports.saveActuals = async (req, res) => {
   try {
