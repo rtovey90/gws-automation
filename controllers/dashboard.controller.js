@@ -1172,7 +1172,13 @@ exports.showDashboard = async (req, res) => {
 
     // Tab 1: Overview (client-side rendered)
     const overviewTabHtml = `
-      <div id="overview-filter" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:24px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:20px">
+        <div id="ov-view-tabs" style="display:flex;gap:4px">
+          <button class="ov-view-btn active" data-view="all">All</button>
+          <button class="ov-view-btn" data-view="sc">Service Calls</button>
+          <button class="ov-view-btn" data-view="pr">Projects</button>
+        </div>
+        <div style="width:1px;height:20px;background:#2a3a4a;margin:0 8px"></div>
         <span style="font-size:13px;color:#8899aa;font-weight:600;margin-right:4px">Period:</span>
         <button class="period-btn active" data-period="month">This Month</button>
         <button class="period-btn" data-period="week">This Week</button>
@@ -1189,11 +1195,8 @@ exports.showDashboard = async (req, res) => {
         </div>
       </div>
 
-      <div id="ov-split" class="split-summary" style="margin-bottom:24px"></div>
-      <div id="ov-charts" class="grid" style="margin-bottom:24px"></div>
-      <div id="ov-kpi-row" class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px"></div>
-      <div id="ov-activity" class="grid" style="margin-bottom:24px"></div>
-      <div class="attention-card">
+      <div id="ov-content"></div>
+      <div class="attention-card" style="margin-top:24px">
         <h2>Attention Needed</h2>
         ${attentionHtml}
       </div>`;
@@ -1597,6 +1600,9 @@ exports.showDashboard = async (req, res) => {
     .payout-status { font-size:12px; text-transform:capitalize; flex:1; }
     .payout-date { font-size:11px; color:#5a6a7a; flex-shrink:0; }
 
+    .ov-view-btn { background:#0f1419; border:1px solid #2a3a4a; color:#8899aa; padding:6px 16px; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
+    .ov-view-btn:hover { border-color:#00d4ff; color:#e0e6ed; }
+    .ov-view-btn.active { background:#00d4ff; color:#0a0e27; border-color:#00d4ff; }
     .period-btn { background:#0f1419; border:1px solid #2a3a4a; color:#8899aa; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
     .period-btn:hover { border-color:#00d4ff; color:#e0e6ed; }
     .period-btn.active { background:#00d4ff; color:#0a0e27; border-color:#00d4ff; }
@@ -1805,51 +1811,37 @@ exports.showDashboard = async (req, res) => {
       return '<svg width="' + size + '" height="' + size + '">' + paths.join('') + '</svg>';
     }
 
-    function renderOverview(period) {
+    var currentView = 'all';
+
+    function computeData(period) {
       var range = getDateRange(period);
       var engs = OV_DATA.engagements;
       var props = OV_DATA.proposals;
 
-      // Filter engagements created in range
       var scLeads = engs.filter(function(e) { return e.type === 'sc' && inRange(e.created, range); });
       var prLeads = engs.filter(function(e) { return e.type === 'pr' && inRange(e.created, range); });
-
-      // SC: payment links sent = quotes sent in range
       var scQuotesSent = engs.filter(function(e) { return e.type === 'sc' && inRange(e.quoteSentAt, range); });
       var scQuotesValue = scQuotesSent.reduce(function(s, e) { return s + e.quoteAmount; }, 0);
-
-      // PR: proposals sent in range
       var prPropsSent = props.filter(function(p) { return inRange(p.sentAt, range); });
       var prPropsValue = prPropsSent.reduce(function(s, p) { return s + p.basePrice; }, 0);
 
-      // Revenue & Deals — use precomputed Stripe+Airtable data for known periods
       var pre = OV_DATA.precomputed;
       var periodMap = { today: 'Today', week: 'Week', month: 'Month', year: 'Year' };
       var suffix = periodMap[period] || null;
-
       var scDealsCount, prDealsCount, scRevenue, prRevenue;
 
       if (suffix) {
-        // Use accurate server-side precomputed values (includes Stripe data)
         scDealsCount = pre['scDeals' + suffix];
         prDealsCount = pre['prDeals' + suffix];
         scRevenue = pre['scRevenue' + suffix] || pre['scDealsValue' + suffix] || 0;
         prRevenue = pre['prRevenue' + suffix] || pre['prDealsValue' + suffix] || 0;
-        // For month, use the Stripe-sourced revenue which is more accurate
         if (period === 'month' && pre.scRevenueMonth > 0) scRevenue = pre.scRevenueMonth;
         if (period === 'month' && pre.prRevenueMonth > 0) prRevenue = pre.prRevenueMonth;
       } else {
-        // Custom/allTime/lastMonth/yesterday — use paymentDate for accurate filtering
-        var scDealsList = engs.filter(function(e) {
-          return e.type === 'sc' && e.totalInvoiced > 0 && inRange(e.paymentDate, range);
-        });
-        var prDealsList = engs.filter(function(e) {
-          return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range);
-        });
-        // Also count proposals paid in range
+        var scDealsList = engs.filter(function(e) { return e.type === 'sc' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
+        var prDealsList = engs.filter(function(e) { return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
         var prPaidProps = props.filter(function(p) { return p.status === 'Paid' && inRange(p.paidAt, range); });
         scDealsCount = scDealsList.length;
-        // Avoid double-counting PR deals that have both paymentDate and proposal paidAt
         var prDealIds = {};
         prDealsList.forEach(function(e) { prDealIds[e.id] = true; });
         var prPaidPropsUnique = prPaidProps.filter(function(p) {
@@ -1862,9 +1854,6 @@ exports.showDashboard = async (req, res) => {
         prRevenue += prPaidPropsUnique.reduce(function(s, p) { return s + p.basePrice; }, 0);
       }
 
-      var totalRevenue = scRevenue + prRevenue;
-
-      // Profit — from all engagements with costs in range (all-time if period is allTime)
       var scProfit = 0, prProfit = 0;
       engs.forEach(function(e) {
         if (e.totalInvoiced > 0 && e.totalCost > 0) {
@@ -1877,47 +1866,117 @@ exports.showDashboard = async (req, res) => {
         }
       });
 
-      // Conversion
-      var scConversion = scLeads.length > 0 ? pctOf(scDealsCount, scLeads.length) : '0.0';
-      var prConversion = prLeads.length > 0 ? pctOf(prDealsCount, prLeads.length) : '0.0';
+      return {
+        scLeads: scLeads, prLeads: prLeads,
+        scQuotesSent: scQuotesSent, scQuotesValue: scQuotesValue,
+        prPropsSent: prPropsSent, prPropsValue: prPropsValue,
+        scDealsCount: scDealsCount, prDealsCount: prDealsCount,
+        scRevenue: scRevenue, prRevenue: prRevenue,
+        scProfit: scProfit, prProfit: prProfit,
+      };
+    }
 
-      // ── Render split summary ──
-      var splitEl = document.getElementById('ov-split');
-      splitEl.innerHTML =
-        '<div class="summary-card sc">' +
-          '<div class="summary-card-header"><span class="type-badge type-badge-sc">Service Calls</span></div>' +
-          '<div class="summary-card-grid">' +
-            mkMini(scLeads.length, 'Leads') +
-            mkMini(scQuotesSent.length, 'Payment Links Sent') +
-            mkMini(fmtC(scQuotesValue), 'Sent Value') +
-            mkMini(scDealsCount, 'Deals Accepted') +
-            mkMini(fmtC(scRevenue), 'Revenue') +
-            mkMini(scConversion + '%', 'Conversion Rate') +
+    function renderSingleView(d, type) {
+      var issc = type === 'sc';
+      var leads = issc ? d.scLeads : d.prLeads;
+      var sent = issc ? d.scQuotesSent.length : d.prPropsSent.length;
+      var sentLabel = issc ? 'Payment Links Sent' : 'Proposals Sent';
+      var sentValue = issc ? d.scQuotesValue : d.prPropsValue;
+      var sentValLabel = issc ? 'Sent Value' : 'Proposals Value';
+      var deals = issc ? d.scDealsCount : d.prDealsCount;
+      var revenue = issc ? d.scRevenue : d.prRevenue;
+      var profit = issc ? d.scProfit : d.prProfit;
+      var conversion = leads.length > 0 ? pctOf(deals, leads.length) : '0.0';
+      var avgDeal = deals > 0 ? revenue / deals : 0;
+      var margin = revenue > 0 ? pctOf(profit, revenue) : '0.0';
+      var accent = issc ? '#00d4ff' : '#ce93d8';
+      var badge = issc ? '<span class="type-badge type-badge-sc">Service Calls</span>' : '<span class="type-badge type-badge-proj">Projects</span>';
+
+      // KPI row
+      var html = '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
+        mkKpi(fmtC(revenue), 'Revenue', accent) +
+        mkKpi(fmtC(profit), 'Profit', profit >= 0 ? '#66bb6a' : '#ef5350') +
+        mkKpi(margin + '%', 'Margin', '#ffa726') +
+        mkKpi(deals, 'Deals Accepted', '#e0e6ed') +
+      '</div>';
+
+      // Donut row — Revenue and Profit donuts with breakdown by status
+      var revSlices = [
+        { label: 'Revenue', value: revenue, color: accent },
+        { label: 'Remaining Sent', value: Math.max(sentValue - revenue, 0), color: '#2a3a4a' }
+      ];
+      var profitSlices = [
+        { label: 'Profit', value: Math.max(profit, 0), color: '#66bb6a' },
+        { label: 'Costs', value: Math.max(revenue - profit, 0), color: '#2a3a4a' }
+      ];
+      html += '<div class="grid" style="margin-bottom:24px">' +
+        '<div class="card" style="text-align:center">' +
+          '<h2>Revenue vs Sent</h2>' +
+          '<div class="donut-chart">' + donutSVG(revSlices, 160) +
+            '<div class="donut-center"><span class="amount">' + fmtC(revenue) + '</span><span class="label">Revenue</span></div>' +
+          '</div>' +
+          '<div class="donut-legend">' +
+            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:' + accent + '"></span>Collected<span class="donut-legend-val">' + fmtC(revenue) + '</span></div>' +
+            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2a3a4a"></span>Outstanding<span class="donut-legend-val">' + fmtC(Math.max(sentValue - revenue, 0)) + '</span></div>' +
           '</div>' +
         '</div>' +
-        '<div class="summary-card proj">' +
-          '<div class="summary-card-header"><span class="type-badge type-badge-proj">Projects</span></div>' +
-          '<div class="summary-card-grid">' +
-            mkMini(prLeads.length, 'Leads') +
-            mkMini(prPropsSent.length, 'Proposals Sent') +
-            mkMini(fmtC(prPropsValue), 'Proposals Value') +
-            mkMini(prDealsCount, 'Deals Accepted') +
-            mkMini(fmtC(prRevenue), 'Revenue') +
-            mkMini(prConversion + '%', 'Conversion Rate') +
+        '<div class="card" style="text-align:center">' +
+          '<h2>Profit vs Costs</h2>' +
+          '<div class="donut-chart">' + donutSVG(profitSlices, 160) +
+            '<div class="donut-center"><span class="amount">' + fmtC(profit) + '</span><span class="label">Profit</span></div>' +
           '</div>' +
-        '</div>';
+          '<div class="donut-legend">' +
+            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:#66bb6a"></span>Profit<span class="donut-legend-val">' + fmtC(Math.max(profit, 0)) + '</span></div>' +
+            '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2a3a4a"></span>Costs<span class="donut-legend-val">' + fmtC(Math.max(revenue - profit, 0)) + '</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
 
-      // ── Donut Charts ──
-      var chartsEl = document.getElementById('ov-charts');
+      // Activity table
+      html += '<div class="card" style="margin-bottom:24px">' +
+        '<h2>' + badge + ' Activity</h2>' +
+        mkActivityTable([
+          ['New Leads', leads.length],
+          [sentLabel, sent],
+          [sentValLabel, fmtC(sentValue)],
+          ['Deals Accepted', deals],
+          ['Revenue', fmtC(revenue)],
+          ['Profit', fmtC(profit)],
+          ['Margin', margin + '%'],
+          ['Avg Deal Size', fmtC(avgDeal)],
+          ['Conversion Rate', conversion + '%'],
+        ]) +
+      '</div>';
+
+      return html;
+    }
+
+    function renderAllView(d) {
+      var totalRevenue = d.scRevenue + d.prRevenue;
+      var totalProfit = d.scProfit + d.prProfit;
+      var totalLeads = d.scLeads.length + d.prLeads.length;
+      var totalDeals = d.scDealsCount + d.prDealsCount;
+      var overallConversion = totalLeads > 0 ? pctOf(totalDeals, totalLeads) : '0.0';
+      var totalMargin = totalRevenue > 0 ? pctOf(totalProfit, totalRevenue) : '0.0';
+
+      // KPI row
+      var html = '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
+        mkKpi(fmtC(totalRevenue), 'Total Revenue', '#00d4ff') +
+        mkKpi(fmtC(totalProfit), 'Total Profit', totalProfit >= 0 ? '#66bb6a' : '#ef5350') +
+        mkKpi(totalMargin + '%', 'Margin', '#ffa726') +
+        mkKpi(totalDeals, 'Deals Accepted', '#e0e6ed') +
+      '</div>';
+
+      // Donuts
       var revSlices = [
-        { label: 'Service Calls', value: scRevenue, color: '#00d4ff' },
-        { label: 'Projects', value: prRevenue, color: '#ce93d8' }
+        { label: 'Service Calls', value: d.scRevenue, color: '#00d4ff' },
+        { label: 'Projects', value: d.prRevenue, color: '#ce93d8' }
       ];
       var profSlices = [
-        { label: 'Service Calls', value: Math.max(scProfit, 0), color: '#00d4ff' },
-        { label: 'Projects', value: Math.max(prProfit, 0), color: '#ce93d8' }
+        { label: 'Service Calls', value: Math.max(d.scProfit, 0), color: '#00d4ff' },
+        { label: 'Projects', value: Math.max(d.prProfit, 0), color: '#ce93d8' }
       ];
-      chartsEl.innerHTML =
+      html += '<div class="grid" style="margin-bottom:24px">' +
         '<div class="card" style="text-align:center">' +
           '<h2>Revenue Breakdown</h2>' +
           '<div class="donut-chart">' + donutSVG(revSlices, 160) +
@@ -1928,47 +1987,63 @@ exports.showDashboard = async (req, res) => {
         '<div class="card" style="text-align:center">' +
           '<h2>Profit Breakdown</h2>' +
           '<div class="donut-chart">' + donutSVG(profSlices, 160) +
-            '<div class="donut-center"><span class="amount">' + fmtC(scProfit + prProfit) + '</span><span class="label">Total</span></div>' +
+            '<div class="donut-center"><span class="amount">' + fmtC(totalProfit) + '</span><span class="label">Total</span></div>' +
           '</div>' +
           mkLegend(profSlices) +
-        '</div>';
+        '</div>' +
+      '</div>';
 
-      // ── KPI Row ──
-      var kpiEl = document.getElementById('ov-kpi-row');
-      var totalLeads = scLeads.length + prLeads.length;
-      var totalDeals = scDealsCount + prDealsCount;
-      var overallConversion = totalLeads > 0 ? pctOf(totalDeals, totalLeads) : '0.0';
-      kpiEl.innerHTML =
-        mkKpi(fmtC(totalRevenue), 'Total Revenue', '#00d4ff') +
-        mkKpi(totalLeads, 'Total Leads', '#e0e6ed') +
-        mkKpi(totalDeals, 'Deals Accepted', '#66bb6a') +
-        mkKpi(overallConversion + '%', 'Conversion Rate', '#ffa726');
-
-      // ── Activity Tables (SC + PR side by side) ──
-      var actEl = document.getElementById('ov-activity');
-      actEl.innerHTML =
+      // Two summary cards side by side
+      var scConversion = d.scLeads.length > 0 ? pctOf(d.scDealsCount, d.scLeads.length) : '0.0';
+      var prConversion = d.prLeads.length > 0 ? pctOf(d.prDealsCount, d.prLeads.length) : '0.0';
+      html += '<div class="grid" style="margin-bottom:24px">' +
         '<div class="card">' +
-          '<h2><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Call Activity</h2>' +
+          '<h2><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Calls</h2>' +
           mkActivityTable([
-            ['New Leads', scLeads.length],
-            ['Payment Links Sent', scQuotesSent.length],
-            ['Sent Value', fmtC(scQuotesValue)],
-            ['Deals Accepted', scDealsCount],
-            ['Revenue', fmtC(scRevenue)],
-            ['Avg Deal Size', fmtC(scDealsCount > 0 ? scRevenue / scDealsCount : 0)],
+            ['Leads', d.scLeads.length],
+            ['Payment Links Sent', d.scQuotesSent.length],
+            ['Sent Value', fmtC(d.scQuotesValue)],
+            ['Deals Accepted', d.scDealsCount],
+            ['Revenue', fmtC(d.scRevenue)],
+            ['Profit', fmtC(d.scProfit)],
+            ['Conversion', scConversion + '%'],
           ]) +
         '</div>' +
         '<div class="card">' +
-          '<h2><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Project Activity</h2>' +
+          '<h2><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Projects</h2>' +
           mkActivityTable([
-            ['New Leads', prLeads.length],
-            ['Proposals Sent', prPropsSent.length],
-            ['Proposals Value', fmtC(prPropsValue)],
-            ['Deals Accepted', prDealsCount],
-            ['Revenue', fmtC(prRevenue)],
-            ['Avg Deal Size', fmtC(prDealsCount > 0 ? prRevenue / prDealsCount : 0)],
+            ['Leads', d.prLeads.length],
+            ['Proposals Sent', d.prPropsSent.length],
+            ['Proposals Value', fmtC(d.prPropsValue)],
+            ['Deals Accepted', d.prDealsCount],
+            ['Revenue', fmtC(d.prRevenue)],
+            ['Profit', fmtC(d.prProfit)],
+            ['Conversion', prConversion + '%'],
           ]) +
-        '</div>';
+        '</div>' +
+      '</div>';
+
+      // Combined KPIs
+      html += '<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">' +
+        mkKpi(totalLeads, 'Total Leads', '#e0e6ed') +
+        mkKpi(d.scQuotesSent.length + d.prPropsSent.length, 'Total Sent', '#8899aa') +
+        mkKpi(fmtC(d.scQuotesValue + d.prPropsValue), 'Total Sent Value', '#8899aa') +
+        mkKpi(overallConversion + '%', 'Conversion Rate', '#ffa726') +
+      '</div>';
+
+      return html;
+    }
+
+    function renderOverview(period) {
+      var d = computeData(period);
+      var contentEl = document.getElementById('ov-content');
+      if (currentView === 'sc') {
+        contentEl.innerHTML = renderSingleView(d, 'sc');
+      } else if (currentView === 'pr') {
+        contentEl.innerHTML = renderSingleView(d, 'pr');
+      } else {
+        contentEl.innerHTML = renderAllView(d);
+      }
     }
 
     function mkMini(val, label) {
@@ -2001,6 +2076,20 @@ exports.showDashboard = async (req, res) => {
     });
     document.getElementById('date-from').addEventListener('change', function() { renderOverview('custom'); });
     document.getElementById('date-to').addEventListener('change', function() { renderOverview('custom'); });
+
+    // ── View tab handlers (All / SC / Projects) ──
+    function getActivePeriod() {
+      var active = document.querySelector('.period-btn.active');
+      return active ? active.getAttribute('data-period') : 'month';
+    }
+    document.querySelectorAll('.ov-view-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.ov-view-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        currentView = btn.getAttribute('data-view');
+        renderOverview(getActivePeriod());
+      });
+    });
 
     // Initial render
     renderOverview('month');
