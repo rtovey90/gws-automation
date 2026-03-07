@@ -1867,13 +1867,16 @@ exports.showDashboard = async (req, res) => {
 
     var currentView = 'all';
 
+    var INBOUND_SOURCES = ['Form', 'Call', 'Google Ads', 'Facebook', 'Referral', 'Website'];
+    function isRealLead(e) { return INBOUND_SOURCES.indexOf(e.source) !== -1; }
+
     function computeData(period) {
       var range = getDateRange(period);
       var engs = OV_DATA.engagements;
       var props = OV_DATA.proposals;
 
-      var scLeads = engs.filter(function(e) { return e.type === 'sc' && inRange(e.created, range); });
-      var prLeads = engs.filter(function(e) { return e.type === 'pr' && inRange(e.created, range); });
+      var scLeads = engs.filter(function(e) { return e.type === 'sc' && isRealLead(e) && inRange(e.created, range); });
+      var prLeads = engs.filter(function(e) { return e.type === 'pr' && isRealLead(e) && inRange(e.created, range); });
       var scQuotesSent = engs.filter(function(e) { return e.type === 'sc' && inRange(e.quoteSentAt, range); });
       var scQuotesValue = scQuotesSent.reduce(function(s, e) { return s + e.quoteAmount; }, 0);
       var prPropsSent = props.filter(function(p) { return inRange(p.sentAt, range); });
