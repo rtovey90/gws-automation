@@ -1101,6 +1101,10 @@ exports.showDashboard = async (req, res) => {
       : '<p class="empty-state">No tech profit data yet</p>';
 
     // ── Build Tab HTML ──
+    const sa = salesActivity;
+    const sc = scActivity;
+    const pj = projActivity;
+    const pa = proposalActivity;
 
     // ── Prepare overview data as JSON for client-side rendering ──
     const overviewData = {
