@@ -263,9 +263,11 @@ exports.showList = async (req, res) => {
       const created = f['Created'] || e._rawJson?.createdTime || '';
       const type = engNum.startsWith('SC') ? 'sc' : engNum.startsWith('PR') ? 'pr' : '';
       return { id: e.id, name, engNum, status, invoiced, cost, profit, techNames, created, type };
-    }).sort((a, b) => {
-      if (b.created && a.created) return new Date(b.created) - new Date(a.created);
-      return 0;
+    }).filter(r => r.engNum).sort((a, b) => {
+      // Sort by numeric part of engagement number descending (highest first)
+      const numA = parseInt(a.engNum.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.engNum.replace(/\D/g, '')) || 0;
+      return numB - numA;
     });
 
     const rowsJSON = JSON.stringify(rows).replace(/`/g, '\\u0060').replace(/\$\{/g, '\\u0024{').replace(/</g, '\\u003c');
