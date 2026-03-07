@@ -385,10 +385,14 @@ exports.showDashboard = async (req, res) => {
         const linkedCustomer = linkedCustomerId && customers.find(c => c.id === linkedCustomerId);
         const name = e.fields['Customer Name'] || (linkedCustomer && [linkedCustomer.fields['First Name'], linkedCustomer.fields['Last Name']].filter(Boolean).join(' ')) || e.fields['First Name'] || 'Unknown';
         const address = e.fields['Address/Location'] || (linkedCustomer && linkedCustomer.fields['Address']) || '';
+        const engNum = e.fields['Engagement Number'] || '';
+        const invoiced = parseFloat(e.fields['Total Invoiced']) || 0;
         return {
           id: e.id,
           name,
           address,
+          engNum,
+          invoiced,
           status: e.fields.Status || 'Unknown',
         };
       })
@@ -1731,6 +1735,7 @@ exports.showDashboard = async (req, res) => {
     const todayStr = new Date().toISOString().split('T')[0];
 
     const overviewDataJSON = JSON.stringify(overviewData).replace(/</g, '\\u003c');
+    const engOptionsJSON = JSON.stringify(engagementOptions.map(e => ({ id: e.id, name: e.name, engNum: e.engNum, invoiced: e.invoiced, status: e.status }))).replace(/</g, '\\u003c');
 
     const dashboardScripts = `
   <script>
@@ -1746,6 +1751,7 @@ exports.showDashboard = async (req, res) => {
 
     // ── Overview Engine ──
     var OV_DATA = ${overviewDataJSON};
+    var ENG_OPTIONS = ${engOptionsJSON};
     var closedStatuses = ['Initial Parts Ordered', 'Completed \\u2728', 'Positive Review Received', 'Negative Review Received', 'Payment Received \\u2705'];
 
     function fmtC(v) { return '$' + Math.round(v).toLocaleString(); }
@@ -2122,22 +2128,39 @@ exports.showDashboard = async (req, res) => {
         if (data.success) {
           btn.textContent = 'Done! Matched: ' + data.matched + ' | Skipped: ' + data.skipped;
           btn.style.color = '#34c759';
-          // Show details below button
-          var detailsHtml = '';
-          if (data.details && data.details.length > 0) {
+          // Show manual reconcile UI for unmatched
+          var container = document.getElementById('reconcile-details');
+          if (!container) {
+            container = document.createElement('div');
+            container.id = 'reconcile-details';
+            btn.parentNode.appendChild(container);
+          }
+          if (data.details) {
             var skipped = data.details.filter(function(d) { return d.reason; });
             if (skipped.length > 0) {
-              detailsHtml += '<div style="margin-top:12px;max-height:300px;overflow-y:auto">';
-              detailsHtml += '<div style="font-size:11px;color:#8899aa;margin-bottom:6px">Unmatched charges (' + skipped.length + '):</div>';
-              skipped.forEach(function(d) {
-                detailsHtml += '<div style="font-size:11px;color:#556677;padding:2px 0;border-bottom:1px solid #1e2a3a">' +
-                  '$' + (d.amount || 0).toFixed(2) + ' — ' + (d.customer || 'Unknown') + ' <span style="color:#3a4a5a">(' + d.charge + ')</span></div>';
+              var html = '<div style="margin-top:16px"><h3 style="color:#e0e6ed;font-size:14px;margin-bottom:12px">Manual Reconciliation (' + skipped.length + ' unmatched)</h3>';
+              // Build engagement options HTML once
+              var optHtml = '<option value="">— Select engagement —</option>';
+              ENG_OPTIONS.forEach(function(e) {
+                var label = e.name;
+                if (e.engNum) label = e.engNum + ' — ' + label;
+                if (e.invoiced > 0) label += ' ($' + e.invoiced.toFixed(2) + ')';
+                optHtml += '<option value="' + e.id + '">' + label + '</option>';
               });
-              detailsHtml += '</div>';
+              skipped.forEach(function(d, idx) {
+                html += '<div id="mr-' + idx + '" style="background:#0f1419;border:1px solid #1e2a3a;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+                  '<div style="min-width:180px"><strong style="color:#e0e6ed">$' + (d.amount || 0).toFixed(2) + '</strong> <span style="color:#8899aa">' + (d.customer || 'Unknown') + '</span></div>' +
+                  '<select id="mr-sel-' + idx + '" style="flex:1;min-width:200px;background:#1a2332;border:1px solid #2a3a4a;border-radius:4px;color:#e0e6ed;padding:5px 8px;font-size:12px">' + optHtml + '</select>' +
+                  '<button onclick="manualReconcile(' + idx + ',\'' + d.charge + '\')" style="background:#34c759;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">Link</button>' +
+                  '<button onclick="skipReconcile(' + idx + ')" style="background:transparent;color:#556677;border:1px solid #2a3a4a;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px">Skip</button>' +
+                '</div>';
+              });
+              html += '</div>';
+              container.innerHTML = html;
+            } else {
+              container.innerHTML = '<div style="margin-top:12px;color:#34c759;font-size:13px">All charges matched!</div>';
             }
           }
-          btn.insertAdjacentHTML('afterend', detailsHtml);
-          if (data.matched > 0) setTimeout(function() { location.reload(); }, 5000);
         } else {
           btn.textContent = 'Error: ' + (data.error || 'Unknown');
           btn.style.color = '#ef5350';
@@ -2146,6 +2169,39 @@ exports.showDashboard = async (req, res) => {
         btn.textContent = 'Error: ' + err.message;
         btn.style.color = '#ef5350';
       }
+    }
+
+    async function manualReconcile(idx, chargeId) {
+      var sel = document.getElementById('mr-sel-' + idx);
+      var engId = sel.value;
+      if (!engId) { alert('Please select an engagement'); return; }
+      var row = document.getElementById('mr-' + idx);
+      var linkBtn = row.querySelectorAll('button')[0];
+      linkBtn.disabled = true;
+      linkBtn.textContent = 'Linking...';
+      try {
+        var resp = await fetch('/api/manual-reconcile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chargeId: chargeId, engagementId: engId }),
+        });
+        var data = await resp.json();
+        if (data.success) {
+          row.style.borderColor = '#34c759';
+          row.innerHTML = '<span style="color:#34c759">Linked $' + data.amount.toFixed(2) + ' to ' + (data.engagementNumber || engId) + '</span>';
+        } else {
+          throw new Error(data.error || 'Failed');
+        }
+      } catch (err) {
+        linkBtn.textContent = 'Error';
+        linkBtn.style.background = '#ef5350';
+        alert(err.message);
+      }
+    }
+
+    function skipReconcile(idx) {
+      var row = document.getElementById('mr-' + idx);
+      if (row) { row.style.opacity = '0.2'; row.style.pointerEvents = 'none'; }
     }
 
     async function loadCustomerSuggestions() {
@@ -2460,6 +2516,65 @@ exports.reconcileStripe = async (req, res) => {
     res.json({ success: true, totalCharges: charges.length, ...results });
   } catch (error) {
     console.error('Reconciliation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Manually link a Stripe charge to an engagement
+ * POST /api/manual-reconcile
+ * Body: { chargeId, engagementId }
+ */
+exports.manualReconcile = async (req, res) => {
+  try {
+    const { chargeId, engagementId } = req.body;
+    if (!chargeId || !engagementId) {
+      return res.status(400).json({ error: 'Missing chargeId or engagementId' });
+    }
+
+    const stripeService = require('../services/stripe.service');
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+    // Fetch charge from Stripe
+    const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
+    if (!charge || charge.status !== 'succeeded') {
+      return res.status(400).json({ error: 'Charge not found or not successful' });
+    }
+
+    const fee = (charge.balance_transaction && typeof charge.balance_transaction === 'object')
+      ? charge.balance_transaction.fee / 100 : 0;
+    const paymentDate = new Date(charge.created * 1000).toISOString().split('T')[0];
+    const amount = charge.amount / 100;
+
+    // Get engagement
+    const engagement = await airtableService.getEngagement(engagementId);
+    if (!engagement) {
+      return res.status(404).json({ error: 'Engagement not found' });
+    }
+
+    const updates = {
+      'Payment Date': paymentDate,
+      'Stripe Charge ID': chargeId,
+    };
+    if (fee > 0) updates['Stripe Fee'] = fee;
+
+    // If engagement has no Total Invoiced, set it from the charge amount
+    const existingInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+    if (existingInvoiced === 0) {
+      updates['Total Invoiced'] = amount;
+    }
+
+    await airtableService.updateEngagement(engagementId, updates);
+
+    const engNum = engagement.fields['Engagement Number'] || '';
+    await airtableService.logActivity(engagementId, `Stripe charge ${chargeId} manually linked ($${amount.toFixed(2)}, fee $${fee.toFixed(2)})`, {
+      type: 'System',
+      author: req.session?.userEmail || 'Admin',
+    });
+
+    res.json({ success: true, amount, fee, paymentDate, engagementNumber: engNum });
+  } catch (error) {
+    console.error('Manual reconcile error:', error);
     res.status(500).json({ error: error.message });
   }
 };
