@@ -302,20 +302,25 @@ const engagementPickerHTML = `
         </div>
 `;
 
-const comparisonBarHTML = `
-  <div id="comparison-bar" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#0a0e1a; border-top:2px solid #00d4ff; padding:12px 24px; z-index:1000; box-shadow:0 -4px 20px rgba(0,0,0,0.5);">
-    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
-      <div style="font-weight:700; color:#00d4ff; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">Actuals</div>
-      <div id="comp-stats" style="display:flex; gap:20px; flex:1; flex-wrap:wrap;"></div>
-      <button onclick="document.getElementById('comparison-detail').style.display=document.getElementById('comparison-detail').style.display==='none'?'block':'none'" style="background:#1a2332; border:1px solid #2a3a4a; color:#8899aa; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px;">Details</button>
+const comparisonPanelHTML = `
+  <button id="actuals-panel-toggle" onclick="toggleActualsPanel()" style="display:none; position:fixed; left:0; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,#ff6b6b,#ee5a5a); color:white; border:none; padding:15px 12px; border-radius:0 12px 12px 0; cursor:pointer; font-size:13px; font-weight:700; writing-mode:vertical-rl; text-orientation:mixed; box-shadow:4px 0 15px rgba(255,107,107,0.3); z-index:999; transition:all .3s ease;">ACTUALS</button>
+  <div id="actuals-panel" style="position:fixed; left:0; top:0; width:340px; height:100vh; background:linear-gradient(180deg,#1a1a2e,#16213e); box-shadow:4px 0 20px rgba(0,0,0,0.3); z-index:1000; overflow-y:auto; transform:translateX(-100%); transition:transform .3s ease; display:flex; flex-direction:column;">
+    <div style="padding:16px 20px; background:linear-gradient(135deg,#ff6b6b,#ee5a5a); color:white; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <h2 style="font-size:18px; font-weight:700; margin:0;">Estimated vs Actual</h2>
+      <button onclick="toggleActualsPanel()" style="background:rgba(255,255,255,0.2); border:none; color:white; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:18px;">&times;</button>
     </div>
-    <div id="comparison-detail" style="display:none; max-width:1200px; margin:12px auto 0; padding-top:12px; border-top:1px solid #2a3a4a;">
-      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <div style="padding:16px 20px; flex:1;">
+      <div style="margin-bottom:16px;">
+        <label style="display:block; font-size:11px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Compare against</label>
+        <select id="compare-tab-select" onchange="updateComparison(window._lastFinancialData || {})" style="width:100%; padding:8px 12px; background:#1a2332; border:1px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:13px;"></select>
+      </div>
+      <div id="comp-summary-cards" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;"></div>
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
         <thead><tr style="border-bottom:1px solid #2a3a4a;">
-          <th style="text-align:left; padding:6px 8px; color:#8899aa;">Category</th>
-          <th style="text-align:right; padding:6px 8px; color:#8899aa;">Estimated</th>
-          <th style="text-align:right; padding:6px 8px; color:#8899aa;">Actual</th>
-          <th style="text-align:right; padding:6px 8px; color:#8899aa;">Variance</th>
+          <th style="text-align:left; padding:6px; color:#8899aa;">Category</th>
+          <th style="text-align:right; padding:6px; color:#8899aa;">Est</th>
+          <th style="text-align:right; padding:6px; color:#8899aa;">Act</th>
+          <th style="text-align:right; padding:6px; color:#8899aa;">Var</th>
         </tr></thead>
         <tbody id="comparison-body"></tbody>
       </table>
@@ -500,13 +505,16 @@ const engagementJS = `
         // Save current estimate data as snapshot for comparison
         if (activeTabId) saveTabState(activeTabId);
         estimateSnapshot = JSON.parse(JSON.stringify(tabs));
+        populateCompareTabSelect();
 
         // Load actuals data
         loadActualsFromEngagement(engagementId);
       } else {
         // Switch back to estimate - restore saved estimate
-        var compBar = document.getElementById('comparison-bar');
-        if (compBar) compBar.style.display = 'none';
+        var actualsToggle = document.getElementById('actuals-panel-toggle');
+        var actualsPanel = document.getElementById('actuals-panel');
+        if (actualsToggle) actualsToggle.style.display = 'none';
+        if (actualsPanel) actualsPanel.style.transform = 'translateX(-100%)';
         if (estimateSnapshot) {
           tabs = JSON.parse(JSON.stringify(estimateSnapshot));
           if (activeTabId && tabs[activeTabId]) loadTabState(activeTabId);
@@ -566,83 +574,106 @@ const engagementJS = `
       }
     }
 
+    function toggleActualsPanel() {
+      var panel = document.getElementById('actuals-panel');
+      var toggle = document.getElementById('actuals-panel-toggle');
+      if (!panel) return;
+      var isOpen = panel.style.transform === 'translateX(0px)' || panel.style.transform === 'translateX(0)';
+      panel.style.transform = isOpen ? 'translateX(-100%)' : 'translateX(0)';
+      if (toggle) toggle.style.display = isOpen ? 'block' : 'none';
+    }
+
+    function populateCompareTabSelect() {
+      var sel = document.getElementById('compare-tab-select');
+      if (!sel || !estimateSnapshot) return;
+      var tabIds = Object.keys(estimateSnapshot);
+      sel.innerHTML = tabIds.map(id => '<option value="' + id + '">' + (estimateSnapshot[id].name || id) + '</option>').join('');
+      // Default to last (rightmost) tab
+      if (tabIds.length > 0) sel.value = tabIds[tabIds.length - 1];
+    }
+
     function updateComparison(financialData) {
-      const bar = document.getElementById('comparison-bar');
-      const tbody = document.getElementById('comparison-body');
-      const stats = document.getElementById('comp-stats');
+      var toggle = document.getElementById('actuals-panel-toggle');
+      var tbody = document.getElementById('comparison-body');
+      var cards = document.getElementById('comp-summary-cards');
 
-      if (!estimateSnapshot) { if (bar) bar.style.display = 'none'; return; }
-      if (bar) bar.style.display = 'block';
+      if (!estimateSnapshot) { if (toggle) toggle.style.display = 'none'; return; }
+      if (toggle && toggle.style.display === 'none') toggle.style.display = 'block';
 
-      // Calculate estimated costs per category from snapshot
-      const estimated = { parts: 0, labour: 0, cable: 0, misc: 0 };
-      Object.values(estimateSnapshot).forEach(tab => {
-        ['parts', 'labour', 'cable', 'misc'].forEach(section => {
-          (tab.items[section] || []).forEach(item => {
+      // Use only the selected estimate tab for comparison
+      var sel = document.getElementById('compare-tab-select');
+      var selectedTabId = sel ? sel.value : Object.keys(estimateSnapshot)[Object.keys(estimateSnapshot).length - 1];
+      var selectedTab = estimateSnapshot[selectedTabId];
+
+      var estimated = { parts: 0, labour: 0, cable: 0, misc: 0 };
+      if (selectedTab) {
+        ['parts', 'labour', 'cable', 'misc'].forEach(function(section) {
+          (selectedTab.items[section] || []).forEach(function(item) {
             estimated[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
           });
         });
-      });
+      }
 
       // Calculate actual costs from current tabs
-      const actual = { parts: 0, labour: 0, cable: 0, misc: 0 };
-      Object.values(tabs).forEach(tab => {
-        ['parts', 'labour', 'cable', 'misc'].forEach(section => {
-          (tab.items[section] || []).forEach(item => {
+      var actual = { parts: 0, labour: 0, cable: 0, misc: 0 };
+      Object.values(tabs).forEach(function(tab) {
+        ['parts', 'labour', 'cable', 'misc'].forEach(function(section) {
+          (tab.items[section] || []).forEach(function(item) {
             actual[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
           });
         });
       });
 
-      const labels = { parts: 'Parts', labour: 'Labour', cable: 'Cable', misc: 'Misc' };
-      let totalEst = 0, totalAct = 0;
+      var labels = { parts: 'Parts', labour: 'Labour', cable: 'Cable', misc: 'Misc' };
+      var totalEst = 0, totalAct = 0;
 
       if (tbody) {
-        tbody.innerHTML = ['parts', 'labour', 'cable', 'misc'].map(cat => {
-          const est = estimated[cat];
-          const act = actual[cat];
+        tbody.innerHTML = ['parts', 'labour', 'cable', 'misc'].map(function(cat) {
+          var est = estimated[cat];
+          var act = actual[cat];
           totalEst += est;
           totalAct += act;
-          const diff = act - est;
-          const pct = est > 0 ? ((diff / est) * 100).toFixed(1) : '0.0';
-          const color = diff > 0 ? '#ff6b6b' : diff < 0 ? '#34c759' : '#8899aa';
-          const sign = diff > 0 ? '+' : '';
+          var diff = act - est;
+          var pct = est > 0 ? ((diff / est) * 100).toFixed(1) : '0.0';
+          var color = diff > 0 ? '#ff6b6b' : diff < 0 ? '#34c759' : '#5a6a7a';
+          var sign = diff > 0 ? '+' : '';
           return '<tr style="border-bottom:1px solid #1a2332;">' +
-            '<td style="padding:6px 8px;color:#e0e6ed;">' + labels[cat] + '</td>' +
-            '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + est.toFixed(2) + '</td>' +
-            '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + act.toFixed(2) + '</td>' +
-            '<td style="padding:6px 8px;text-align:right;color:' + color + ';">' + sign + '$' + diff.toFixed(2) + ' (' + sign + pct + '%)</td>' +
+            '<td style="padding:6px;color:#e0e6ed;">' + labels[cat] + '</td>' +
+            '<td style="padding:6px;text-align:right;color:#e0e6ed;">$' + est.toFixed(0) + '</td>' +
+            '<td style="padding:6px;text-align:right;color:#e0e6ed;">$' + act.toFixed(0) + '</td>' +
+            '<td style="padding:6px;text-align:right;color:' + color + ';font-size:11px;">' + sign + '$' + diff.toFixed(0) + '</td>' +
             '</tr>';
         }).join('') +
-          '<tr style="border-top:2px solid #00d4ff;font-weight:700;">' +
-          '<td style="padding:8px;color:#00d4ff;">TOTAL</td>' +
-          '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalEst.toFixed(2) + '</td>' +
-          '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalAct.toFixed(2) + '</td>' +
-          '<td style="padding:8px;text-align:right;color:' + (totalAct > totalEst ? '#ff6b6b' : '#34c759') + ';">' + (totalAct > totalEst ? '+' : '') + '$' + (totalAct - totalEst).toFixed(2) + '</td>' +
+          '<tr style="border-top:2px solid #ff6b6b;font-weight:700;">' +
+          '<td style="padding:6px;color:#ff6b6b;">Total</td>' +
+          '<td style="padding:6px;text-align:right;color:#e0e6ed;">$' + totalEst.toFixed(0) + '</td>' +
+          '<td style="padding:6px;text-align:right;color:#e0e6ed;">$' + totalAct.toFixed(0) + '</td>' +
+          '<td style="padding:6px;text-align:right;color:' + (totalAct > totalEst ? '#ff6b6b' : '#34c759') + ';">' + (totalAct > totalEst ? '+' : '') + '$' + (totalAct - totalEst).toFixed(0) + '</td>' +
           '</tr>';
-      } else {
-        ['parts', 'labour', 'cable', 'misc'].forEach(cat => { totalEst += estimated[cat]; totalAct += actual[cat]; });
       }
 
-      // Financial summary in sticky bar
-      const invoiced = financialData.totalInvoiced || 0;
-      const quoted = financialData.quoteAmount || 0;
-      const profit = invoiced - totalAct;
-      const margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
-      const variance = totalAct - totalEst;
-      const varColor = variance > 0 ? '#ff6b6b' : '#34c759';
+      // Summary cards
+      var invoiced = financialData.totalInvoiced || 0;
+      var quoted = financialData.quoteAmount || 0;
+      var profit = invoiced - totalAct;
+      var margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
+      var variance = totalAct - totalEst;
 
-      if (stats) {
-        const stat = (label, val, color) => '<div><span style="color:#5a6a7a;font-size:10px;text-transform:uppercase;display:block;">' + label + '</span><span style="color:' + (color || '#e0e6ed') + ';font-size:16px;font-weight:700;">' + val + '</span></div>';
-        stats.innerHTML =
-          stat('Estimated', '$' + totalEst.toLocaleString(undefined, {maximumFractionDigits:0})) +
-          stat('Actual', '$' + totalAct.toLocaleString(undefined, {maximumFractionDigits:0})) +
-          stat('Variance', (variance >= 0 ? '+' : '') + '$' + variance.toFixed(0), varColor) +
-          '<div style="width:1px;background:#2a3a4a;align-self:stretch;"></div>' +
-          stat('Quoted', '$' + quoted.toLocaleString(undefined, {maximumFractionDigits:0})) +
-          stat('Invoiced', '$' + invoiced.toLocaleString(undefined, {maximumFractionDigits:0}), '#00d4ff') +
-          stat('Profit', '$' + profit.toFixed(0), profit >= 0 ? '#34c759' : '#ff6b6b') +
-          stat('Margin', margin + '%', parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b');
+      if (cards) {
+        var card = function(label, val, color) {
+          return '<div style="background:#0f1419;border:1px solid #2a3a4a;border-radius:8px;padding:10px 12px;text-align:center;">' +
+            '<div style="color:#5a6a7a;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">' + label + '</div>' +
+            '<div style="color:' + (color || '#e0e6ed') + ';font-size:18px;font-weight:700;margin-top:2px;">' + val + '</div></div>';
+        };
+        cards.innerHTML =
+          card('Estimated', '$' + totalEst.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          card('Actual', '$' + totalAct.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          card('Variance', (variance >= 0 ? '+' : '') + '$' + variance.toFixed(0), variance > 0 ? '#ff6b6b' : '#34c759') +
+          card('Quoted', '$' + quoted.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          card('Invoiced', '$' + invoiced.toLocaleString(undefined, {maximumFractionDigits:0}), '#00d4ff') +
+          card('Profit', '$' + profit.toFixed(0), profit >= 0 ? '#34c759' : '#ff6b6b') +
+          card('Margin', margin + '%', parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b') +
+          card('Cost vs Quote', totalEst > 0 ? ((totalAct / totalEst) * 100).toFixed(0) + '%' : '--', totalAct > totalEst ? '#ff6b6b' : '#34c759');
       }
     }
 
@@ -793,8 +824,8 @@ exports.showEstimator = (req, res) => {
     '<!-- Engagement Picker -->\n' + engagementPickerHTML + '\n        <!-- Client Information -->'
   );
 
-  // Inject comparison bar before end of body content
-  bodyContent += comparisonBarHTML;
+  // Inject actuals comparison panel
+  bodyContent += comparisonPanelHTML;
 
   // Inject engagement JS before the closing </script> tag
   // Use a function replacer to avoid $' special replacement pattern issues
