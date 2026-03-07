@@ -1130,12 +1130,13 @@ exports.showDashboard = async (req, res) => {
         const f = e.fields;
         const isSC = !!f['Confirmed Service Call Lead'];
         const isPR = !!f['Confirmed Project Lead'];
+        const linkedCustId = f.Customer && f.Customer[0];
         return {
           id: e.id,
           type: isSC ? 'sc' : isPR ? 'pr' : 'unknown',
           created: e._rawJson?.createdTime || null,
           status: f.Status || '',
-          name: f['Customer Name'] || f['First Name'] || 'Unknown',
+          name: f['Customer Name'] || (linkedCustId && customerMap[linkedCustId]) || f['First Name'] || 'Unknown',
           engNumber: f['Engagement Number'] || '',
           quoteAmount: parseFloat(f['Quote Amount']) || 0,
           quoteSentAt: f['Quote Sent At'] || null,
