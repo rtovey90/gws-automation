@@ -304,10 +304,36 @@
         }
 
         .upload-status.processing {
-            display: block;
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #1a2a3a 0%, #0f1a2a 100%);
+            color: #00d4ff;
+            border: 1px solid #00d4ff40;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-status.processing::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.08), transparent);
+            animation: scanLine 2s ease-in-out infinite;
+        }
+        @keyframes scanLine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        .upload-spinner {
+            width: 20px; height: 20px;
+            border: 2px solid #00d4ff30;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .upload-status.success {
@@ -3445,12 +3471,16 @@
         function showStatus(message, type) {
             const statusEl = document.getElementById('upload-status');
             statusEl.className = 'upload-status ' + type;
-            statusEl.textContent = message;
+            if (type === 'processing') {
+                statusEl.innerHTML = '<div class="upload-spinner"></div><span>' + message + '</span>';
+            } else {
+                statusEl.textContent = message;
+            }
 
             if (type === 'success' || type === 'error') {
                 setTimeout(() => {
                     statusEl.className = 'upload-status';
-                    statusEl.textContent = '';
+                    statusEl.innerHTML = '';
                 }, 5000);
             }
         }

@@ -23,8 +23,11 @@ exports.showLogin = (req, res) => {
     .form-group label { display:block; font-size:13px; color:#8899aa; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
     .form-group input { width:100%; padding:12px 14px; background:#1a2332; border:1px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:15px; outline:none; transition:border-color .2s; }
     .form-group input:focus { border-color:#00d4ff; }
-    .login-btn { width:100%; padding:12px; background:#00d4ff; color:#0f1419; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; transition:background .2s; }
+    .login-btn { width:100%; padding:12px; background:#00d4ff; color:#0f1419; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
     .login-btn:hover { background:#00b8d9; }
+    .login-btn:disabled { background:#00d4ff80; cursor:not-allowed; }
+    .login-spinner { width:18px; height:18px; border:2px solid rgba(15,20,25,0.3); border-top-color:#0f1419; border-radius:50%; animation:loginspin .7s linear infinite; display:inline-block; }
+    @keyframes loginspin { to { transform:rotate(360deg); } }
     .error { background:#2a1a1a; border:1px solid #ef5350; color:#ef5350; border-radius:6px; padding:10px 14px; font-size:13px; margin-bottom:20px; text-align:center; }
   </style>
 </head>
@@ -43,9 +46,16 @@ exports.showLogin = (req, res) => {
         <label>Password</label>
         <input type="password" name="password" required placeholder="Enter password">
       </div>
-      <button type="submit" class="login-btn">Sign In</button>
+      <button type="submit" class="login-btn" id="login-btn">Sign In</button>
     </form>
   </div>
+  <script>
+    document.querySelector('form').addEventListener('submit', function() {
+      var btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="login-spinner"></div>Signing in...';
+    });
+  </script>
 </body>
 </html>`);
 };
