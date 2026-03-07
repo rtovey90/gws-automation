@@ -1102,200 +1102,69 @@ exports.showDashboard = async (req, res) => {
 
     // ── Build Tab HTML ──
 
-    // Tab 1: Overview
-    const sa = salesActivity;
-    const sc = scActivity;
-    const pj = projActivity;
-    const pa = proposalActivity;
+    // ── Prepare overview data as JSON for client-side rendering ──
+    const overviewData = {
+      engagements: actualLeads.map(e => {
+        const f = e.fields;
+        const isSC = !!f['Confirmed Service Call Lead'];
+        const isPR = !!f['Confirmed Project Lead'];
+        return {
+          id: e.id,
+          type: isSC ? 'sc' : isPR ? 'pr' : 'unknown',
+          created: e._rawJson?.createdTime || null,
+          status: f.Status || '',
+          name: f['Customer Name'] || f['First Name'] || 'Unknown',
+          engNumber: f['Engagement Number'] || '',
+          quoteAmount: parseFloat(f['Quote Amount']) || 0,
+          quoteSentAt: f['Quote Sent At'] || null,
+          scAmount: parseFloat(f['Service Call Amount']) || 0,
+          projectValue: parseFloat(f['Project Value']) || 0,
+          totalInvoiced: parseFloat(f['Total Invoiced']) || 0,
+          totalCost: parseFloat(f['Total Cost']) || 0,
+          profit: parseFloat(f['Profit']) || 0,
+          bankPaymentAmount: parseFloat(f['Bank Payment Amount']) || 0,
+          bankPaymentDate: f['Bank Payment Date'] || null,
+          source: f[' Source'] || 'Unknown',
+        };
+      }),
+      proposals: proposals.map(p => {
+        const f = p.fields;
+        return {
+          id: p.id,
+          projectNumber: f['Project Number'] || '',
+          status: f.Status || 'Draft',
+          sentAt: f['Sent At'] || null,
+          paidAt: f['Paid At'] || null,
+          basePrice: parseFloat(f['Base Price']) || 0,
+        };
+      }),
+      stripeMonthly: stripeData ? stripeData.monthlyRevenue : [],
+      bankByMonth: bankPaymentsByMonth,
+    };
+
+    // Tab 1: Overview (client-side rendered)
     const overviewTabHtml = `
-      <div class="split-summary" style="margin-bottom:24px">
-        <div class="summary-card sc">
-          <div class="summary-card-header"><span class="type-badge type-badge-sc">Service Calls</span></div>
-          <div class="summary-card-grid">
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${sc.leads.month}</span>
-              <span class="mini-kpi-label">Leads This Month</span>
-            </div>
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${sc.quotesOut.month}</span>
-              <span class="mini-kpi-label">Payment Links Sent</span>
-            </div>
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${fmtCurrency(sc.quotesValue.month)}</span>
-              <span class="mini-kpi-label">Sent Value</span>
-            </div>
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${fmtCurrency(scRevenueThisMonth + scBankThisMonth)}</span>
-              <span class="mini-kpi-label">Revenue</span>
-            </div>
-            <div class="mini-kpi" style="grid-column:1/-1">
-              <span class="mini-kpi-value">${scConversionRate}%</span>
-              <span class="mini-kpi-label">Conversion Rate</span>
-            </div>
-          </div>
-        </div>
-        <div class="summary-card proj">
-          <div class="summary-card-header"><span class="type-badge type-badge-proj">Projects</span></div>
-          <div class="summary-card-grid">
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${pj.leads.month}</span>
-              <span class="mini-kpi-label">Leads This Month</span>
-            </div>
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${pa.sent.month}</span>
-              <span class="mini-kpi-label">Proposals Sent</span>
-            </div>
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${fmtCurrency(pa.sentValue.month)}</span>
-              <span class="mini-kpi-label">Sent Value</span>
-            </div>
-            <div class="mini-kpi">
-              <span class="mini-kpi-value">${fmtCurrency(projRevenueThisMonth + projBankThisMonth)}</span>
-              <span class="mini-kpi-label">Revenue</span>
-            </div>
-            <div class="mini-kpi" style="grid-column:1/-1">
-              <span class="mini-kpi-value">${projConversionRate}%</span>
-              <span class="mini-kpi-label">Conversion Rate</span>
-            </div>
-          </div>
+      <div id="overview-filter" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:24px">
+        <span style="font-size:13px;color:#8899aa;font-weight:600;margin-right:4px">Period:</span>
+        <button class="period-btn active" data-period="month">This Month</button>
+        <button class="period-btn" data-period="week">This Week</button>
+        <button class="period-btn" data-period="today">Today</button>
+        <button class="period-btn" data-period="yesterday">Yesterday</button>
+        <button class="period-btn" data-period="lastMonth">Last Month</button>
+        <button class="period-btn" data-period="year">This Year</button>
+        <button class="period-btn" data-period="allTime">All Time</button>
+        <button class="period-btn" data-period="custom">Custom</button>
+        <div id="custom-dates" style="display:none;margin-left:8px">
+          <input type="date" id="date-from" style="background:#1a2332;border:1px solid #2a3a4a;border-radius:4px;color:#e0e6ed;padding:4px 8px;font-size:12px">
+          <span style="color:#5a6a7a;margin:0 4px">to</span>
+          <input type="date" id="date-to" style="background:#1a2332;border:1px solid #2a3a4a;border-radius:4px;color:#e0e6ed;padding:4px 8px;font-size:12px">
         </div>
       </div>
 
-      <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
-        <div class="kpi-card">
-          <span class="kpi-value">${fmtCurrency(combinedRevenueThisMonth)}</span>
-          <span class="kpi-label">Total Revenue</span>
-          ${bankPaymentsThisMonth > 0 ? `<span style="font-size:11px;color:#8899aa;margin-top:4px;display:block">Stripe ${fmtCurrency(revenueThisMonth)} &middot; Bank ${fmtCurrency(bankPaymentsThisMonth)}</span>` : ''}
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-value">${sa.leads.month}</span>
-          <span class="kpi-label">Leads This Month</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-value">${activeJobs}</span>
-          <span class="kpi-label">Active Jobs</span>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:24px">
-        <h2>Service Call Activity</h2>
-        <div class="activity-table-wrap">
-          <table class="activity-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Today</th>
-                <th>This Week</th>
-                <th>This Month</th>
-                <th>This Year</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="row-label">New Leads</td>
-                <td>${sc.leads.today}</td>
-                <td>${sc.leads.week}</td>
-                <td>${sc.leads.month}</td>
-                <td>${sc.leads.year}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Payment Links Sent</td>
-                <td>${sc.quotesOut.today}</td>
-                <td>${sc.quotesOut.week}</td>
-                <td>${sc.quotesOut.month}</td>
-                <td>${sc.quotesOut.year}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Sent Value</td>
-                <td>${fmtCurrency(sc.quotesValue.today)}</td>
-                <td>${fmtCurrency(sc.quotesValue.week)}</td>
-                <td>${fmtCurrency(sc.quotesValue.month)}</td>
-                <td>${fmtCurrency(sc.quotesValue.year)}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Deals Closed</td>
-                <td>${sc.dealsClosed.today}</td>
-                <td>${sc.dealsClosed.week}</td>
-                <td>${sc.dealsClosed.month}</td>
-                <td>${sc.dealsClosed.year}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Deals Value</td>
-                <td>${fmtCurrency(sc.dealsValue.today)}</td>
-                <td>${fmtCurrency(sc.dealsValue.week)}</td>
-                <td>${fmtCurrency(sc.dealsValue.month)}</td>
-                <td>${fmtCurrency(sc.dealsValue.year)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:24px">
-        <h2>Project Activity</h2>
-        <div class="activity-table-wrap">
-          <table class="activity-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Today</th>
-                <th>This Week</th>
-                <th>This Month</th>
-                <th>This Year</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="row-label">New Leads</td>
-                <td>${pj.leads.today}</td>
-                <td>${pj.leads.week}</td>
-                <td>${pj.leads.month}</td>
-                <td>${pj.leads.year}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Proposals Sent</td>
-                <td>${pa.sent.today}</td>
-                <td>${pa.sent.week}</td>
-                <td>${pa.sent.month}</td>
-                <td>${pa.sent.year}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Proposals Value</td>
-                <td>${fmtCurrency(pa.sentValue.today)}</td>
-                <td>${fmtCurrency(pa.sentValue.week)}</td>
-                <td>${fmtCurrency(pa.sentValue.month)}</td>
-                <td>${fmtCurrency(pa.sentValue.year)}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Deals Closed</td>
-                <td>${pj.dealsClosed.today}</td>
-                <td>${pj.dealsClosed.week}</td>
-                <td>${pj.dealsClosed.month}</td>
-                <td>${pj.dealsClosed.year}</td>
-              </tr>
-              <tr>
-                <td class="row-label">Deals Value</td>
-                <td>${fmtCurrency(pj.dealsValue.today)}</td>
-                <td>${fmtCurrency(pj.dealsValue.week)}</td>
-                <td>${fmtCurrency(pj.dealsValue.month)}</td>
-                <td>${fmtCurrency(pj.dealsValue.year)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="grid" style="margin-bottom:24px">
-        <div class="card">
-          <h2>Revenue (Last 3 Months)</h2>
-          ${sparklineHtml}
-        </div>
-        <div class="card">
-          <h2>Pipeline Snapshot</h2>
-          ${pipelineSnapshotBars}
-        </div>
-      </div>
-
+      <div id="ov-split" class="split-summary" style="margin-bottom:24px"></div>
+      <div id="ov-charts" class="grid" style="margin-bottom:24px"></div>
+      <div id="ov-kpi-row" class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px"></div>
+      <div id="ov-activity" class="grid" style="margin-bottom:24px"></div>
       <div class="attention-card">
         <h2>Attention Needed</h2>
         ${attentionHtml}
@@ -1689,6 +1558,17 @@ exports.showDashboard = async (req, res) => {
     .payout-status { font-size:12px; text-transform:capitalize; flex:1; }
     .payout-date { font-size:11px; color:#5a6a7a; flex-shrink:0; }
 
+    .period-btn { background:#0f1419; border:1px solid #2a3a4a; color:#8899aa; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+    .period-btn:hover { border-color:#00d4ff; color:#e0e6ed; }
+    .period-btn.active { background:#00d4ff; color:#0a0e27; border-color:#00d4ff; }
+    .donut-chart { position:relative; display:inline-block; }
+    .donut-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+    .donut-center .amount { font-size:20px; font-weight:700; color:#e0e6ed; display:block; }
+    .donut-center .label { font-size:10px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; }
+    .donut-legend { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+    .donut-legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:#c0c8d0; }
+    .donut-legend-dot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+    .donut-legend-val { margin-left:auto; font-weight:600; color:#e0e6ed; }
     .type-badge { font-size:10px; padding:2px 8px; border-radius:4px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; display:inline-block; vertical-align:middle; }
     .type-badge-sc { background:rgba(0,212,255,0.15); color:#00d4ff; }
     .type-badge-proj { background:rgba(206,147,216,0.15); color:#ce93d8; }
@@ -1698,7 +1578,7 @@ exports.showDashboard = async (req, res) => {
     .summary-card.sc { border-top:3px solid #00d4ff; }
     .summary-card.proj { border-top:3px solid #ce93d8; }
     .summary-card-header { padding:14px 16px 0; }
-    .summary-card-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; padding:8px 0; }
+    .summary-card-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; padding:8px 0; }
     .mini-kpi { text-align:center; padding:10px 12px; }
     .mini-kpi-value { font-size:22px; font-weight:bold; color:#e0e6ed; display:block; margin-bottom:2px; }
     .mini-kpi-label { font-size:10px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; }
@@ -1805,6 +1685,8 @@ exports.showDashboard = async (req, res) => {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
+    const overviewDataJSON = JSON.stringify(overviewData).replace(/</g, '\\u003c');
+
     const dashboardScripts = `
   <script>
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
@@ -1816,6 +1698,254 @@ exports.showDashboard = async (req, res) => {
       });
     });
     setTimeout(function(){ location.reload(); }, 300000);
+
+    // ── Overview Engine ──
+    var OV_DATA = ${overviewDataJSON};
+    var closedStatuses = ['Initial Parts Ordered', 'Completed \\u2728', 'Positive Review Received', 'Negative Review Received', 'Payment Received \\u2705'];
+
+    function fmtC(v) { return '$' + Math.round(v).toLocaleString(); }
+    function pctOf(a, b) { return b > 0 ? ((a / b) * 100).toFixed(1) : '0.0'; }
+
+    function getDateRange(period) {
+      var now = new Date();
+      var start, end;
+      var y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+      switch (period) {
+        case 'today':
+          start = new Date(y, m, d); end = new Date(y, m, d + 1); break;
+        case 'yesterday':
+          start = new Date(y, m, d - 1); end = new Date(y, m, d); break;
+        case 'week':
+          var day = now.getDay(); // 0=Sun
+          start = new Date(y, m, d - (day === 0 ? 6 : day - 1)); // Monday
+          start.setHours(0,0,0,0);
+          end = new Date(y, m, d + 1); break;
+        case 'month':
+          start = new Date(y, m, 1); end = new Date(y, m, d + 1); break;
+        case 'lastMonth':
+          start = new Date(y, m - 1, 1); end = new Date(y, m, 1); break;
+        case 'year':
+          start = new Date(y, 0, 1); end = new Date(y, m, d + 1); break;
+        case 'allTime':
+          start = new Date(2020, 0, 1); end = new Date(y + 1, 0, 1); break;
+        case 'custom':
+          var from = document.getElementById('date-from').value;
+          var to = document.getElementById('date-to').value;
+          start = from ? new Date(from) : new Date(y, m, 1);
+          end = to ? new Date(new Date(to).getTime() + 86400000) : new Date(y, m, d + 1);
+          break;
+        default:
+          start = new Date(y, m, 1); end = new Date(y, m, d + 1);
+      }
+      return { start: start, end: end };
+    }
+
+    function inRange(dateStr, range) {
+      if (!dateStr) return false;
+      var d = new Date(dateStr);
+      return d >= range.start && d < range.end;
+    }
+
+    function donutSVG(slices, size) {
+      size = size || 140;
+      var r = size / 2 - 8, cx = size / 2, cy = size / 2;
+      var C = 2 * Math.PI * r;
+      var total = slices.reduce(function(s, sl) { return s + sl.value; }, 0);
+      if (total === 0) {
+        return '<svg width="' + size + '" height="' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#2a3a4a" stroke-width="16"/></svg>';
+      }
+      var offset = 0;
+      var paths = slices.map(function(sl) {
+        var pct = sl.value / total;
+        var dash = pct * C;
+        var gap = C - dash;
+        var html = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + sl.color + '" stroke-width="16" stroke-dasharray="' + dash.toFixed(2) + ' ' + gap.toFixed(2) + '" stroke-dashoffset="' + (-offset).toFixed(2) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"/>';
+        offset += dash;
+        return html;
+      });
+      return '<svg width="' + size + '" height="' + size + '">' + paths.join('') + '</svg>';
+    }
+
+    function renderOverview(period) {
+      var range = getDateRange(period);
+      var engs = OV_DATA.engagements;
+      var props = OV_DATA.proposals;
+
+      // Filter engagements created in range
+      var scLeads = engs.filter(function(e) { return e.type === 'sc' && inRange(e.created, range); });
+      var prLeads = engs.filter(function(e) { return e.type === 'pr' && inRange(e.created, range); });
+
+      // SC: payment links sent = quotes sent in range
+      var scQuotesSent = engs.filter(function(e) { return e.type === 'sc' && inRange(e.quoteSentAt, range); });
+      var scQuotesValue = scQuotesSent.reduce(function(s, e) { return s + e.quoteAmount; }, 0);
+
+      // PR: proposals sent in range
+      var prPropsSent = props.filter(function(p) { return inRange(p.sentAt, range); });
+      var prPropsValue = prPropsSent.reduce(function(s, p) { return s + p.basePrice; }, 0);
+
+      // Deals accepted: SC deals = SC engagements with closed status + invoiced in range
+      // Best proxy: SC engagements created in range that reached a closed/paid status
+      var scDeals = engs.filter(function(e) {
+        return e.type === 'sc' && e.totalInvoiced > 0 && (inRange(e.created, range) || inRange(e.bankPaymentDate, range));
+      });
+      // Deduplicate: prefer bank payment date match, then created match
+      var scDealsUnique = {};
+      scDeals.forEach(function(e) { scDealsUnique[e.id] = e; });
+      scDeals = Object.values(scDealsUnique);
+      var scDealsValue = scDeals.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+
+      // PR deals: proposals paid in range
+      var prDealProps = props.filter(function(p) { return p.status === 'Paid' && inRange(p.paidAt, range); });
+      var prDealsValue = prDealProps.reduce(function(s, p) { return s + p.basePrice; }, 0);
+      // Also check PR engagements with Total Invoiced and bank payment in range
+      var prBankDeals = engs.filter(function(e) {
+        return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.bankPaymentDate, range);
+      });
+      var prBankValue = prBankDeals.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
+
+      // Revenue = SC deals value + PR deals value + PR bank
+      var scRevenue = scDealsValue;
+      var prRevenue = prDealsValue + prBankValue;
+      var totalRevenue = scRevenue + prRevenue;
+
+      // Profit (only where costs exist)
+      var scProfit = 0, prProfit = 0;
+      scDeals.forEach(function(e) { if (e.totalCost > 0) scProfit += e.totalInvoiced - e.totalCost; });
+      prBankDeals.forEach(function(e) { if (e.totalCost > 0) prProfit += e.totalInvoiced - e.totalCost; });
+      // Add profit from proposal-paid engagements
+      prDealProps.forEach(function(p) {
+        var eng = engs.find(function(e) { return e.engNumber && p.projectNumber && p.projectNumber.startsWith(e.engNumber); });
+        if (eng && eng.totalCost > 0) prProfit += eng.totalInvoiced - eng.totalCost;
+      });
+
+      // SC conversion
+      var scConversion = scLeads.length > 0 ? pctOf(scDeals.length, scLeads.length) : '0.0';
+      var prConversion = prLeads.length > 0 ? pctOf(prDealProps.length + prBankDeals.length, prLeads.length) : '0.0';
+
+      // ── Render split summary ──
+      var splitEl = document.getElementById('ov-split');
+      splitEl.innerHTML =
+        '<div class="summary-card sc">' +
+          '<div class="summary-card-header"><span class="type-badge type-badge-sc">Service Calls</span></div>' +
+          '<div class="summary-card-grid">' +
+            mkMini(scLeads.length, 'Leads') +
+            mkMini(scQuotesSent.length, 'Payment Links Sent') +
+            mkMini(fmtC(scQuotesValue), 'Sent Value') +
+            mkMini(scDeals.length, 'Deals Accepted') +
+            mkMini(fmtC(scRevenue), 'Revenue') +
+            mkMini(scConversion + '%', 'Conversion Rate') +
+          '</div>' +
+        '</div>' +
+        '<div class="summary-card proj">' +
+          '<div class="summary-card-header"><span class="type-badge type-badge-proj">Projects</span></div>' +
+          '<div class="summary-card-grid">' +
+            mkMini(prLeads.length, 'Leads') +
+            mkMini(prPropsSent.length, 'Proposals Sent') +
+            mkMini(fmtC(prPropsValue), 'Proposals Value') +
+            mkMini(prDealProps.length + prBankDeals.length, 'Deals Accepted') +
+            mkMini(fmtC(prRevenue), 'Revenue') +
+            mkMini(prConversion + '%', 'Conversion Rate') +
+          '</div>' +
+        '</div>';
+
+      // ── Donut Charts ──
+      var chartsEl = document.getElementById('ov-charts');
+      var revSlices = [
+        { label: 'Service Calls', value: scRevenue, color: '#00d4ff' },
+        { label: 'Projects', value: prRevenue, color: '#ce93d8' }
+      ];
+      var profSlices = [
+        { label: 'Service Calls', value: Math.max(scProfit, 0), color: '#00d4ff' },
+        { label: 'Projects', value: Math.max(prProfit, 0), color: '#ce93d8' }
+      ];
+      chartsEl.innerHTML =
+        '<div class="card" style="text-align:center">' +
+          '<h2>Revenue Breakdown</h2>' +
+          '<div class="donut-chart">' + donutSVG(revSlices, 160) +
+            '<div class="donut-center"><span class="amount">' + fmtC(totalRevenue) + '</span><span class="label">Total</span></div>' +
+          '</div>' +
+          mkLegend(revSlices) +
+        '</div>' +
+        '<div class="card" style="text-align:center">' +
+          '<h2>Profit Breakdown</h2>' +
+          '<div class="donut-chart">' + donutSVG(profSlices, 160) +
+            '<div class="donut-center"><span class="amount">' + fmtC(scProfit + prProfit) + '</span><span class="label">Total</span></div>' +
+          '</div>' +
+          mkLegend(profSlices) +
+        '</div>';
+
+      // ── KPI Row ──
+      var kpiEl = document.getElementById('ov-kpi-row');
+      var totalLeads = scLeads.length + prLeads.length;
+      var totalDeals = scDeals.length + prDealProps.length + prBankDeals.length;
+      var avgDealSize = totalDeals > 0 ? totalRevenue / totalDeals : 0;
+      var overallConversion = totalLeads > 0 ? pctOf(totalDeals, totalLeads) : '0.0';
+      kpiEl.innerHTML =
+        mkKpi(fmtC(totalRevenue), 'Total Revenue', '#00d4ff') +
+        mkKpi(totalLeads, 'Total Leads', '#e0e6ed') +
+        mkKpi(totalDeals, 'Deals Accepted', '#66bb6a') +
+        mkKpi(overallConversion + '%', 'Conversion Rate', '#ffa726');
+
+      // ── Activity Tables (SC + PR side by side) ──
+      var actEl = document.getElementById('ov-activity');
+      actEl.innerHTML =
+        '<div class="card">' +
+          '<h2><span class="type-badge type-badge-sc" style="margin-right:8px">SC</span>Service Call Activity</h2>' +
+          mkActivityTable([
+            ['New Leads', scLeads.length],
+            ['Payment Links Sent', scQuotesSent.length],
+            ['Sent Value', fmtC(scQuotesValue)],
+            ['Deals Accepted', scDeals.length],
+            ['Revenue', fmtC(scRevenue)],
+            ['Avg Deal Size', fmtC(scDeals.length > 0 ? scRevenue / scDeals.length : 0)],
+          ]) +
+        '</div>' +
+        '<div class="card">' +
+          '<h2><span class="type-badge type-badge-proj" style="margin-right:8px">Proj</span>Project Activity</h2>' +
+          mkActivityTable([
+            ['New Leads', prLeads.length],
+            ['Proposals Sent', prPropsSent.length],
+            ['Proposals Value', fmtC(prPropsValue)],
+            ['Deals Accepted', prDealProps.length + prBankDeals.length],
+            ['Revenue', fmtC(prRevenue)],
+            ['Avg Deal Size', fmtC((prDealProps.length + prBankDeals.length) > 0 ? prRevenue / (prDealProps.length + prBankDeals.length) : 0)],
+          ]) +
+        '</div>';
+    }
+
+    function mkMini(val, label) {
+      return '<div class="mini-kpi"><span class="mini-kpi-value">' + val + '</span><span class="mini-kpi-label">' + label + '</span></div>';
+    }
+    function mkKpi(val, label, color) {
+      return '<div class="kpi-card"><span class="kpi-value" style="color:' + (color || '#00d4ff') + '">' + val + '</span><span class="kpi-label">' + label + '</span></div>';
+    }
+    function mkLegend(slices) {
+      return '<div class="donut-legend">' + slices.map(function(s) {
+        return '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:' + s.color + '"></span>' + s.label + '<span class="donut-legend-val">' + fmtC(s.value) + '</span></div>';
+      }).join('') + '</div>';
+    }
+    function mkActivityTable(rows) {
+      return '<table class="activity-table" style="margin-top:12px"><tbody>' +
+        rows.map(function(r) {
+          return '<tr><td class="row-label">' + r[0] + '</td><td style="text-align:right;font-weight:700;color:#e0e6ed;font-size:16px">' + r[1] + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+
+    // ── Period button handlers ──
+    document.querySelectorAll('.period-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var period = btn.getAttribute('data-period');
+        document.getElementById('custom-dates').style.display = period === 'custom' ? 'flex' : 'none';
+        renderOverview(period);
+      });
+    });
+    document.getElementById('date-from').addEventListener('change', function() { renderOverview('custom'); });
+    document.getElementById('date-to').addEventListener('change', function() { renderOverview('custom'); });
+
+    // Initial render
+    renderOverview('month');
 
     function openBankPaymentModal() {
       document.getElementById('bankPaymentModal').classList.add('open');
