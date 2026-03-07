@@ -11,6 +11,7 @@ function wrapInLayout(title, bodyHtml, activePage, options = {}) {
 
   const adminNavItems = [
     { id: 'dashboard', label: 'Dashboard', href: '/dashboard' },
+    { id: 'engagements', label: 'Engagements', href: '/engagements' },
     { id: 'messages', label: 'Messages', href: '/messages' },
     { id: 'estimator', label: 'Estimator', href: '/estimator' },
     { id: 'proposals', label: 'Proposals', href: '/admin/proposals' },

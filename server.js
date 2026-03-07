@@ -191,6 +191,7 @@ app.post('/api/send-sms-conversation', requireAuth, messagesController.sendSMS);
 app.post('/api/create-test-contact', requireAuth, messagesController.createTestContact);
 
 // Engagement routes
+app.get('/engagements', requireAuth, engagementsController.showList);
 app.get('/api/create-engagement', engagementsController.createEngagement);
 // Dashboard route (admin only)
 app.get('/dashboard', requireRole('admin'), dashboardController.showDashboard);
