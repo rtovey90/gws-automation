@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const pushover = require('../services/pushover.service');
 
 /**
  * Lead Management Controllers - Handle tech availability checks
@@ -179,18 +180,12 @@ exports.handleAvailabilityResponse = async (req, res) => {
     });
 
     // Notify admin
-    try {
-      const techDisplayName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
-      const leadDisplayName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ');
-
-      await twilioService.sendSMS(
-        process.env.ADMIN_PHONE,
-        `📋 ${techDisplayName} is ${response.toUpperCase() === 'YES' ? '✅ AVAILABLE' : '❌ NOT AVAILABLE'} for:\n\n${leadDisplayName} - ${lead.fields['Address/Location']}\n\nView in Airtable`,
-        { leadId, techId }
-      );
-    } catch (smsError) {
-      console.error('Error sending admin notification:', smsError);
-    }
+    const techDisplayName2 = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
+    const leadDisplayName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ');
+    pushover.notify(
+      `Tech ${response.toUpperCase() === 'YES' ? 'Available' : 'Unavailable'} — ${techDisplayName2}`,
+      `${leadDisplayName} - ${lead.fields['Address/Location']}`
+    );
 
     // Show confirmation page
     const isYes = response.toLowerCase() === 'yes';

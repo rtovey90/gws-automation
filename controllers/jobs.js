@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const pushover = require('../services/pushover.service');
 const path = require('path');
 const fs = require('fs');
 
@@ -276,15 +277,10 @@ exports.updateJob = async (req, res) => {
       });
 
       // Notify admin
-      try {
-        await twilioService.sendSMS(
-          process.env.ADMIN_PHONE,
-          `⚠️ Job ${jobId} needs follow-up:\n\n${notes}`,
-          { jobId }
-        );
-      } catch (error) {
-        console.error('Error notifying admin:', error);
-      }
+      pushover.notify(
+        'Job Needs Follow-up',
+        `Job ${jobId}\n\n${notes}`
+      );
 
       res.status(200).json({
         success: true,

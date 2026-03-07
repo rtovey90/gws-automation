@@ -494,16 +494,11 @@ exports.handleUpload = async (req, res) => {
     }
 
     // Notify admin
-    try {
-      const twilioService = require('../services/twilio.service');
-      await twilioService.sendSMS(
-        process.env.ADMIN_PHONE,
-        `📷 ${clientName} uploaded ${attachments.length} photo(s)!\n\nView in Airtable`,
-        { leadId: engagementId }
-      );
-    } catch (smsError) {
-      console.error('Error sending notification:', smsError);
-    }
+    const pushover = require('../services/pushover.service');
+    pushover.notify(
+      `Photos Uploaded — ${clientName}`,
+      `${attachments.length} photo(s) uploaded`
+    );
 
     res.status(200).json({
       success: true,

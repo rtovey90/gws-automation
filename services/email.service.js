@@ -180,17 +180,12 @@ Examples of NOT LEADS:
 
         console.log(`✓ Created new customer & engagement from email: ${customer.id} / ${engagement.id}`);
 
-        // Send notification
-        try {
-          const twilioService = require('./twilio.service');
-          await twilioService.sendSMS(
-            process.env.ADMIN_PHONE,
-            `🆕 NEW LEAD from email!\n\nName: ${leadData.name}\nEmail: ${contactEmail}\nPhone: ${phone || 'N/A'}\n\n${analysis.notes.substring(0, 150)}...\n\nView in Airtable`,
-            { leadId: engagement.id }
-          );
-        } catch (smsError) {
-          console.error('Error sending notification:', smsError);
-        }
+        // Send push notification
+        const pushover = require('./pushover.service');
+        pushover.notify(
+          'New Lead — Email',
+          `Name: ${leadData.name}\nEmail: ${contactEmail}\nPhone: ${phone || 'N/A'}\n\n${analysis.notes.substring(0, 150)}...`
+        );
       }
     }
 

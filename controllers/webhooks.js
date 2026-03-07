@@ -1,6 +1,7 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const pushover = require('../services/pushover.service');
 const cloudinary = require('cloudinary').v2;
 
 // Configure Cloudinary (same pattern as uploads.js)
@@ -247,19 +248,12 @@ exports.handleFormspree = async (req, res) => {
 
     console.log(`✓ Customer & Engagement created: ${engagement.id} - ${leadData.name}`);
 
-    // Send notification to admin
-    try {
-      const message = leadData.notes ? `\nMessage: ${leadData.notes.substring(0, 100)}${leadData.notes.length > 100 ? '...' : ''}` : '';
-
-      await twilioService.sendSMS(
-        process.env.ADMIN_PHONE,
-        `🆕 NEW LEAD from website form!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.systemType || 'Other'}${message}\n\nView in Airtable`,
-        { leadId: engagement.id } // Keep as leadId for backwards compatibility with twilioService
-      );
-    } catch (smsError) {
-      console.error('Error sending notification SMS:', smsError);
-      // Don't fail the webhook if notification fails
-    }
+    // Send push notification to admin
+    const notePreview = leadData.notes ? `\nMessage: ${leadData.notes.substring(0, 100)}${leadData.notes.length > 100 ? '...' : ''}` : '';
+    pushover.notify(
+      'New Lead — Website Form',
+      `Name: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.systemType || 'Other'}${notePreview}`
+    );
 
     res.status(200).json({ success: true, leadId: engagement.id, customerId: customer.id });
   } catch (error) {
@@ -370,9 +364,9 @@ async function handlePaymentSuccess(paymentObject, eventType) {
         }
 
         // Notify admin
-        await twilioService.sendSMS(
-          process.env.ADMIN_PHONE,
-          `💰 PROPOSAL PAID! Project #${projectNumber}\n\nCustomer: ${paymentObject.metadata.customer_name || 'Unknown'}\nAmount: $${proposalAmount}\n\nTime to order equipment!`
+        pushover.notify(
+          `Proposal Paid — #${projectNumber}`,
+          `Customer: ${paymentObject.metadata.customer_name || 'Unknown'}\nAmount: $${proposalAmount}\n\nTime to order equipment!`
         );
       } catch (err) {
         console.error('Error updating proposal after payment:', err);
@@ -409,9 +403,9 @@ async function handlePaymentSuccess(paymentObject, eventType) {
         }
 
         // Notify admin
-        await twilioService.sendSMS(
-          process.env.ADMIN_PHONE,
-          `🎉 OTO UPGRADE PURCHASED!\n\nProject #${projectNumber}\nType: ${otoType}\nAmount: $${otoAmount}`
+        pushover.notify(
+          `OTO Upgrade — #${projectNumber}`,
+          `Type: ${otoType}\nAmount: $${otoAmount}`
         );
       } catch (err) {
         console.error('Error handling OTO payment:', err);
@@ -564,19 +558,12 @@ exports.handleEmailTranscript = async (req, res) => {
         console.error('Error logging call to Messages:', logError);
       }
 
-      // Send notification to admin
-      try {
-        // Show more of the notes (250 chars instead of 150)
-        const notesPreview = leadData.notes ? `\n${leadData.notes.substring(0, 250)}${leadData.notes.length > 250 ? '...' : ''}` : '';
-
-        await twilioService.sendSMS(
-          process.env.ADMIN_PHONE,
-          `🆕 NEW LEAD from phone call!\n\nName: ${leadData.name}\nPhone: ${leadData.phone}\nLocation: ${leadData.location || 'N/A'}${notesPreview}\n\nView in Airtable`,
-          { leadId: engagement.id } // Keep as leadId for backwards compatibility with twilioService
-        );
-      } catch (smsError) {
-        console.error('Error sending notification SMS:', smsError);
-      }
+      // Send push notification to admin
+      const callNotesPreview = leadData.notes ? `\n${leadData.notes.substring(0, 250)}${leadData.notes.length > 250 ? '...' : ''}` : '';
+      pushover.notify(
+        'New Lead — Phone Call',
+        `Name: ${leadData.name}\nPhone: ${leadData.phone}\nLocation: ${leadData.location || 'N/A'}${callNotesPreview}`
+      );
 
       res.status(200).json({ success: true, leadId: engagement.id, customerId: customer.id });
     } else {
@@ -702,10 +689,9 @@ exports.handleTwilioSMS = async (req, res) => {
           }
 
           // Notify admin
-          await twilioService.sendSMS(
-            process.env.ADMIN_PHONE,
-            `📋 ${techName} replied ${bodyLower.toUpperCase()} to availability check.${engagementId ? '' : '\n\nNote: Could not find which engagement this is for — check manually.'}`,
-            { from: clientPhone }
+          pushover.notify(
+            `Tech Reply — ${techName}`,
+            `${techName} replied ${bodyLower.toUpperCase()} to availability check.${engagementId ? '' : '\n\nNote: Could not find which engagement this is for.'}`
           );
 
           // Respond to tech
@@ -897,21 +883,13 @@ exports.handleTwilioSMS = async (req, res) => {
       console.error('Error logging message:', messageError);
     }
 
-    // Send notification to admin
-    try {
-      const photoCount = cloudinaryAttachments.length || mediaUrls.length;
-      const photoText = photoCount > 0 ? `\n📷 ${photoCount} photo(s) saved to engagement` : '';
-
-      await twilioService.sendSMS(
-        process.env.ADMIN_PHONE,
-        `📨 NEW REPLY from ${customerName}:\n\n${Body || '(no text)'}${photoText}\n\nView in Airtable`,
-        { leadId: engagement ? engagement.id : null, from: clientPhone } // Keep as leadId for backwards compatibility with twilioService
-      );
-
-      console.log('✓ Admin notification sent');
-    } catch (smsError) {
-      console.error('Error sending admin notification:', smsError);
-    }
+    // Send push notification to admin
+    const photoCount = cloudinaryAttachments.length || mediaUrls.length;
+    const photoText = photoCount > 0 ? `\n${photoCount} photo(s) saved` : '';
+    pushover.notify(
+      `Reply — ${customerName}`,
+      `${Body || '(no text)'}${photoText}`
+    );
 
     // Respond to Twilio with empty TwiML (required)
     res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
