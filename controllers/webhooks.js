@@ -772,9 +772,11 @@ exports.handleTwilioSMS = async (req, res) => {
         console.error('Error logging message:', messageError);
       }
 
-      // Unknown number - message is already logged to Messages table
-      // User will see it in Messages inbox even without a customer match
-      console.log('✓ Message from unknown number logged - visible in Messages inbox');
+      // Notify admin of unknown number message
+      pushover.notify(
+        `SMS — Unknown Number`,
+        `From: ${clientPhone}\n\n${Body || '(media only)'}`
+      );
 
       // Respond to Twilio (required to prevent retries)
       return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
