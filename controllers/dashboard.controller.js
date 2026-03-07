@@ -1963,7 +1963,7 @@ exports.showDashboard = async (req, res) => {
       return '<div class="funnel">' +
         '<div class="funnel-stages">' +
           '<div class="funnel-stage">' +
-            '<span class="funnel-stage-count funnel-clickable" style="color:#e0e6ed" onclick="var el=document.getElementById(\'' + id1 + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">' + leads + '</span>' +
+            '<span class="funnel-stage-count funnel-clickable" style="color:#e0e6ed" data-toggle="' + id1 + '">' + leads + '</span>' +
             '<span class="funnel-stage-label">Leads In</span>' +
             '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:100%;background:' + accent + ';opacity:0.35"></div></div>' +
           '</div>' +
@@ -1972,7 +1972,7 @@ exports.showDashboard = async (req, res) => {
             '<span class="funnel-arrow-icon">&#10132;</span>' +
           '</div>' +
           '<div class="funnel-stage">' +
-            '<span class="funnel-stage-count funnel-clickable" style="color:' + accent + '" onclick="var el=document.getElementById(\'' + id2 + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">' + sent + '</span>' +
+            '<span class="funnel-stage-count funnel-clickable" style="color:' + accent + '" data-toggle="' + id2 + '">' + sent + '</span>' +
             '<span class="funnel-stage-label">' + sentLabel + '</span>' +
             (sentValue > 0 ? '<span class="funnel-stage-sub">' + fmtC(sentValue) + ' value</span>' : '') +
             '<div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:' + sentBarW + '%;background:' + accent + ';opacity:0.55"></div></div>' +
@@ -2119,6 +2119,14 @@ exports.showDashboard = async (req, res) => {
         contentEl.innerHTML = renderAllView(d);
       }
     }
+
+    document.addEventListener('click', function(ev) {
+      var tgt = ev.target.closest('[data-toggle]');
+      if (tgt) {
+        var el = document.getElementById(tgt.dataset.toggle);
+        if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      }
+    });
 
     function mkMini(val, label) {
       return '<div class="mini-kpi"><span class="mini-kpi-value">' + val + '</span><span class="mini-kpi-label">' + label + '</span></div>';
