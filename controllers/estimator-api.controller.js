@@ -398,7 +398,12 @@ exports.listEngagements = async (req, res) => {
           status: f.Status || '',
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => {
+        const numA = parseInt((a.name.match(/PR-(\d+)/) || [])[1]) || 0;
+        const numB = parseInt((b.name.match(/PR-(\d+)/) || [])[1]) || 0;
+        return numB - numA;
+      });
 
     res.json(list);
   } catch (error) {
