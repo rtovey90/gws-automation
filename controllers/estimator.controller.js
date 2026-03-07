@@ -289,24 +289,38 @@ const engagementPickerHTML = `
               <span id="actuals-status" style="color:#34c759; font-weight:600; font-size:13px;"></span>
             </div>
           </div>
-          <div id="comparison-panel" style="display:none; margin-top:15px; padding:15px; background:#0f1419; border:1px solid #2a3a4a; border-radius:8px;">
-            <label style="display:block; font-weight:700; margin-bottom:10px; font-size:13px; color:#00d4ff; text-transform:uppercase; letter-spacing:0.5px;">Estimated vs Actual</label>
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-              <thead><tr style="border-bottom:1px solid #2a3a4a;">
-                <th style="text-align:left; padding:6px 8px; color:#8899aa;">Category</th>
-                <th style="text-align:right; padding:6px 8px; color:#8899aa;">Estimated</th>
-                <th style="text-align:right; padding:6px 8px; color:#8899aa;">Actual</th>
-                <th style="text-align:right; padding:6px 8px; color:#8899aa;">Variance</th>
-              </tr></thead>
-              <tbody id="comparison-body"></tbody>
-            </table>
-            <div id="comparison-summary" style="margin-top:12px; padding-top:12px; border-top:1px solid #2a3a4a; display:flex; gap:20px; flex-wrap:wrap;"></div>
-          </div>
           <div id="supplier-docs-panel" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #2a3a4a;">
-            <label style="display:block; font-weight:700; margin-bottom:8px; font-size:13px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px;">Supplier Documents</label>
-            <div id="supplier-docs-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            <div id="supplier-quotes-section" style="display:none; margin-bottom:12px;">
+              <label style="display:block; font-weight:700; margin-bottom:8px; font-size:13px; color:#00d4ff; text-transform:uppercase; letter-spacing:0.5px;">Supplier Quotes</label>
+              <div id="supplier-quotes-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
+            <div id="supplier-invoices-section" style="display:none;">
+              <label style="display:block; font-weight:700; margin-bottom:8px; font-size:13px; color:#ff6b6b; text-transform:uppercase; letter-spacing:0.5px;">Supplier Invoices</label>
+              <div id="supplier-invoices-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
           </div>
         </div>
+`;
+
+const comparisonBarHTML = `
+  <div id="comparison-bar" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#0a0e1a; border-top:2px solid #00d4ff; padding:12px 24px; z-index:1000; box-shadow:0 -4px 20px rgba(0,0,0,0.5);">
+    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+      <div style="font-weight:700; color:#00d4ff; font-size:13px; text-transform:uppercase; letter-spacing:0.5px;">Actuals</div>
+      <div id="comp-stats" style="display:flex; gap:20px; flex:1; flex-wrap:wrap;"></div>
+      <button onclick="document.getElementById('comparison-detail').style.display=document.getElementById('comparison-detail').style.display==='none'?'block':'none'" style="background:#1a2332; border:1px solid #2a3a4a; color:#8899aa; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px;">Details</button>
+    </div>
+    <div id="comparison-detail" style="display:none; max-width:1200px; margin:12px auto 0; padding-top:12px; border-top:1px solid #2a3a4a;">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead><tr style="border-bottom:1px solid #2a3a4a;">
+          <th style="text-align:left; padding:6px 8px; color:#8899aa;">Category</th>
+          <th style="text-align:right; padding:6px 8px; color:#8899aa;">Estimated</th>
+          <th style="text-align:right; padding:6px 8px; color:#8899aa;">Actual</th>
+          <th style="text-align:right; padding:6px 8px; color:#8899aa;">Variance</th>
+        </tr></thead>
+        <tbody id="comparison-body"></tbody>
+      </table>
+    </div>
+  </div>
 `;
 
 // Extra JS to inject for engagement save/load
@@ -491,7 +505,8 @@ const engagementJS = `
         loadActualsFromEngagement(engagementId);
       } else {
         // Switch back to estimate - restore saved estimate
-        document.getElementById('comparison-panel').style.display = 'none';
+        var compBar = document.getElementById('comparison-bar');
+        if (compBar) compBar.style.display = 'none';
         if (estimateSnapshot) {
           tabs = JSON.parse(JSON.stringify(estimateSnapshot));
           if (activeTabId && tabs[activeTabId]) loadTabState(activeTabId);
@@ -552,12 +567,12 @@ const engagementJS = `
     }
 
     function updateComparison(financialData) {
-      const panel = document.getElementById('comparison-panel');
+      const bar = document.getElementById('comparison-bar');
       const tbody = document.getElementById('comparison-body');
-      const summary = document.getElementById('comparison-summary');
+      const stats = document.getElementById('comp-stats');
 
-      if (!estimateSnapshot) { panel.style.display = 'none'; return; }
-      panel.style.display = 'block';
+      if (!estimateSnapshot) { if (bar) bar.style.display = 'none'; return; }
+      if (bar) bar.style.display = 'block';
 
       // Calculate estimated costs per category from snapshot
       const estimated = { parts: 0, labour: 0, cable: 0, misc: 0 };
@@ -582,41 +597,53 @@ const engagementJS = `
       const labels = { parts: 'Parts', labour: 'Labour', cable: 'Cable', misc: 'Misc' };
       let totalEst = 0, totalAct = 0;
 
-      tbody.innerHTML = ['parts', 'labour', 'cable', 'misc'].map(cat => {
-        const est = estimated[cat];
-        const act = actual[cat];
-        totalEst += est;
-        totalAct += act;
-        const diff = act - est;
-        const pct = est > 0 ? ((diff / est) * 100).toFixed(1) : '0.0';
-        const color = diff > 0 ? '#ff6b6b' : diff < 0 ? '#34c759' : '#8899aa';
-        const sign = diff > 0 ? '+' : '';
-        return '<tr style="border-bottom:1px solid #1a2332;">' +
-          '<td style="padding:6px 8px;color:#e0e6ed;">' + labels[cat] + '</td>' +
-          '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + est.toFixed(2) + '</td>' +
-          '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + act.toFixed(2) + '</td>' +
-          '<td style="padding:6px 8px;text-align:right;color:' + color + ';">' + sign + '$' + diff.toFixed(2) + ' (' + sign + pct + '%)</td>' +
+      if (tbody) {
+        tbody.innerHTML = ['parts', 'labour', 'cable', 'misc'].map(cat => {
+          const est = estimated[cat];
+          const act = actual[cat];
+          totalEst += est;
+          totalAct += act;
+          const diff = act - est;
+          const pct = est > 0 ? ((diff / est) * 100).toFixed(1) : '0.0';
+          const color = diff > 0 ? '#ff6b6b' : diff < 0 ? '#34c759' : '#8899aa';
+          const sign = diff > 0 ? '+' : '';
+          return '<tr style="border-bottom:1px solid #1a2332;">' +
+            '<td style="padding:6px 8px;color:#e0e6ed;">' + labels[cat] + '</td>' +
+            '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + est.toFixed(2) + '</td>' +
+            '<td style="padding:6px 8px;text-align:right;color:#e0e6ed;">$' + act.toFixed(2) + '</td>' +
+            '<td style="padding:6px 8px;text-align:right;color:' + color + ';">' + sign + '$' + diff.toFixed(2) + ' (' + sign + pct + '%)</td>' +
+            '</tr>';
+        }).join('') +
+          '<tr style="border-top:2px solid #00d4ff;font-weight:700;">' +
+          '<td style="padding:8px;color:#00d4ff;">TOTAL</td>' +
+          '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalEst.toFixed(2) + '</td>' +
+          '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalAct.toFixed(2) + '</td>' +
+          '<td style="padding:8px;text-align:right;color:' + (totalAct > totalEst ? '#ff6b6b' : '#34c759') + ';">' + (totalAct > totalEst ? '+' : '') + '$' + (totalAct - totalEst).toFixed(2) + '</td>' +
           '</tr>';
-      }).join('') +
-        '<tr style="border-top:2px solid #00d4ff;font-weight:700;">' +
-        '<td style="padding:8px;color:#00d4ff;">TOTAL</td>' +
-        '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalEst.toFixed(2) + '</td>' +
-        '<td style="padding:8px;text-align:right;color:#e0e6ed;">$' + totalAct.toFixed(2) + '</td>' +
-        '<td style="padding:8px;text-align:right;color:' + (totalAct > totalEst ? '#ff6b6b' : '#34c759') + ';">' + (totalAct > totalEst ? '+' : '') + '$' + (totalAct - totalEst).toFixed(2) + '</td>' +
-        '</tr>';
+      } else {
+        ['parts', 'labour', 'cable', 'misc'].forEach(cat => { totalEst += estimated[cat]; totalAct += actual[cat]; });
+      }
 
-      // Financial summary
+      // Financial summary in sticky bar
       const invoiced = financialData.totalInvoiced || 0;
       const quoted = financialData.quoteAmount || 0;
       const profit = invoiced - totalAct;
       const margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
+      const variance = totalAct - totalEst;
+      const varColor = variance > 0 ? '#ff6b6b' : '#34c759';
 
-      summary.innerHTML =
-        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Quoted</div><div style="color:#e0e6ed;font-size:18px;font-weight:700;">$' + quoted.toLocaleString() + '</div></div>' +
-        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Invoiced</div><div style="color:#00d4ff;font-size:18px;font-weight:700;">$' + invoiced.toLocaleString() + '</div></div>' +
-        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Actual Cost</div><div style="color:#e0e6ed;font-size:18px;font-weight:700;">$' + totalAct.toFixed(0) + '</div></div>' +
-        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Profit</div><div style="color:' + (profit >= 0 ? '#34c759' : '#ff6b6b') + ';font-size:18px;font-weight:700;">$' + profit.toFixed(0) + '</div></div>' +
-        '<div style="text-align:center;"><div style="color:#8899aa;font-size:11px;text-transform:uppercase;">Margin</div><div style="color:' + (parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b') + ';font-size:18px;font-weight:700;">' + margin + '%</div></div>';
+      if (stats) {
+        const stat = (label, val, color) => '<div><span style="color:#5a6a7a;font-size:10px;text-transform:uppercase;display:block;">' + label + '</span><span style="color:' + (color || '#e0e6ed') + ';font-size:16px;font-weight:700;">' + val + '</span></div>';
+        stats.innerHTML =
+          stat('Estimated', '$' + totalEst.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          stat('Actual', '$' + totalAct.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          stat('Variance', (variance >= 0 ? '+' : '') + '$' + variance.toFixed(0), varColor) +
+          '<div style="width:1px;background:#2a3a4a;align-self:stretch;"></div>' +
+          stat('Quoted', '$' + quoted.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          stat('Invoiced', '$' + invoiced.toLocaleString(undefined, {maximumFractionDigits:0}), '#00d4ff') +
+          stat('Profit', '$' + profit.toFixed(0), profit >= 0 ? '#34c759' : '#ff6b6b') +
+          stat('Margin', margin + '%', parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b');
+      }
     }
 
     async function saveActualsToEngagement() {
@@ -676,8 +703,7 @@ const engagementJS = `
 
     async function loadSupplierDocs(engagementId) {
       const panel = document.getElementById('supplier-docs-panel');
-      const list = document.getElementById('supplier-docs-list');
-      if (!panel || !list) return;
+      if (!panel) return;
 
       try {
         const response = await fetch('/api/estimator/supplier-docs/' + engagementId);
@@ -687,18 +713,40 @@ const engagementJS = `
         if (docs.length === 0) { panel.style.display = 'none'; return; }
 
         panel.style.display = 'block';
-        list.innerHTML = docs.map((doc, idx) => {
+
+        const quotes = docs.map((d, i) => ({...d, _idx: i})).filter(d => d.mode !== 'actuals');
+        const invoices = docs.map((d, i) => ({...d, _idx: i})).filter(d => d.mode === 'actuals');
+
+        function renderDocRow(doc) {
           const date = new Date(doc.parsedAt).toLocaleDateString('en-AU', { day:'numeric', month:'short' });
-          const type = doc.mode === 'actuals' ? '<span style="color:#ff6b6b;font-size:11px;margin-left:6px;">ACTUAL</span>' : '';
           return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;font-size:13px;">' +
             '<a href="' + doc.cloudinaryUrl + '" target="_blank" style="display:flex;align-items:center;gap:8px;flex:1;color:#e0e6ed;text-decoration:none;overflow:hidden;">' +
-            '<span style="color:#ff6b6b;">PDF</span>' +
-            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (doc.supplier || doc.filename) + type + '</span>' +
+            '<span style="color:#00d4ff;">PDF</span>' +
+            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (doc.supplier || doc.filename) + '</span>' +
             '<span style="color:#8899aa;font-size:11px;">' + date + '</span>' +
             '</a>' +
-            '<button onclick="deleteSupplierDoc(' + idx + ')" style="background:none;border:none;color:#5a6a7a;cursor:pointer;font-size:16px;padding:2px 6px;line-height:1;" title="Remove">&times;</button>' +
+            '<button onclick="deleteSupplierDoc(' + doc._idx + ')" style="background:none;border:none;color:#5a6a7a;cursor:pointer;font-size:16px;padding:2px 6px;line-height:1;" title="Remove">&times;</button>' +
             '</div>';
-        }).join('');
+        }
+
+        var quotesSection = document.getElementById('supplier-quotes-section');
+        var quotesListEl = document.getElementById('supplier-quotes-list');
+        var invoicesSection = document.getElementById('supplier-invoices-section');
+        var invoicesListEl = document.getElementById('supplier-invoices-list');
+
+        if (quotes.length > 0) {
+          quotesSection.style.display = 'block';
+          quotesListEl.innerHTML = quotes.map(renderDocRow).join('');
+        } else {
+          quotesSection.style.display = 'none';
+        }
+
+        if (invoices.length > 0) {
+          invoicesSection.style.display = 'block';
+          invoicesListEl.innerHTML = invoices.map(renderDocRow).join('');
+        } else {
+          invoicesSection.style.display = 'none';
+        }
       } catch (e) {
         panel.style.display = 'none';
       }
@@ -744,6 +792,9 @@ exports.showEstimator = (req, res) => {
     '<!-- Client Information -->',
     '<!-- Engagement Picker -->\n' + engagementPickerHTML + '\n        <!-- Client Information -->'
   );
+
+  // Inject comparison bar before end of body content
+  bodyContent += comparisonBarHTML;
 
   // Inject engagement JS before the closing </script> tag
   // Use a function replacer to avoid $' special replacement pattern issues
