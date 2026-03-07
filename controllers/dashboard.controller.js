@@ -2152,7 +2152,7 @@ exports.showDashboard = async (req, res) => {
                 html += '<div id="mr-' + idx + '" style="background:#0f1419;border:1px solid #1e2a3a;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
                   '<div style="min-width:180px"><strong style="color:#e0e6ed">$' + (d.amount || 0).toFixed(2) + '</strong> <span style="color:#8899aa">' + (d.customer || 'Unknown') + '</span></div>' +
                   '<select id="mr-sel-' + idx + '" style="flex:1;min-width:200px;background:#1a2332;border:1px solid #2a3a4a;border-radius:4px;color:#e0e6ed;padding:5px 8px;font-size:12px">' + optHtml + '</select>' +
-                  '<button onclick="manualReconcile(' + idx + ',\'' + d.charge + '\')" style="background:#34c759;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">Link</button>' +
+                  '<button data-charge="' + d.charge + '" onclick="manualReconcile(' + idx + ',this.dataset.charge)" style="background:#34c759;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">Link</button>' +
                   '<button onclick="skipReconcile(' + idx + ')" style="background:transparent;color:#556677;border:1px solid #2a3a4a;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px">Skip</button>' +
                 '</div>';
               });
