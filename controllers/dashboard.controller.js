@@ -1160,6 +1160,7 @@ exports.showDashboard = async (req, res) => {
         return {
           id: p.id,
           projectNumber: f['Project Number'] || '',
+          clientName: f['Client Name'] || '',
           status: f.Status || 'Draft',
           sentAt: f['Sent At'] || null,
           paidAt: f['Paid At'] || null,
@@ -2029,8 +2030,9 @@ exports.showDashboard = async (req, res) => {
       var propFmt = !issc ? function(p) {
         var d = p.sentAt ? new Date(p.sentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
         return '<div class="funnel-detail-row">' +
-          '<span>' + p.projectNumber + '</span>' +
-          '<span style="flex:1;margin:0 8px">' + fmtC(p.basePrice) + '</span>' +
+          '<span style="min-width:65px;font-weight:600;color:#ce93d8">' + p.projectNumber + '</span>' +
+          '<span style="min-width:120px">' + (p.clientName || '') + '</span>' +
+          '<span style="flex:1;color:#5a6a7a;font-size:11px">' + fmtC(p.basePrice) + '</span>' +
           '<span style="color:#5a6a7a;font-size:11px">' + p.status + '</span>' +
           '<span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span>' +
         '</div>';
@@ -2083,7 +2085,7 @@ exports.showDashboard = async (req, res) => {
       var mixedFmt = function(item) {
         if (item.projectNumber) {
           var d = item.sentAt ? new Date(item.sentAt).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
-          return '<div class="funnel-detail-row"><span>' + item.projectNumber + '</span><span style="flex:1;margin:0 8px">' + fmtC(item.basePrice) + ' (proposal)</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span></div>';
+          return '<div class="funnel-detail-row"><span style="min-width:65px;font-weight:600;color:#ce93d8">' + item.projectNumber + '</span><span style="min-width:120px">' + (item.clientName || '') + '</span><span style="flex:1;color:#5a6a7a;font-size:11px">' + fmtC(item.basePrice) + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d + '</span></div>';
         }
         var d2 = item.created ? new Date(item.created).toLocaleDateString('en-AU', {day:'numeric',month:'short'}) : '';
         return '<a href="/engagement/' + item.id + '" class="funnel-detail-row"><span>' + (item.engNumber || '—') + '</span><span style="flex:1;margin:0 8px">' + item.name + '</span><span style="color:#5a6a7a;font-size:11px">' + (item.source || '') + '</span><span style="color:#5a6a7a;font-size:11px;min-width:50px;text-align:right">' + d2 + '</span></a>';
