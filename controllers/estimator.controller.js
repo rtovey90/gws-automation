@@ -314,6 +314,17 @@ const comparisonPanelHTML = `
         <label style="display:block; font-size:11px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Compare against</label>
         <select id="compare-tab-select" onchange="updateComparison(window._lastFinancialData || {})" style="width:100%; padding:8px 12px; background:#1a2332; border:1px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:13px;"></select>
       </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block; font-size:11px; color:#8899aa; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Total Invoiced (override)</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <div style="position:relative; flex:1;">
+            <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#5a6a7a; font-size:14px;">$</span>
+            <input type="number" id="invoiced-override" placeholder="0.00" step="0.01" min="0" style="width:100%; padding:8px 12px 8px 24px; background:#1a2332; border:1px solid #2a3a4a; border-radius:6px; color:#e0e6ed; font-size:14px; font-weight:600;" oninput="recalcFromInvoiced()">
+          </div>
+          <button onclick="saveInvoicedOverride()" style="padding:8px 14px; background:#00d4ff; color:#0a0e27; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;">Save</button>
+        </div>
+        <div id="invoiced-save-status" style="font-size:11px; margin-top:4px; min-height:14px;"></div>
+      </div>
       <div id="comp-summary-cards" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;"></div>
       <table style="width:100%; border-collapse:collapse; font-size:12px;">
         <thead><tr style="border-bottom:1px solid #2a3a4a;">
@@ -529,6 +540,10 @@ const engagementJS = `
       statusEl.textContent = 'Loading actuals...';
       statusEl.style.color = '#ffd93d';
 
+      // Reset invoiced input so it repopulates from fresh data
+      var invoicedInput = document.getElementById('invoiced-override');
+      if (invoicedInput) invoicedInput.value = '';
+
       try {
         const response = await fetch('/api/estimator/load-actuals/' + engagementId);
         if (!response.ok) throw new Error('Failed to load actuals');
@@ -652,8 +667,17 @@ const engagementJS = `
           '</tr>';
       }
 
-      // Summary cards
+      // Summary cards — use override input if user has typed a value, else financialData
+      var invoicedInput = document.getElementById('invoiced-override');
       var invoiced = financialData.totalInvoiced || 0;
+      if (invoicedInput) {
+        if (invoicedInput.value === '' && invoiced > 0) {
+          invoicedInput.value = invoiced;
+        }
+        if (invoicedInput.value !== '') {
+          invoiced = parseFloat(invoicedInput.value) || 0;
+        }
+      }
       var quoted = financialData.quoteAmount || 0;
       var profit = invoiced - totalAct;
       var margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
@@ -674,6 +698,39 @@ const engagementJS = `
           card('Profit', '$' + profit.toFixed(0), profit >= 0 ? '#34c759' : '#ff6b6b') +
           card('Margin', margin + '%', parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b') +
           card('Cost vs Quote', totalEst > 0 ? ((totalAct / totalEst) * 100).toFixed(0) + '%' : '--', totalAct > totalEst ? '#ff6b6b' : '#34c759');
+      }
+    }
+
+    function recalcFromInvoiced() {
+      updateComparison(window._lastFinancialData || {});
+    }
+
+    async function saveInvoicedOverride() {
+      var engagementId = document.getElementById('engagement-select').value;
+      if (!engagementId) { alert('Please select an engagement first'); return; }
+      var val = parseFloat(document.getElementById('invoiced-override').value);
+      if (isNaN(val) || val < 0) { alert('Enter a valid amount'); return; }
+
+      var statusEl = document.getElementById('invoiced-save-status');
+      statusEl.textContent = 'Saving...';
+      statusEl.style.color = '#ffd93d';
+
+      try {
+        var response = await fetch('/api/estimator/save-invoiced', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ engagementId: engagementId, totalInvoiced: val })
+        });
+        if (!response.ok) throw new Error((await response.json()).error || 'Save failed');
+        window._lastFinancialData = window._lastFinancialData || {};
+        window._lastFinancialData.totalInvoiced = val;
+        updateComparison(window._lastFinancialData);
+        statusEl.textContent = 'Saved';
+        statusEl.style.color = '#34c759';
+        setTimeout(function() { statusEl.textContent = ''; }, 3000);
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = '#ff6b6b';
       }
     }
 

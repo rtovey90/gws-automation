@@ -597,6 +597,25 @@ exports.saveActuals = async (req, res) => {
   }
 };
 
+// POST /api/estimator/save-invoiced — manually set Total Invoiced on engagement
+exports.saveInvoiced = async (req, res) => {
+  try {
+    const { engagementId, totalInvoiced } = req.body;
+    if (!engagementId) return res.status(400).json({ error: 'Missing engagementId' });
+
+    const val = parseFloat(totalInvoiced);
+    if (isNaN(val) || val < 0) return res.status(400).json({ error: 'Invalid amount' });
+
+    await airtableService.updateEngagement(engagementId, { 'Total Invoiced': val });
+    airtableService.logActivity(engagementId, `Total Invoiced manually set to $${val.toFixed(2)}`);
+
+    res.json({ success: true, totalInvoiced: val });
+  } catch (error) {
+    console.error('Save Invoiced Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // GET /api/estimator/load-actuals/:engagementId — load actuals data
 exports.loadActuals = async (req, res) => {
   try {
