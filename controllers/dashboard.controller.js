@@ -186,9 +186,8 @@ exports.showDashboard = async (req, res) => {
       const created = new Date(e._rawJson?.createdTime || Date.now());
       const quoteAmount = parseFloat(f['Quote Amount']) || 0;
       const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
-      const dealAmount = totalInvoiced > 0 ? totalInvoiced
-        : (parseFloat(f['Service Call Amount']) || 0) + (parseFloat(f['Project Value']) || 0);
 
+      // Leads counted by creation date
       const periods = [];
       if (created >= startOfDay) periods.push('today');
       if (created >= startOfWeek) periods.push('week');
@@ -197,13 +196,19 @@ exports.showDashboard = async (req, res) => {
 
       periods.forEach(p => {
         salesActivity.leads[p]++;
-
-        // Closed deal
-        if (closedStatuses.includes(f.Status)) {
-          salesActivity.dealsClosed[p]++;
-          salesActivity.dealsValue[p] += dealAmount;
-        }
       });
+
+      // Deals counted by payment date
+      if (totalInvoiced > 0) {
+        const payDate = f['Payment Date'] || f['Bank Payment Date'];
+        if (payDate) {
+          const pd = new Date(payDate);
+          if (pd >= startOfDay) { salesActivity.dealsClosed.today++; salesActivity.dealsValue.today += totalInvoiced; }
+          if (pd >= startOfWeek) { salesActivity.dealsClosed.week++; salesActivity.dealsValue.week += totalInvoiced; }
+          if (pd >= startOfMonth) { salesActivity.dealsClosed.month++; salesActivity.dealsValue.month += totalInvoiced; }
+          if (pd >= startOfYear) { salesActivity.dealsClosed.year++; salesActivity.dealsValue.year += totalInvoiced; }
+        }
+      }
 
       // Count quotes by actual send date (Quote Sent At field)
       const quoteSentAt = f['Quote Sent At'];
@@ -247,19 +252,28 @@ exports.showDashboard = async (req, res) => {
         const dealAmount = totalInvoiced > 0 ? totalInvoiced
           : (parseFloat(f['Service Call Amount']) || 0) + (parseFloat(f['Project Value']) || 0);
 
-        const periods = [];
-        if (created >= startOfDay) periods.push('today');
-        if (created >= startOfWeek) periods.push('week');
-        if (created >= startOfMonth) periods.push('month');
-        if (created >= startOfYear) periods.push('year');
+        // Leads counted by creation date
+        const leadPeriods = [];
+        if (created >= startOfDay) leadPeriods.push('today');
+        if (created >= startOfWeek) leadPeriods.push('week');
+        if (created >= startOfMonth) leadPeriods.push('month');
+        if (created >= startOfYear) leadPeriods.push('year');
 
-        periods.forEach(p => {
+        leadPeriods.forEach(p => {
           tracker.leads[p]++;
-          if (closedStatuses.includes(f.Status)) {
-            tracker.dealsClosed[p]++;
-            tracker.dealsValue[p] += dealAmount;
-          }
         });
+
+        // Deals counted by payment date (when money actually came in)
+        if (totalInvoiced > 0) {
+          const payDate = f['Payment Date'] || f['Bank Payment Date'];
+          if (payDate) {
+            const pd = new Date(payDate);
+            if (pd >= startOfDay) { tracker.dealsClosed.today++; tracker.dealsValue.today += totalInvoiced; }
+            if (pd >= startOfWeek) { tracker.dealsClosed.week++; tracker.dealsValue.week += totalInvoiced; }
+            if (pd >= startOfMonth) { tracker.dealsClosed.month++; tracker.dealsValue.month += totalInvoiced; }
+            if (pd >= startOfYear) { tracker.dealsClosed.year++; tracker.dealsValue.year += totalInvoiced; }
+          }
+        }
 
         const quoteSentAt = f['Quote Sent At'];
         if (quoteSentAt) {
