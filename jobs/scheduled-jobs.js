@@ -152,7 +152,9 @@ function startScheduleReminderJob() {
           const clientPhone = customer.fields['Mobile Phone'] || customer.fields.Phone || '';
           const scheduleLink = `${process.env.BASE_URL}/s/${record.id}`;
 
-          const message = `Hey ${techFirstName}, just checking in — we haven't seen the schedule updated yet for ${clientFirstName}.\n\nCan you give them a call today to lock in a time?\n\n${clientFirstName}: ${clientPhone}\nUpdate schedule: ${scheduleLink}\n\nCheers,\nRicky (Great White Security)`;
+          const engNumber = record.fields['Engagement Number'] || '';
+          const refLine = engNumber ? `(${engNumber}) ` : '';
+          const message = `Hey ${techFirstName}, just checking in — we haven't seen the schedule updated yet for ${refLine}${clientFirstName}.\n\nCan you give them a call today to lock in a time?\n\n${clientFirstName}: ${clientPhone}\nUpdate schedule: ${scheduleLink}\n\nCheers,\nRicky (Great White Security)`;
 
           // Send SMS to tech
           await twilioService.sendSMS(

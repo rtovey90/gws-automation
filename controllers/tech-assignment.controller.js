@@ -75,10 +75,12 @@ exports.showAssignmentForm = async (req, res) => {
 
     // Message templates
     const calendarLink = `${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/s/${engagementId}`;
+    const engNumber = lead.fields['Engagement Number'] || '';
+    const refLine = engNumber ? `Ref: ${engNumber}\n\n` : '';
 
     const defaultMessage = `Hey [TECH_NAME],
 
-Here are the details for the confirmed booking:
+${refLine}Here are the details for the confirmed booking:
 
 Client: ${clientFirstName}
 Phone: ${clientPhone}
@@ -102,7 +104,7 @@ Ricky (Great White Security)`;
 
     const emergencyMessage = `Hey [TECH_NAME],
 
-Here are the details for the confirmed service call (today):
+${refLine}Here are the details for the confirmed service call (today):
 
 Client: ${clientFirstName}
 Phone: ${clientPhone}

@@ -50,6 +50,7 @@ exports.showScheduleForm = async (req, res) => {
     const clientName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'Client';
     const clientAddress = (customer && customer.fields.Address) || lead.fields['Address (from Customer)'] || '';
     const scope = lead.fields['Job Scope'] || lead.fields['Client intake info'] || '';
+    const engNumber = lead.fields['Engagement Number'] || '';
 
     res.send(`
       <!DOCTYPE html>
@@ -184,6 +185,7 @@ exports.showScheduleForm = async (req, res) => {
           <div class="card-header">
             <img src="/gws-logo.webp" alt="Great White Security">
             <h1>Schedule Job</h1>
+            ${engNumber ? `<p style="font-size:16px;color:#78e4ff;font-weight:700;margin-bottom:4px;">${engNumber}</p>` : ''}
             <p>Great White Security</p>
           </div>
           <div class="card-body">
@@ -376,9 +378,11 @@ exports.scheduleJob = async (req, res) => {
 
       if (techPhone) {
         // Send SMS to tech with completion link
+        const schedEngNumber = engagement.fields['Engagement Number'] || '';
+        const schedRefLine = schedEngNumber ? `(${schedEngNumber}) ` : '';
         const message = `Hey ${techFirstName},
 
-Thanks for scheduling the job with ${clientFirstName}.
+Thanks for scheduling the job ${schedRefLine}with ${clientFirstName}.
 
 Please fill out the completion form BEFORE leaving the site:
 

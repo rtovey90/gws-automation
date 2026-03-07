@@ -76,9 +76,11 @@ exports.checkTechAvailability = async (req, res) => {
           ? jobDescription.substring(0, 200) + '...'
           : jobDescription;
 
+        const engNumber = lead.fields['Engagement Number'] || '';
+        const refLine = engNumber ? `Ref: ${engNumber}\n\n` : '';
         const message = `Hey ${techName}, got a service call this week if you're available!
 
-Location: ${lead.fields['Address/Location'] || 'TBD'}
+${refLine}Location: ${lead.fields['Address/Location'] || 'TBD'}
 Service: ${lead.fields['Lead Type'] || 'Security work'}
 
 Scope:
