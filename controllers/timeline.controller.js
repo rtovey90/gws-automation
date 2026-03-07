@@ -65,13 +65,15 @@ exports.showTimeline = async (req, res) => {
 
     // Tech data
     const assignedTechIds = f['Assigned Tech Name'] || [];
-    const assignedTechId = assignedTechIds[0] || '';
-    const assignedTech = assignedTechId ? allTechs.find(t => t.id === assignedTechId) : null;
-    const assignedTechName = assignedTech ? [assignedTech.fields['First Name'], assignedTech.fields['Last Name']].filter(Boolean).join(' ') : '';
-    const techOptions = allTechs.map(t => {
+    const assignedTechNames = assignedTechIds.map(tid => {
+      const t = allTechs.find(x => x.id === tid);
+      return t ? [t.fields['First Name'], t.fields['Last Name']].filter(Boolean).join(' ') : '';
+    }).filter(Boolean);
+    const assignedTechName = assignedTechNames.join(', ');
+    const techCheckboxes = allTechs.map(t => {
       const tName = [t.fields['First Name'], t.fields['Last Name']].filter(Boolean).join(' ') || 'Unknown';
-      const selected = t.id === assignedTechId ? ' selected' : '';
-      return `<option value="${t.id}"${selected}>${tName}</option>`;
+      const checked = assignedTechIds.includes(t.id) ? ' checked' : '';
+      return `<label style="display:flex;align-items:center;gap:6px;padding:4px 0;color:#e0e6ed;font-size:13px;cursor:pointer"><input type="checkbox" class="cf-tech-cb" value="${t.id}"${checked} style="accent-color:#00d4ff">${tName}</label>`;
     }).join('');
 
     // Filter messages for this engagement
@@ -328,7 +330,7 @@ exports.showTimeline = async (req, res) => {
         </div>
         <div id="cost-form" style="display:none">
           <div class="cost-grid">
-            <div class="cost-field"><label>Tech / Subcontractor</label><select id="cf-tech" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:14px"><option value="">-- Select tech --</option>${techOptions}</select></div>
+            <div class="cost-field" style="grid-column:1/-1"><label>Techs on Job</label><div style="display:flex;flex-wrap:wrap;gap:4px 16px">${techCheckboxes}</div></div>
             <div class="cost-field"><label>Quote Amount</label><input type="number" id="cf-quote" step="0.01" min="0" value="${quoteAmount || ''}" placeholder="0.00" oninput="calcProfit()"></div>
             <div class="cost-field"><label>Subcontractor / Labour</label><input type="number" id="cf-labor" step="0.01" min="0" value="${laborCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
             <div class="cost-field"><label>Parts</label><input type="number" id="cf-parts" step="0.01" min="0" value="${partsCost || ''}" placeholder="0.00" oninput="calcProfit()"></div>
@@ -429,8 +431,9 @@ exports.showTimeline = async (req, res) => {
           };
           var quote = parseFloat(document.getElementById('cf-quote')?.value);
           if (quote > 0) body.quoteAmount = quote;
-          var techId = document.getElementById('cf-tech')?.value;
-          if (techId) body.techId = techId;
+          var techIds = [];
+          document.querySelectorAll('.cf-tech-cb:checked').forEach(function(cb) { techIds.push(cb.value); });
+          if (techIds.length > 0) body.techIds = techIds;
           var resp = await fetch('/api/engagement/${engagementId}/costs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -597,7 +600,7 @@ exports.addPayment = async (req, res) => {
 exports.updateCosts = async (req, res) => {
   try {
     const engagementId = req.params.id;
-    const { laborCost, partsCost, travelCost, otherCosts, quoteAmount, techId } = req.body;
+    const { laborCost, partsCost, travelCost, otherCosts, quoteAmount, techId, techIds } = req.body;
 
     const labor = parseFloat(laborCost) || 0;
     const parts = parseFloat(partsCost) || 0;
@@ -620,7 +623,9 @@ exports.updateCosts = async (req, res) => {
     if (quoteAmount !== undefined && parseFloat(quoteAmount) > 0) {
       updateFields['Quote Amount'] = parseFloat(quoteAmount);
     }
-    if (techId) {
+    if (techIds && techIds.length > 0) {
+      updateFields['Assigned Tech Name'] = techIds;
+    } else if (techId) {
       updateFields['Assigned Tech Name'] = [techId];
     }
 
