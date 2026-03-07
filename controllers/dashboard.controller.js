@@ -1304,6 +1304,9 @@ exports.showDashboard = async (req, res) => {
 
     // Tab 3: Financials
     const financialsTabHtml = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button id="reconcile-btn" onclick="reconcileStripe()" style="background:#1a2332;color:#8899aa;border:1px solid #2a3a4a;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">Reconcile Stripe Payments</button>
+      </div>
       ${stripeNote}
       <div class="kpi-row">
         ${stripeData ? stripeBalanceKpis : ''}
@@ -2010,6 +2013,28 @@ exports.showDashboard = async (req, res) => {
     document.getElementById('bankPaymentModal').addEventListener('click', function(e) {
       if (e.target === this) closeBankPaymentModal();
     });
+
+    async function reconcileStripe() {
+      var btn = document.getElementById('reconcile-btn');
+      btn.disabled = true;
+      btn.textContent = 'Reconciling...';
+      btn.style.color = '#ffd93d';
+      try {
+        var resp = await fetch('/api/reconcile-stripe', { method: 'POST' });
+        var data = await resp.json();
+        if (data.success) {
+          btn.textContent = 'Done! Matched: ' + data.matched + ' | Skipped: ' + data.skipped;
+          btn.style.color = '#34c759';
+          setTimeout(function() { location.reload(); }, 3000);
+        } else {
+          btn.textContent = 'Error: ' + (data.error || 'Unknown');
+          btn.style.color = '#ef5350';
+        }
+      } catch (err) {
+        btn.textContent = 'Error: ' + err.message;
+        btn.style.color = '#ef5350';
+      }
+    }
 
     async function submitBankPayment() {
       var engId = document.getElementById('bp-engagement').value;
