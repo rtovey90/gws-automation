@@ -372,8 +372,8 @@ exports.listEngagements = async (req, res) => {
     const list = engagements
       .filter(eng => {
         const f = eng.fields;
-        // Only show engagements with an assigned number (confirmed leads)
-        if (!f['Engagement Number']) return false;
+        // Only show projects (PR-xxxx) — estimator isn't used for service calls
+        if (!f['Engagement Number'] || !f['Engagement Number'].startsWith('PR-')) return false;
         const status = f.Status || '';
         if (status.includes('Disqualified') || status.includes('TRELLO LEADS TO ADD')) return false;
         return true;
