@@ -369,27 +369,36 @@ exports.listEngagements = async (req, res) => {
   try {
     const engagements = await airtableService.getAllEngagements();
 
-    const list = engagements.map(eng => {
-      const f = eng.fields;
-      const engNumber = f['Engagement Number'] || '';
-      const firstName = (f['First Name (from Customer)'] || [])[0] || '';
-      const lastName = (f['Last Name (from Customer)'] || [])[0] || '';
-      const customerName = [firstName, lastName].filter(Boolean).join(' ');
-      const address = (f['Address (from Customer)'] || [])[0] || '';
-      const systemType = Array.isArray(f['System Type']) ? f['System Type'].join(', ') : (f['System Type'] || '');
-      const status = f.Status || '';
+    const hiddenStatuses = ['Disqualified', 'TRELLO LEADS TO ADD'];
+    const list = engagements
+      .filter(eng => {
+        const status = eng.fields.Status || '';
+        return !hiddenStatuses.some(s => status.includes(s));
+      })
+      .map(eng => {
+        const f = eng.fields;
+        const engNumber = f['Engagement Number'] || '';
+        const firstName = (f['First Name (from Customer)'] || [])[0] || '';
+        const lastName = (f['Last Name (from Customer)'] || [])[0] || '';
+        const customerName = [firstName, lastName].filter(Boolean).join(' ');
+        const address = (f['Address (from Customer)'] || [])[0] || '';
+        const systemType = Array.isArray(f['System Type']) ? f['System Type'].join(', ') : (f['System Type'] || '');
+        const status = (f.Status || '').replace(/[^\w\s]/g, '').trim();
 
-      // Format: "SC-1042 — Luke Chapman — 14 Smith St, Perth — CCTV (Scheduled)"
-      const parts = [engNumber, customerName, address, systemType].filter(Boolean);
-      const name = parts.length > 0 ? parts.join(' — ') : `Engagement ${eng.id.slice(-4)}`;
-      const statusSuffix = status ? ` (${status.replace(/ [^\w]/g, '')})` : '';
+        // Skip entries with no customer name (likely bad data)
+        if (!customerName) return null;
 
-      return {
-        id: eng.id,
-        name: name + statusSuffix,
-        status,
-      };
-    });
+        const parts = [engNumber, customerName, address, systemType].filter(Boolean);
+        const name = parts.join(' — ');
+        const statusSuffix = status ? ` (${status})` : '';
+
+        return {
+          id: eng.id,
+          name: name + statusSuffix,
+          status: f.Status || '',
+        };
+      })
+      .filter(Boolean);
 
     res.json(list);
   } catch (error) {
