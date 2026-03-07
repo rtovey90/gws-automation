@@ -1069,6 +1069,62 @@ class AirtableService {
   }
 
   /**
+   * Get the next engagement number for a given prefix (SC or PR)
+   */
+  async getNextEngagementNumber(prefix) {
+    const allEngagements = await this.getAllEngagements();
+    let maxNum = 0;
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+    for (const e of allEngagements) {
+      const num = e.fields['Engagement Number'];
+      if (num) {
+        const match = num.match(pattern);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+    }
+    return `${prefix}-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
+  /**
+   * Assign an engagement number if one doesn't already exist (idempotent)
+   */
+  async assignEngagementNumber(engagementId, type) {
+    const engagement = await this.getEngagement(engagementId);
+    if (engagement.fields['Engagement Number']) {
+      return engagement.fields['Engagement Number'];
+    }
+    const prefix = type === 'sc' ? 'SC' : 'PR';
+    clearCache('engagements');
+    const number = await this.getNextEngagementNumber(prefix);
+    await this.updateEngagement(engagementId, { 'Engagement Number': number });
+    return number;
+  }
+
+  /**
+   * Get the next proposal suffix letter for an engagement number (A, B, C...)
+   */
+  async getNextProposalSuffix(engagementNumber) {
+    const allProposals = await this.getAllProposals();
+    let maxSuffix = 0;
+    const escaped = engagementNumber.replace('-', '\\-');
+    const pattern = new RegExp(`^${escaped}-([A-Z])$`);
+    for (const p of allProposals) {
+      const pn = p.fields['Project Number'];
+      if (pn) {
+        const match = pn.match(pattern);
+        if (match) {
+          const charCode = match[1].charCodeAt(0) - 64;
+          if (charCode > maxSuffix) maxSuffix = charCode;
+        }
+      }
+    }
+    return String.fromCharCode(65 + maxSuffix);
+  }
+
+  /**
    * Get all proposals (cached 60s)
    */
   async getAllProposals() {

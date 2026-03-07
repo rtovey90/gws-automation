@@ -188,7 +188,36 @@ function startScheduleReminderJob() {
   console.log('✅ Schedule reminder job started (9am Perth, Mon-Fri)');
 }
 
+/**
+ * Assign engagement numbers to confirmed leads that don't have one yet
+ * Safety net for cases where the Airtable webhook didn't fire
+ * Runs every 5 minutes
+ */
+function startEngagementNumberCheck() {
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const engagements = await airtableService.getAllEngagements();
+      for (const e of engagements) {
+        const f = e.fields;
+        if (f['Engagement Number']) continue;
+
+        if (f['Confirmed Service Call Lead']) {
+          const num = await airtableService.assignEngagementNumber(e.id, 'sc');
+          console.log(`Backfill: assigned ${num} to ${e.id}`);
+        } else if (f['Confirmed Project Lead']) {
+          const num = await airtableService.assignEngagementNumber(e.id, 'project');
+          console.log(`Backfill: assigned ${num} to ${e.id}`);
+        }
+      }
+    } catch (error) {
+      console.error('Engagement number check error:', error);
+    }
+  });
+  console.log('Engagement number checker started (every 5 min)');
+}
+
 module.exports = {
   startScheduledJobChecker,
   startScheduleReminderJob,
+  startEngagementNumberCheck,
 };

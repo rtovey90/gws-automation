@@ -28,6 +28,8 @@ exports.showTimeline = async (req, res) => {
     const clientAddress = f['Address (from Customer)']?.[0] || customer?.fields?.Address || '';
     const status = f.Status || 'Unknown';
 
+    const engNumber = f['Engagement Number'] || '';
+
     // Financial data
     const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
     const totalCost = parseFloat(f['Total Cost']) || 0;
@@ -241,7 +243,7 @@ exports.showTimeline = async (req, res) => {
         <a href="/dashboard" class="tl-back">&larr; Dashboard</a>
       </div>
       <div class="tl-header-top">
-        <h1>${escapeHtml(clientName)}</h1>
+        <h1>${escapeHtml(clientName)}${engNumber ? ` <span style="font-size:14px;color:#00d4ff;font-weight:400;margin-left:8px;">${escapeHtml(engNumber)}</span>` : ''}</h1>
         <span class="tl-badge" style="background:${badgeColor}">${escapeHtml(status)}</span>
       </div>
       <div class="tl-header-meta">

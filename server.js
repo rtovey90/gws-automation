@@ -31,7 +31,7 @@ const estimatorApiController = require('./controllers/estimator-api.controller')
 const proposalsController = require('./controllers/proposals.controller');
 const previewController = require('./controllers/preview.controller');
 const vaController = require('./controllers/va.controller');
-const { startScheduledJobChecker, startScheduleReminderJob } = require('./jobs/scheduled-jobs');
+const { startScheduledJobChecker, startScheduleReminderJob, startEngagementNumberCheck } = require('./jobs/scheduled-jobs');
 
 const app = express();
 
@@ -70,6 +70,7 @@ app.post('/webhooks/formspree', webhooksController.handleFormspree);
 // Note: /webhooks/stripe is defined earlier before bodyParser.json() for raw body access
 app.post('/webhooks/email-transcript', webhooksController.handleEmailTranscript);
 app.post('/webhooks/twilio-sms', webhooksController.handleTwilioSMS);
+app.post('/webhooks/engagement-confirmed', webhooksController.handleConfirmationWebhook);
 
 // Debug endpoint to check last webhook
 let lastWebhookData = { timestamp: null, data: null };
@@ -308,6 +309,7 @@ Press Ctrl+C to stop
   // Start scheduled jobs
   startScheduledJobChecker();
   startScheduleReminderJob();
+  startEngagementNumberCheck();
 
   // Start email monitoring (lazy-load to avoid build-time env var access)
   if (process.env.EMAIL_IMAP_PASS) {

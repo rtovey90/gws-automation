@@ -197,8 +197,9 @@ exports.showQueue = async (req, res) => {
       const source = f[' Source'] || '';
       const intake = f['Client intake info'] || f['Job Scope'] || f.Notes || '';
       const created = e._rawJson?.createdTime || '';
+      const engNumber = f['Engagement Number'] || '';
       return {
-        id: e.id, name, phone, suburb, systemType, source,
+        id: e.id, name, phone, suburb, systemType, source, engNumber,
         intake: intake.length > 200 ? intake.substring(0, 200) + '...' : intake,
         intakeFull: intake, created, createdAgo: timeAgo(created),
         ...stage,
@@ -233,7 +234,7 @@ exports.showQueue = async (req, res) => {
     function renderCard(card) {
       return `<div class="task-card">
         <div class="tc-top">
-          <div class="tc-name">${escapeHtml(card.name)}</div>
+          <div class="tc-name">${card.engNumber ? `<span style="color:#00d4ff;font-size:12px;font-weight:700;margin-right:6px">${escapeHtml(card.engNumber)}</span>` : ''}${escapeHtml(card.name)}</div>
           <span class="tc-time">${card.createdAgo}</span>
         </div>
         <div class="tc-meta">
@@ -442,7 +443,12 @@ exports.confirmLead = async (req, res) => {
       ? { 'Confirmed Service Call Lead': true }
       : { 'Confirmed Project Lead': true };
     await airtableService.updateEngagement(engagementId, updates);
-    res.json({ ok: true });
+
+    // Assign engagement number
+    const engNumber = await airtableService.assignEngagementNumber(engagementId, type);
+    console.log(`Assigned engagement number: ${engNumber}`);
+
+    res.json({ ok: true, engagementNumber: engNumber });
   } catch (error) {
     console.error('Confirm lead error:', error);
     res.status(500).json({ error: error.message });

@@ -606,6 +606,7 @@ exports.showDashboard = async (req, res) => {
       .map(e => ({
         id: e.id,
         name: e.fields['Customer Name'] || e.fields['First Name'] || 'New Lead',
+        engNumber: e.fields['Engagement Number'] || '',
         status: e.fields.Status || 'Unknown',
         source: e.fields[' Source'] || 'Unknown',
         leadType: e.fields['Confirmed Service Call Lead'] ? 'Service Call' : e.fields['Confirmed Project Lead'] ? 'Project' : (e.fields['Lead Type'] || '-'),
@@ -816,7 +817,7 @@ exports.showDashboard = async (req, res) => {
         <a href="/engagement/${l.id}" class="activity-item" style="text-decoration:none;color:inherit;cursor:pointer">
           <span class="activity-icon" style="color:${dotColor}">&#9679;</span>
           <div class="activity-details">
-            <span class="activity-name">${l.name}</span>
+            <span class="activity-name">${l.engNumber ? `<span style="color:#00d4ff;margin-right:6px;font-size:11px;font-weight:700">${l.engNumber}</span>` : ''}${l.name}</span>
             <span class="activity-status">${l.source} &middot; ${l.leadType}</span>
           </div>
           <span class="tech-status" style="color:${dotColor}">${l.status}</span>

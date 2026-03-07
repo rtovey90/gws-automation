@@ -922,4 +922,22 @@ exports.handleTwilioSMS = async (req, res) => {
   }
 };
 
+// POST /webhooks/engagement-confirmed — Airtable automation fires when lead is confirmed
+exports.handleConfirmationWebhook = async (req, res) => {
+  try {
+    const { engagementId, type } = req.body;
+    if (!engagementId || !type) {
+      return res.status(400).json({ error: 'Missing engagementId or type' });
+    }
+
+    const engNumber = await airtableService.assignEngagementNumber(engagementId, type);
+    console.log(`Airtable automation: assigned ${engNumber} to ${engagementId}`);
+
+    res.json({ ok: true, engagementNumber: engNumber });
+  } catch (error) {
+    console.error('Confirmation webhook error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = exports;

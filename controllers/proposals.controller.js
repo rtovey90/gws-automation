@@ -2073,13 +2073,22 @@ exports.showCreateFormForEngagement = async (req, res) => {
       const phone = cust['Mobile Phone'] || cust['Phone'] || (eng['Mobile Phone (from Customer)'] && eng['Mobile Phone (from Customer)'][0]) || (eng['Phone (from Customer)'] && eng['Phone (from Customer)'][0]) || '';
       const email = cust['Email'] || (eng['Email (from Customer)'] && eng['Email (from Customer)'][0]) || '';
 
+      // Derive proposal number from engagement number if available
+      let projectNumber = '';
+      if (eng['Engagement Number']) {
+        const suffix = await airtableService.getNextProposalSuffix(eng['Engagement Number']);
+        projectNumber = `${eng['Engagement Number']}-${suffix}`;
+      } else if (eng['Proposal Number']) {
+        projectNumber = String(eng['Proposal Number']).padStart(6, '0');
+      }
+
       prefill = {
         engagementId: result.engagement.id,
         clientName: [firstName, lastName].filter(Boolean).join(' '),
         clientAddress: address,
         clientPhone: phone,
         clientEmail: email,
-        projectNumber: eng['Proposal Number'] ? String(eng['Proposal Number']).padStart(6, '0') : '',
+        projectNumber,
         quoteAmount: parseFloat(eng['Quote Amount']) || 0,
       };
     }
