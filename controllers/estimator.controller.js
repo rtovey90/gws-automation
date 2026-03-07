@@ -475,6 +475,21 @@ const engagementJS = `
         // Show mode toggle (estimate has been loaded, actuals mode now available)
         document.getElementById('mode-toggle-row').style.display = 'block';
 
+        // Save estimate snapshot so comparison panel can work in both modes
+        if (activeTabId) saveTabState(activeTabId);
+        estimateSnapshot = JSON.parse(JSON.stringify(tabs));
+        populateCompareTabSelect();
+
+        // Load financial data for comparison panel
+        try {
+          var actResponse = await fetch('/api/estimator/load-actuals/' + engagementId);
+          if (actResponse.ok) {
+            var actData = await actResponse.json();
+            window._lastFinancialData = actData;
+            updateComparison(actData);
+          }
+        } catch(e) { /* non-critical */ }
+
         // Load supplier docs for this engagement
         loadSupplierDocs(engagementId);
       } catch (error) {
@@ -522,16 +537,14 @@ const engagementJS = `
         loadActualsFromEngagement(engagementId);
       } else {
         // Switch back to estimate - restore saved estimate
-        var actualsToggle = document.getElementById('actuals-panel-toggle');
-        var actualsPanel = document.getElementById('actuals-panel');
-        if (actualsToggle) actualsToggle.style.display = 'none';
-        if (actualsPanel) actualsPanel.style.transform = 'translateX(-100%)';
         if (estimateSnapshot) {
           tabs = JSON.parse(JSON.stringify(estimateSnapshot));
           if (activeTabId && tabs[activeTabId]) loadTabState(activeTabId);
           else { activeTabId = Object.keys(tabs)[0]; loadTabState(activeTabId); }
           renderTabs();
         }
+        // Refresh comparison panel
+        if (window._lastFinancialData) updateComparison(window._lastFinancialData);
       }
     }
 
@@ -629,15 +642,23 @@ const engagementJS = `
         });
       }
 
-      // Calculate actual costs from current tabs
+      // Calculate actual costs — in actuals mode compute from tabs, in estimate mode use saved Airtable data
       var actual = { parts: 0, labour: 0, cable: 0, misc: 0 };
-      Object.values(tabs).forEach(function(tab) {
-        ['parts', 'labour', 'cable', 'misc'].forEach(function(section) {
-          (tab.items[section] || []).forEach(function(item) {
-            actual[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
+      if (window.estimatorMode === 'actuals') {
+        Object.values(tabs).forEach(function(tab) {
+          ['parts', 'labour', 'cable', 'misc'].forEach(function(section) {
+            (tab.items[section] || []).forEach(function(item) {
+              actual[section] += (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
+            });
           });
         });
-      });
+      } else {
+        // In estimate mode, use saved actuals from Airtable
+        actual.parts = financialData.partsCost || 0;
+        actual.labour = financialData.laborCost || 0;
+        actual.cable = financialData.travelCost || 0;
+        actual.misc = financialData.otherCosts || 0;
+      }
 
       var labels = { parts: 'Parts', labour: 'Labour', cable: 'Cable', misc: 'Misc' };
       var totalEst = 0, totalAct = 0;
@@ -679,9 +700,15 @@ const engagementJS = `
         }
       }
       var quoted = financialData.quoteAmount || 0;
-      var profit = invoiced - totalAct;
-      var margin = invoiced > 0 ? ((profit / invoiced) * 100).toFixed(1) : '0.0';
       var variance = totalAct - totalEst;
+
+      // Estimated financials (based on selected estimate tab vs quoted price)
+      var estProfit = quoted - totalEst;
+      var estMargin = quoted > 0 ? ((estProfit / quoted) * 100).toFixed(1) : '0.0';
+
+      // Actual financials (based on actual costs vs invoiced amount)
+      var actProfit = invoiced - totalAct;
+      var actMargin = invoiced > 0 ? ((actProfit / invoiced) * 100).toFixed(1) : '0.0';
 
       if (cards) {
         var card = function(label, val, color) {
@@ -689,14 +716,25 @@ const engagementJS = `
             '<div style="color:#5a6a7a;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">' + label + '</div>' +
             '<div style="color:' + (color || '#e0e6ed') + ';font-size:18px;font-weight:700;margin-top:2px;">' + val + '</div></div>';
         };
+        var dualCard = function(label, estVal, actVal, estColor, actColor) {
+          return '<div style="background:#0f1419;border:1px solid #2a3a4a;border-radius:8px;padding:10px 12px;text-align:center;grid-column:span 2;">' +
+            '<div style="color:#5a6a7a;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">' + label + '</div>' +
+            '<div style="display:flex;justify-content:space-around;">' +
+              '<div><div style="color:#5a6a7a;font-size:9px;margin-bottom:2px;">ESTIMATED</div><div style="color:' + (estColor || '#e0e6ed') + ';font-size:18px;font-weight:700;">' + estVal + '</div></div>' +
+              '<div style="width:1px;background:#2a3a4a;"></div>' +
+              '<div><div style="color:#5a6a7a;font-size:9px;margin-bottom:2px;">ACTUAL</div><div style="color:' + (actColor || '#e0e6ed') + ';font-size:18px;font-weight:700;">' + actVal + '</div></div>' +
+            '</div></div>';
+        };
         cards.innerHTML =
-          card('Estimated', '$' + totalEst.toLocaleString(undefined, {maximumFractionDigits:0})) +
-          card('Actual', '$' + totalAct.toLocaleString(undefined, {maximumFractionDigits:0})) +
-          card('Variance', (variance >= 0 ? '+' : '') + '$' + variance.toFixed(0), variance > 0 ? '#ff6b6b' : '#34c759') +
+          card('Est. Cost', '$' + totalEst.toLocaleString(undefined, {maximumFractionDigits:0})) +
+          card('Act. Cost', '$' + totalAct.toLocaleString(undefined, {maximumFractionDigits:0})) +
           card('Quoted', '$' + quoted.toLocaleString(undefined, {maximumFractionDigits:0})) +
           card('Invoiced', '$' + invoiced.toLocaleString(undefined, {maximumFractionDigits:0}), '#00d4ff') +
-          card('Profit', '$' + profit.toFixed(0), profit >= 0 ? '#34c759' : '#ff6b6b') +
-          card('Margin', margin + '%', parseFloat(margin) >= 20 ? '#34c759' : '#ff6b6b') +
+          dualCard('Profit', '$' + estProfit.toFixed(0), '$' + actProfit.toFixed(0),
+            estProfit >= 0 ? '#34c759' : '#ff6b6b', actProfit >= 0 ? '#34c759' : '#ff6b6b') +
+          dualCard('Margin', estMargin + '%', actMargin + '%',
+            parseFloat(estMargin) >= 20 ? '#34c759' : '#ff6b6b', parseFloat(actMargin) >= 20 ? '#34c759' : '#ff6b6b') +
+          card('Variance', (variance >= 0 ? '+' : '') + '$' + variance.toFixed(0), variance > 0 ? '#ff6b6b' : '#34c759') +
           card('Cost vs Quote', totalEst > 0 ? ((totalAct / totalEst) * 100).toFixed(0) + '%' : '--', totalAct > totalEst ? '#ff6b6b' : '#34c759');
       }
     }
