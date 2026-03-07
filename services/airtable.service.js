@@ -1073,7 +1073,7 @@ class AirtableService {
    */
   async getNextEngagementNumber(prefix) {
     const allEngagements = await this.getAllEngagements();
-    let maxNum = 0;
+    let maxNum = 1000;
     const pattern = new RegExp(`^${prefix}-(\\d+)$`);
     for (const e of allEngagements) {
       const num = e.fields['Engagement Number'];
