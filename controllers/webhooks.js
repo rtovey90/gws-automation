@@ -456,17 +456,41 @@ async function handlePaymentSuccess(paymentObject, eventType) {
       // Update engagement status and record payment amount
       const paymentAmount = (paymentObject.amount_total || paymentObject.amount || 0) / 100;
       const chargeId = paymentId || '';
+      const paymentDate = new Date().toISOString().split('T')[0];
+
+      // Build payment log entry
+      let payments = [];
+      try { payments = JSON.parse(engagement.fields['Payment Log'] || '[]'); } catch (e) { payments = []; }
+      const existingInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+
+      // Determine payment type
+      const isFirstPayment = payments.length === 0 && existingInvoiced === 0;
+      const paymentEntry = {
+        type: isFirstPayment ? 'Initial Callout' : 'Additional Work',
+        amount: paymentAmount,
+        date: paymentDate,
+        chargeId: chargeId,
+        notes: '',
+      };
+      payments.push(paymentEntry);
+      const newTotal = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+
       const engUpdate = {
         Status: 'Payment Received ✅',
-        'Total Invoiced': paymentAmount,
-        'Payment Date': new Date().toISOString().split('T')[0],
+        'Total Invoiced': newTotal,
+        'Payment Date': paymentDate,
         'Stripe Charge ID': chargeId,
+        'Payment Log': JSON.stringify(payments),
       };
       // Get Stripe fee
+      let fee = 0;
       try {
         if (chargeId) {
-          const fee = await stripeService.getStripeFee(chargeId);
-          if (fee > 0) engUpdate['Stripe Fee'] = fee;
+          fee = await stripeService.getStripeFee(chargeId);
+          if (fee > 0) {
+            const existingFee = parseFloat(engagement.fields['Stripe Fee']) || 0;
+            engUpdate['Stripe Fee'] = existingFee + fee;
+          }
         }
       } catch (feeErr) { console.error('Fee fetch error:', feeErr); }
 

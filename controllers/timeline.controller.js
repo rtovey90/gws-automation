@@ -31,8 +31,27 @@ exports.showTimeline = async (req, res) => {
 
     const engNumber = f['Engagement Number'] || '';
 
+    // Payment log
+    let payments = [];
+    try { payments = JSON.parse(f['Payment Log'] || '[]'); } catch (e) { payments = []; }
+    // Ensure first Stripe payment is in the log
+    const stripeChargeId = f['Stripe Charge ID'] || '';
+    const existingInvoiced = parseFloat(f['Total Invoiced']) || 0;
+    if (existingInvoiced > 0 && payments.length === 0) {
+      // Legacy: engagement has invoiced amount but no payment log — seed it
+      payments.push({
+        type: 'Initial Callout',
+        amount: existingInvoiced,
+        date: f['Payment Date'] || '',
+        chargeId: stripeChargeId,
+        notes: '',
+      });
+    }
+
     // Financial data
-    const totalInvoiced = parseFloat(f['Total Invoiced']) || 0;
+    const totalInvoiced = payments.length > 0
+      ? payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+      : parseFloat(f['Total Invoiced']) || 0;
     const totalCost = parseFloat(f['Total Cost']) || 0;
     const partsCost = parseFloat(f['Parts Cost']) || 0;
     const laborCost = parseFloat(f['Labor Cost']) || 0;
@@ -266,7 +285,6 @@ exports.showTimeline = async (req, res) => {
     </div>
 
     <div class="tl-container">
-      ${totalInvoiced > 0 || hasCosts || quoteAmount > 0 ? `
       <div class="fin-card ${needsCosts ? 'fin-warning' : ''}">
         <div class="fin-row">
           ${quoteAmount > 0 ? `<div class="fin-stat"><div class="fin-label">Quoted</div><div class="fin-val">$${quoteAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div></div>` : ''}
@@ -275,8 +293,39 @@ exports.showTimeline = async (req, res) => {
           <div class="fin-stat"><div class="fin-label">Profit</div><div class="fin-val ${hasCosts ? (profit > 0 ? 'fin-green' : 'fin-red') : ''}">${hasCosts ? '$' + profit.toLocaleString('en-AU', { minimumFractionDigits: 2 }) : '--'}</div></div>
           <div class="fin-stat"><div class="fin-label">Margin</div><div class="fin-val">${hasCosts ? margin + '%' : '--'}</div></div>
         </div>
-        ${needsCosts ? '<div class="fin-alert">Costs not entered yet</div>' : ''}
-        <button class="fin-toggle" onclick="document.getElementById('cost-form').style.display=document.getElementById('cost-form').style.display==='none'?'block':'none'">${hasCosts ? 'Edit Costs' : 'Enter Costs'}</button>
+
+        ${payments.length > 0 ? `
+        <div style="margin-top:12px;border-top:1px solid #2a3a4a;padding-top:10px">
+          <div style="font-size:11px;color:#6a7a8a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Payments</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            ${payments.map(p => `<tr style="border-bottom:1px solid #1e2a3a">
+              <td style="padding:4px 0;color:#8899aa">${escapeHtml(p.type || 'Payment')}</td>
+              <td style="padding:4px 8px;color:#34c759;font-weight:600;text-align:right">$${parseFloat(p.amount).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</td>
+              <td style="padding:4px 8px;color:#6a7a8a;font-size:11px">${p.date || ''}</td>
+              <td style="padding:4px 0;color:#556677;font-size:11px">${escapeHtml(p.notes || '')}</td>
+            </tr>`).join('')}
+          </table>
+        </div>` : ''}
+
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="fin-toggle" onclick="document.getElementById('add-payment-form').style.display=document.getElementById('add-payment-form').style.display==='none'?'flex':'none'">Add Payment</button>
+          ${totalInvoiced > 0 ? `<button class="fin-toggle" onclick="document.getElementById('cost-form').style.display=document.getElementById('cost-form').style.display==='none'?'block':'none'">${hasCosts ? 'Edit Costs' : 'Enter Costs'}</button>` : ''}
+        </div>
+
+        <div id="add-payment-form" style="display:none;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="cost-field" style="flex:1;min-width:120px"><label>Type</label><select id="ap-type" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:13px">
+            <option value="Initial Callout">Initial Callout</option>
+            <option value="Additional Work">Additional Work</option>
+            <option value="Parts">Parts</option>
+            <option value="Follow-up Visit">Follow-up Visit</option>
+            <option value="Warranty">Warranty</option>
+            <option value="Other">Other</option>
+          </select></div>
+          <div class="cost-field" style="min-width:100px"><label>Amount</label><input type="number" id="ap-amount" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:13px"></div>
+          <div class="cost-field" style="min-width:120px"><label>Date</label><input type="date" id="ap-date" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:13px"></div>
+          <div class="cost-field" style="flex:1;min-width:140px"><label>Notes</label><input type="text" id="ap-notes" placeholder="Optional" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:13px"></div>
+          <button id="ap-submit" onclick="addPayment()" style="background:#34c759;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;height:38px;align-self:flex-end">Save</button>
+        </div>
         <div id="cost-form" style="display:none">
           <div class="cost-grid">
             <div class="cost-field"><label>Tech / Subcontractor</label><select id="cf-tech" style="width:100%;padding:8px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:14px"><option value="">-- Select tech --</option>${techOptions}</select></div>
@@ -289,7 +338,7 @@ exports.showTimeline = async (req, res) => {
           <div class="cost-summary" id="cost-summary"></div>
           <button class="fin-save-btn" id="save-costs-btn" onclick="saveCosts()">Save Costs</button>
         </div>
-      </div>` : ''}
+      </div>
       <div class="tl-feed" id="tl-feed">
         ${timelineItems || '<div class="tl-empty">No activity yet</div>'}
       </div>
@@ -342,6 +391,30 @@ exports.showTimeline = async (req, res) => {
         }
       }
       if (document.getElementById('cf-labor')) calcProfit();
+
+      async function addPayment() {
+        var type = document.getElementById('ap-type').value;
+        var amount = parseFloat(document.getElementById('ap-amount').value);
+        var date = document.getElementById('ap-date').value;
+        var notes = document.getElementById('ap-notes').value.trim();
+        if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+        var btn = document.getElementById('ap-submit');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        try {
+          var resp = await fetch('/api/engagement/${engagementId}/payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: type, amount: amount, date: date, notes: notes }),
+          });
+          if (!resp.ok) throw new Error('Failed');
+          location.reload();
+        } catch (err) {
+          alert('Failed to add payment');
+          btn.disabled = false;
+          btn.textContent = 'Save';
+        }
+      }
 
       async function saveCosts() {
         var btn = document.getElementById('save-costs-btn');
@@ -456,6 +529,64 @@ exports.addNote = async (req, res) => {
   } catch (error) {
     console.error('Error adding note:', error);
     res.status(500).json({ error: 'Failed to add note' });
+  }
+};
+
+/**
+ * Add a payment to an engagement's payment log
+ * POST /api/engagement/:id/payment
+ */
+exports.addPayment = async (req, res) => {
+  try {
+    const engagementId = req.params.id;
+    const { type, amount, date, notes } = req.body;
+
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Valid amount required' });
+    }
+
+    const engagement = await airtableService.getEngagement(engagementId);
+    let payments = [];
+    try { payments = JSON.parse(engagement.fields['Payment Log'] || '[]'); } catch (e) { payments = []; }
+
+    // Seed legacy payment if needed
+    const existingInvoiced = parseFloat(engagement.fields['Total Invoiced']) || 0;
+    if (existingInvoiced > 0 && payments.length === 0) {
+      payments.push({
+        type: 'Initial Callout',
+        amount: existingInvoiced,
+        date: engagement.fields['Payment Date'] || '',
+        chargeId: engagement.fields['Stripe Charge ID'] || '',
+        notes: '',
+      });
+    }
+
+    // Add new payment
+    const payment = {
+      type: type || 'Payment',
+      amount: parseFloat(amount),
+      date: date || new Date().toISOString().split('T')[0],
+      notes: notes || '',
+    };
+    payments.push(payment);
+
+    // Recalculate Total Invoiced
+    const newTotal = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+
+    await airtableService.updateEngagement(engagementId, {
+      'Payment Log': JSON.stringify(payments),
+      'Total Invoiced': newTotal,
+    });
+
+    await airtableService.logActivity(engagementId, `Payment added: ${type} $${parseFloat(amount).toFixed(2)}${notes ? ' — ' + notes : ''}`, {
+      type: 'System',
+      author: req.session?.userEmail || 'Admin',
+    });
+
+    res.json({ success: true, payment, totalInvoiced: newTotal });
+  } catch (error) {
+    console.error('Error adding payment:', error);
+    res.status(500).json({ error: 'Failed to add payment' });
   }
 };
 
