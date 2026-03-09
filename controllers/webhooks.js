@@ -542,7 +542,7 @@ exports.handleEmailTranscript = async (req, res) => {
     console.log('📨 Email transcript webhook received');
     console.log('Webhook body:', JSON.stringify(req.body, null, 2));
 
-    const { isLead, name, location, email, phone, mentionedPhone, notes, transcript, callDirection } = req.body;
+    const { isLead, name, location, email, phone, mentionedPhone, notes, transcript, callDirection, handledBy } = req.body;
 
     // Log phone numbers explicitly
     if (phone) {
@@ -585,7 +585,7 @@ exports.handleEmailTranscript = async (req, res) => {
             type: 'Call',
             from: direction === 'Inbound' ? phone : ourNumber,
             to: direction === 'Inbound' ? ourNumber : phone,
-            content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
+            content: `[Handled by ${handledBy || 'Unknown'}]\n\nCall transcript:\n\n${transcript || notes || 'No transcript available'}`,
             status: 'Received',
           });
         } catch (logError) {
@@ -608,12 +608,12 @@ exports.handleEmailTranscript = async (req, res) => {
           type: 'Call',
           from: direction === 'Inbound' ? phone : ourNumber,
           to: direction === 'Inbound' ? ourNumber : phone,
-          content: `Call transcript:\n\n${transcript || notes || 'No transcript available'}`,
+          content: `[Handled by ${handledBy || 'Unknown'}]\n\nCall transcript:\n\n${transcript || notes || 'No transcript available'}`,
           status: 'Received',
           engagementId: engagement.id,
           customerId: customer.id
         });
-        console.log(`✓ ${direction} call logged to Messages table`);
+        console.log(`✓ ${direction} call logged to Messages table (handled by ${handledBy || 'Unknown'})`);
       } catch (logError) {
         console.error('Error logging call to Messages:', logError);
       }
@@ -621,8 +621,8 @@ exports.handleEmailTranscript = async (req, res) => {
       // Send push notification to admin
       const callNotesPreview = leadData.notes ? `\n${leadData.notes.substring(0, 250)}${leadData.notes.length > 250 ? '...' : ''}` : '';
       pushover.notify(
-        'New Lead — Phone Call',
-        `Name: ${leadData.name}\nPhone: ${leadData.phone}\nLocation: ${leadData.location || 'N/A'}${callNotesPreview}`
+        `New Lead — Phone Call (${handledBy || 'Unknown'})`,
+        `Name: ${leadData.name}\nPhone: ${leadData.phone}\nHandled by: ${handledBy || 'Unknown'}\nLocation: ${leadData.location || 'N/A'}${callNotesPreview}`
       );
 
       res.status(200).json({ success: true, leadId: engagement.id, customerId: customer.id });
@@ -644,11 +644,11 @@ exports.handleEmailTranscript = async (req, res) => {
             type: 'Call',
             from: direction === 'Inbound' ? phone : ourNumber,
             to: direction === 'Inbound' ? ourNumber : phone,
-            content: `Call transcript:\n\n${transcript}`,
+            content: `[Handled by ${handledBy || 'Unknown'}]\n\nCall transcript:\n\n${transcript}`,
             status: 'Received',
             customerId: customer ? customer.id : null
           });
-          console.log(`✓ Non-lead ${direction} call logged to Messages table`);
+          console.log(`✓ Non-lead ${direction} call logged to Messages table (handled by ${handledBy || 'Unknown'})`);
         } catch (logError) {
           console.error('Error logging call to Messages:', logError);
         }
