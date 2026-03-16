@@ -1916,10 +1916,6 @@ exports.sendPricingForm = async (req, res) => {
       return res.status(400).json({ error: 'Invalid product' });
     }
 
-    // Create unique checkout session with metadata
-    const stripeService = require('../services/stripe.service');
-    const price = await stripeService.getPriceForProduct(product.fields['Stripe Product ID']);
-
     // Get customer name from lookup fields (may be arrays)
     let firstName = lead.fields['First Name (from Customer)'];
     let lastName = lead.fields['Last Name (from Customer)'];
@@ -1930,30 +1926,46 @@ exports.sendPricingForm = async (req, res) => {
 
     const leadName = [firstName, lastName].filter(Boolean).join(' ') || 'Client';
 
-    const session = await stripeService.createCheckoutSession({
-      leadId: engagementId,
-      productId: productId,
-      priceId: price.id,
-      leadName: leadName,
-      leadPhone: customerPhone,
-      successUrl: `${process.env.BASE_URL}/payment-success.html`,
-      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
-    });
+    let paymentUrl;
+    let checkoutSessionId = null;
+    const isComboProduct = (product.fields['Stripe Product ID'] || '').startsWith('combo_');
 
-    console.log(`✓ Checkout session created: ${session.id}`);
+    if (isComboProduct) {
+      // Multi-product payment link — use the Stripe Payment Link URL directly
+      paymentUrl = product.fields['Stripe Payment Link'];
+      console.log(`✓ Using existing Stripe payment link for combo product`);
+    } else {
+      // Single product — create a checkout session with metadata
+      const stripeService = require('../services/stripe.service');
+      const price = await stripeService.getPriceForProduct(product.fields['Stripe Product ID']);
 
-    // Create short link for the checkout URL
-    const shortCode = shortLinkService.createShortLink(session.url, engagementId);
+      const session = await stripeService.createCheckoutSession({
+        leadId: engagementId,
+        productId: productId,
+        priceId: price.id,
+        leadName: leadName,
+        leadPhone: customerPhone,
+        successUrl: `${process.env.BASE_URL}/payment-success.html`,
+        cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
+      });
+
+      paymentUrl = session.url;
+      checkoutSessionId = session.id;
+      console.log(`✓ Checkout session created: ${session.id}`);
+    }
+
+    // Create short link for the payment URL
+    const shortCode = shortLinkService.createShortLink(paymentUrl, engagementId);
     const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
 
     // Replace payment link placeholder with short URL
-    const finalMessage = message.replace(/https:\/\/buy\.stripe\.com\/[^\s]+/g, shortUrl);
+    const finalMessage = message.replace(/https:\/\/(?:buy|book)\.stripe\.com\/[^\s]+/g, shortUrl);
 
     // Send SMS via Twilio with short URL
     await twilioService.sendSMS(
       customerPhone,
       finalMessage,
-      { leadId: engagementId, type: 'pricing', checkoutSessionId: session.id, shortCode }
+      { leadId: engagementId, type: 'pricing', checkoutSessionId: checkoutSessionId, shortCode }
     );
 
     // Log message with actual checkout URL
