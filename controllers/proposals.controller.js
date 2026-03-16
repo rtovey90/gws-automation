@@ -1215,11 +1215,26 @@ exports.createProposalCheckout = async (req, res) => {
       cancelUrl: `${baseUrl}/proposals/${projectNumber}`,
     });
 
-    // Update proposal status
+    // Build list of selected options with server-verified prices
+    const selectedOptionsList = [];
+    if (Array.isArray(selectedUpgrades)) {
+      for (const upgrade of selectedUpgrades) {
+        const match = cameraOptions.find(opt => opt.name === upgrade.name);
+        if (match) {
+          selectedOptionsList.push({ name: match.name, price: Number(match.price) });
+        }
+      }
+    }
+
+    // Update proposal status and save what the customer selected
     await airtableService.updateProposal(proposal.id, {
       Status: 'Accepted',
       'Accepted At': new Date().toISOString(),
       'Stripe Session ID': session.id,
+      'Selected Package': `${selectedName} — $${selectedPrice.toLocaleString('en-AU')}`,
+      'Selected Options': selectedOptionsList.length > 0
+        ? JSON.stringify(selectedOptionsList)
+        : '',
     });
 
     res.json({ checkoutUrl: session.url });
