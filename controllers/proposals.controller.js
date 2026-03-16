@@ -138,6 +138,7 @@ exports.showProposal = async (req, res) => {
     const f = proposal.fields;
     const proposalPaused = !!f['Paused'];
     const clientName = f['Client Name'] || '';
+    const businessName = f['Business Name'] || '';
     const clientAddress = f['Client Address'] || '';
     const siteAddress = f['Site Address'] || '';
     const salutation = f['Salutation'] || '';
@@ -618,7 +619,7 @@ exports.showProposal = async (req, res) => {
   <img class="cover-bg" src="${escapeHtml(coverImage)}" alt="Great White Security">
   <div class="cover-overlay">
     <div class="cover-spacer"></div>
-    <div class="cover-client-name">Prepared for<br>${escapeHtml(clientName)}</div>
+    <div class="cover-client-name">Prepared for<br>${escapeHtml(businessName || clientName)}</div>
     <div class="cover-client-address">${escapeHtml(siteAddress || clientAddress)}</div>
     <div class="cover-footer">
       <span>CONFIDENTIAL</span>
@@ -633,7 +634,7 @@ exports.showProposal = async (req, res) => {
   <div class="pg-body letter">
     <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
       <div>
-        <div style="font-weight:600; color:var(--navy);">${escapeHtml(clientName)}</div>
+        <div style="font-weight:600; color:var(--navy);">${escapeHtml(clientName)}</div>${businessName ? `\n        <div style="color:var(--gray-400); font-size:12px;">${escapeHtml(businessName)}</div>` : ''}
         <div style="color:var(--gray-400); font-size:12px;">${escapeHtml(clientAddress)}</div>${siteAddress ? `\n        <div style="color:var(--gray-400); font-size:12px; margin-top:2px;">Site: ${escapeHtml(siteAddress)}</div>` : ''}
       </div>
       <div style="text-align:right; color:var(--gray-400); font-size:12px;">${formattedDate}</div>
@@ -2426,6 +2427,7 @@ function buildProposalFields(body) {
   if (body.engagementId) fields['Engagement'] = [body.engagementId];
   if (body.date) fields['Proposal Date'] = body.date;
   if (body.clientName) fields['Client Name'] = body.clientName;
+  if (body.businessName !== undefined) fields['Business Name'] = body.businessName || '';
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
   if (body.siteAddress !== undefined) fields['Site Address'] = body.siteAddress || '';
   if (body.salutation !== undefined) fields['Salutation'] = body.salutation || '';
@@ -2635,6 +2637,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const projectNumber = isClone ? nextProjectNumber : (f['Project Number'] || pf.projectNumber || '');
   const date = f['Proposal Date'] || new Date().toISOString().split('T')[0];
   const clientName = f['Client Name'] || pf.clientName || '';
+  const businessName = f['Business Name'] || '';
   const clientAddress = f['Client Address'] || pf.clientAddress || '';
   const siteAddress = f['Site Address'] || '';
   const salutation = f['Salutation'] || '';
@@ -2876,11 +2879,15 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             </div>
             <div class="form-row">
               <div class="fg"><label>Client Name</label><input type="text" name="clientName" value="${escapeHtml(clientName)}" placeholder="John Smith"></div>
-              <div class="fg"><label>Client Address</label><input type="text" name="clientAddress" value="${escapeHtml(clientAddress)}" placeholder="123 Main St, Suburb WA 6000"></div>
+              <div class="fg"><label>Business Name <span style="color:#5a6a7a;font-weight:400;">(optional)</span></label><input type="text" name="businessName" value="${escapeHtml(businessName)}" placeholder="e.g. Australian Submarine Agency"></div>
             </div>
             <div class="form-row">
+              <div class="fg"><label>Client Address</label><input type="text" name="clientAddress" value="${escapeHtml(clientAddress)}" placeholder="123 Main St, Suburb WA 6000"></div>
               <div class="fg"><label>Site Address <span style="color:#5a6a7a;font-weight:400;">(if different from client)</span></label><input type="text" name="siteAddress" value="${escapeHtml(siteAddress)}" placeholder="Leave blank if same as client address"></div>
+            </div>
+            <div class="form-row">
               <div class="fg"><label>Salutation <span style="color:#5a6a7a;font-weight:400;">(if not "Dear [first name]")</span></label><input type="text" name="salutation" value="${escapeHtml(salutation)}" placeholder="e.g. To Whom It May Concern,"></div>
+              <div class="fg"></div>
             </div>
             <div class="form-row">
               <div class="fg"><label>Phone</label><input type="text" id="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678"></div>
