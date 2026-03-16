@@ -139,6 +139,8 @@ exports.showProposal = async (req, res) => {
     const proposalPaused = !!f['Paused'];
     const clientName = f['Client Name'] || '';
     const clientAddress = f['Client Address'] || '';
+    const siteAddress = f['Site Address'] || '';
+    const salutation = f['Salutation'] || '';
     const propertyType = f['Property Type'] || 'residential';
     const letterNote = f['Letter Note'] || '';
     const scopeItems = safeJsonParse(f['Scope Items']);
@@ -159,6 +161,7 @@ exports.showProposal = async (req, res) => {
     const discountActive = !!(discountType && discountValue > 0 && !discountExpired);
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = getFirstNames(clientName);
+    const greeting = salutation || `Dear ${escapeHtml(firstName)},`;
     const logoPath = '/proposal-assets/gws-logo.png';
     const dateObj = new Date(proposalDate + 'T00:00:00');
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -616,7 +619,7 @@ exports.showProposal = async (req, res) => {
   <div class="cover-overlay">
     <div class="cover-spacer"></div>
     <div class="cover-client-name">Prepared for<br>${escapeHtml(clientName)}</div>
-    <div class="cover-client-address">${escapeHtml(clientAddress)}</div>
+    <div class="cover-client-address">${escapeHtml(siteAddress || clientAddress)}</div>
     <div class="cover-footer">
       <span>CONFIDENTIAL</span>
       <span>${coverMonthYear}</span>
@@ -631,11 +634,11 @@ exports.showProposal = async (req, res) => {
     <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
       <div>
         <div style="font-weight:600; color:var(--navy);">${escapeHtml(clientName)}</div>
-        <div style="color:var(--gray-400); font-size:12px;">${escapeHtml(clientAddress)}</div>
+        <div style="color:var(--gray-400); font-size:12px;">${escapeHtml(clientAddress)}</div>${siteAddress ? `\n        <div style="color:var(--gray-400); font-size:12px; margin-top:2px;">Site: ${escapeHtml(siteAddress)}</div>` : ''}
       </div>
       <div style="text-align:right; color:var(--gray-400); font-size:12px;">${formattedDate}</div>
     </div>
-    <p class="letter-greeting">Dear ${escapeHtml(firstName)},</p>
+    <p class="letter-greeting">${greeting}</p>
     ${letterContent}
     <p style="margin-bottom:0;">Kind regards,</p>
     <div class="letter-sign">
@@ -2424,6 +2427,8 @@ function buildProposalFields(body) {
   if (body.date) fields['Proposal Date'] = body.date;
   if (body.clientName) fields['Client Name'] = body.clientName;
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
+  if (body.siteAddress !== undefined) fields['Site Address'] = body.siteAddress || '';
+  if (body.salutation !== undefined) fields['Salutation'] = body.salutation || '';
   if (body.propertyType) fields['Property Type'] = body.propertyType;
   if (body.letterNote !== undefined) fields['Letter Note'] = body.letterNote;
   if (body.packageName) fields['Package Name'] = body.packageName;
@@ -2631,6 +2636,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const date = f['Proposal Date'] || new Date().toISOString().split('T')[0];
   const clientName = f['Client Name'] || pf.clientName || '';
   const clientAddress = f['Client Address'] || pf.clientAddress || '';
+  const siteAddress = f['Site Address'] || '';
+  const salutation = f['Salutation'] || '';
   const clientPhone = pf.clientPhone || '';
   const clientEmail = pf.clientEmail || '';
   const propertyType = f['Property Type'] || (isClone ? (cf['Property Type'] || 'residential') : 'residential');
@@ -2869,7 +2876,11 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             </div>
             <div class="form-row">
               <div class="fg"><label>Client Name</label><input type="text" name="clientName" value="${escapeHtml(clientName)}" placeholder="John Smith"></div>
-              <div class="fg"><label>Address</label><input type="text" name="clientAddress" value="${escapeHtml(clientAddress)}" placeholder="123 Main St, Suburb WA 6000"></div>
+              <div class="fg"><label>Client Address</label><input type="text" name="clientAddress" value="${escapeHtml(clientAddress)}" placeholder="123 Main St, Suburb WA 6000"></div>
+            </div>
+            <div class="form-row">
+              <div class="fg"><label>Site Address <span style="color:#5a6a7a;font-weight:400;">(if different from client)</span></label><input type="text" name="siteAddress" value="${escapeHtml(siteAddress)}" placeholder="Leave blank if same as client address"></div>
+              <div class="fg"><label>Salutation <span style="color:#5a6a7a;font-weight:400;">(if not "Dear [first name]")</span></label><input type="text" name="salutation" value="${escapeHtml(salutation)}" placeholder="e.g. To Whom It May Concern,"></div>
             </div>
             <div class="form-row">
               <div class="fg"><label>Phone</label><input type="text" id="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678"></div>
