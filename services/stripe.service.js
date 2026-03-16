@@ -99,20 +99,49 @@ class StripeService {
             expand: ['line_items', 'line_items.data.price.product'],
           });
 
-          if (expandedLink.line_items?.data?.[0]) {
-            const lineItem = expandedLink.line_items.data[0];
-            const price = lineItem.price;
-            const product = price.product;
+          if (expandedLink.line_items?.data?.length > 0) {
+            const lineItems = expandedLink.line_items.data;
 
-            results.push({
-              id: expandedLink.id,
-              url: expandedLink.url,
-              active: expandedLink.active,
-              productName: typeof product === 'object' ? product.name : 'Unknown Product',
-              productId: typeof product === 'object' ? product.id : product,
-              priceAmount: price.unit_amount / 100, // Convert from cents to dollars
-              currency: price.currency.toUpperCase(),
-            });
+            if (lineItems.length === 1) {
+              // Single product link
+              const price = lineItems[0].price;
+              const product = price.product;
+              results.push({
+                id: expandedLink.id,
+                url: expandedLink.url,
+                active: expandedLink.active,
+                productName: typeof product === 'object' ? product.name : 'Unknown Product',
+                productId: typeof product === 'object' ? product.id : product,
+                priceAmount: price.unit_amount / 100,
+                currency: price.currency.toUpperCase(),
+              });
+            } else {
+              // Multi-product link — combine names and sum prices
+              const names = [];
+              let totalAmount = 0;
+              let currency = 'AUD';
+              // Use the payment link ID as a stable identifier
+              const combinedProductId = `combo_${expandedLink.id}`;
+
+              for (const item of lineItems) {
+                const price = item.price;
+                const product = price.product;
+                const name = typeof product === 'object' ? product.name : 'Unknown';
+                names.push(name);
+                totalAmount += price.unit_amount / 100;
+                currency = price.currency.toUpperCase();
+              }
+
+              results.push({
+                id: expandedLink.id,
+                url: expandedLink.url,
+                active: expandedLink.active,
+                productName: names.join(' + '),
+                productId: combinedProductId,
+                priceAmount: totalAmount,
+                currency,
+              });
+            }
           }
         } catch (error) {
           console.error(`Error processing payment link ${link.id}:`, error.message);
