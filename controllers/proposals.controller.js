@@ -228,6 +228,7 @@ exports.showProposal = async (req, res) => {
     const selectedOptionNames = isConfirmed ? selectedOptions.map(o => o.name) : [];
     const hasSelectionData = selectedOptions.length > 0;
     const isLocked = isConfirmed || isTechView;
+    const confirmedTotal = isConfirmed ? basePrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0), 0) : basePrice;
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
       const classes = ['upgrade-card'];
@@ -833,7 +834,7 @@ ${sitePhotoPages}
           </div>
           <div class="discount-expiry" id="discountExpiry"></div>
         </div>
-        <div class="total-bar-amount" id="totalAmount">${formatCurrency(basePrice)}</div>
+        <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
       </div>
     </div>
     `}
