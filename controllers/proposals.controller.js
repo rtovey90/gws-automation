@@ -987,7 +987,7 @@ ${sitePhotoPages}
   }
 
   // Set initial total including default option group selections
-  updateTotalDisplay();
+  if (!IS_CONFIRMED && !IS_TECH_VIEW) updateTotalDisplay();
 
   // Track view (skip for tech/install views)
   if (!IS_TECH_VIEW) {
