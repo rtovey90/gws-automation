@@ -227,6 +227,7 @@ app.get('/api/estimator/load-actuals/:engagementId', requireRole('admin'), estim
 
 // Proposal routes - PUBLIC (no auth)
 app.get('/proposals/:projectNumber', proposalsController.showProposal);
+app.get('/proposals/:projectNumber/install', proposalsController.showProposal);
 app.get('/offers/:projectNumber', proposalsController.showOTO);
 app.get('/offers/:projectNumber/thank-you', proposalsController.showOTOThankYou);
 app.post('/api/proposals/:projectNumber/track-view', proposalsController.trackProposalView);

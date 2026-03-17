@@ -168,9 +168,23 @@ exports.showProposal = async (req, res) => {
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const coverMonthYear = dateObj.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }).toUpperCase();
 
-    // Track views — skip entirely for logged-in admin/VA
+    // Confirmed & tech view flags
+    const selectedOptions = safeJsonParse(f['Selected Options']);
+    const selectedPackageName = (f['Selected Package'] || '').split(' — ')[0];
+    const isConfirmed = (f['Status'] === 'Accepted' || f['Status'] === 'Paid');
+    const isTechView = req.path.endsWith('/install');
+
+    // Tech view only works on confirmed proposals
+    if (isTechView && !isConfirmed) {
+      return res.status(404).send(`<!DOCTYPE html><html><head><title>Not Available</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>body{font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e27;color:white;text-align:center;}</style>
+        </head><body><div><h1>Install View Not Available</h1><p>This proposal hasn't been accepted yet.</p></div></body></html>`);
+    }
+
+    // Track views — skip entirely for logged-in admin/VA and tech/install views
     const isAdmin = req.session && req.session.authenticated;
-    if (!isAdmin) {
+    if (!isAdmin && !isTechView) {
       const now = new Date().toISOString();
       const ua = req.headers['user-agent'] || '';
       const device = parseDevice(ua);
@@ -211,13 +225,22 @@ exports.showProposal = async (req, res) => {
     }).join('');
 
     // Build upgrade cards for pricing page
-    const upgradeCardsHtml = cameraOptions.map(opt => `
-      <div class="upgrade-card" onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false})" data-discountable="${opt.discountable !== false}">
+    const selectedOptionNames = isConfirmed ? selectedOptions.map(o => o.name) : [];
+    const isLocked = isConfirmed || isTechView;
+    const upgradeCardsHtml = cameraOptions.map(opt => {
+      const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
+      const classes = ['upgrade-card'];
+      if (isLocked && optSelected) classes.push('selected', 'confirmed');
+      if (isLocked && !optSelected) classes.push('not-chosen');
+      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false})"`;
+      const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>`;
+      return `
+      <div class="${classes.join(' ')}" ${onclick} data-discountable="${opt.discountable !== false}">
         <div class="upgrade-check">&#10003;</div>
         <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p></div>
-        <div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>
-      </div>
-    `).join('');
+        ${priceHtml}
+      </div>`;
+    }).join('');
 
     // Build package selection cards if multiple packages exist
     const allPackages = [
@@ -225,13 +248,21 @@ exports.showProposal = async (req, res) => {
       ...optionGroups
     ];
     const hasMultiplePackages = optionGroups.length > 0;
-    const packageCardsHtml = hasMultiplePackages ? allPackages.map((pkg, i) => `
-      <div class="og-radio-card${i === 0 ? ' selected' : ''}" onclick="selectPackage(this, ${pkg.price || 0})" data-price="${pkg.price || 0}">
+    const packageCardsHtml = hasMultiplePackages ? allPackages.map((pkg, i) => {
+      const pkgSelected = isConfirmed ? pkg.name === selectedPackageName : i === 0;
+      const classes = ['og-radio-card'];
+      if (pkgSelected) classes.push('selected');
+      if (isLocked) classes.push('confirmed');
+      if (isLocked && !pkgSelected) classes.push('not-chosen');
+      const onclick = isLocked ? '' : `onclick="selectPackage(this, ${pkg.price || 0})"`;
+      const priceHtml = isTechView ? '' : `<div class="og-radio-price">${formatCurrency(pkg.price || 0)}</div>`;
+      return `
+      <div class="${classes.join(' ')}" ${onclick} data-price="${pkg.price || 0}">
         <div class="og-radio-dot"></div>
         <div class="og-radio-info"><h4>${escapeHtml(pkg.name || '')}</h4>${pkg.description ? `<p>${escapeHtml(pkg.description)}</p>` : ''}</div>
-        <div class="og-radio-price">${formatCurrency(pkg.price || 0)}</div>
-      </div>
-    `).join('') : '';
+        ${priceHtml}
+      </div>`;
+    }).join('') : '';
 
     // Build clarification rows
     const defaultClarifications = [
@@ -476,6 +507,30 @@ exports.showProposal = async (req, res) => {
   .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
   .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
 
+  /* Confirmed & tech view states */
+  .upgrade-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
+  .upgrade-card.confirmed:hover { border-color: #28a745; background: #f0fff4; }
+  .upgrade-card.confirmed .upgrade-check { background: #28a745; border-color: #28a745; color: white; }
+  .upgrade-card.not-chosen { opacity: 0.4; cursor: default; pointer-events: none; }
+  .upgrade-card.not-chosen .upgrade-info h4 { text-decoration: line-through; }
+  .og-radio-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
+  .og-radio-card.confirmed:hover { border-color: #28a745; background: #f0fff4; }
+  .og-radio-card.confirmed.selected .og-radio-dot { border-color: #28a745; background: #28a745; }
+  .og-radio-card.not-chosen { opacity: 0.4; cursor: default; pointer-events: none; }
+  .og-radio-card.not-chosen .og-radio-info h4 { text-decoration: line-through; }
+  .confirmed-banner {
+    background: #d4edda; border: 2px solid #28a745; border-radius: 10px;
+    padding: 16px 24px; text-align: center;
+  }
+  .confirmed-banner h3 { font-size: 18px; font-weight: 700; color: #155724; margin: 0; }
+  .confirmed-banner p { font-size: 13px; color: #155724; margin: 4px 0 0; }
+  .tech-banner {
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    border-radius: 10px; padding: 14px 24px; text-align: center; margin-bottom: 20px;
+  }
+  .tech-banner h3 { font-size: 15px; font-weight: 700; color: var(--cyan); margin: 0; }
+  .tech-banner p { font-size: 12px; color: rgba(255,255,255,0.6); margin: 4px 0 0; }
+
   .total-bar {
     background: linear-gradient(135deg, var(--cyan-bg) 0%, #f0f7fc 100%);
     border: 2px solid rgba(120,228,255,0.3); border-radius: 10px;
@@ -715,9 +770,17 @@ ${sitePhotoPages}
 <div class="page bg-warm" data-section="pricing" style="display:flex; flex-direction:column;">
   ${pgHeader}
   <div class="pg-body" style="padding-bottom:0; flex:none;">
-    <div class="sec-title">Ready to Get Started?</div>
+    <div class="sec-title">${isTechView ? 'Installation Summary' : isConfirmed ? 'Confirmed Selection' : 'Ready to Get Started?'}</div>
     <div class="sec-title-accent"></div>
   </div>
+  ${isTechView ? `
+  <div style="padding:0 50px 10px;">
+    <div class="tech-banner">
+      <h3>Installation Reference</h3>
+      <p>${escapeHtml(clientName)}${siteAddress ? ' \u2014 ' + escapeHtml(siteAddress) : ''}</p>
+    </div>
+  </div>
+  ` : isConfirmed ? '' : `
   <div class="cta-top">
     <div class="cta-steps">
       <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
@@ -725,11 +788,12 @@ ${sitePhotoPages}
       <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
     </div>
   </div>
+  `}
   <div class="pg-body" style="padding-top:20px; padding-bottom:0; flex:1;">
     ${hasMultiplePackages ? `
     <div style="margin-bottom:6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
       <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">
-        Choose Your Package <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Select one option</span>
+        ${isLocked ? 'Selected Package' : 'Choose Your Package'} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 ${isLocked ? 'Chosen by customer' : 'Select one option'}</span>
       </h3>
     </div>
     <div class="og-radio-group">${packageCardsHtml}</div>
@@ -740,20 +804,23 @@ ${sitePhotoPages}
         <div class="hero-price-items">${escapeHtml(packageDesc)}</div>
         <div class="included-badge">&#10003; Included</div>
       </div>
+      ${isTechView ? '' : `
       <div class="hero-price-right">
         <div class="hero-price-amount">${formatCurrency(basePrice)}</div>
         <div class="hero-price-gst">AUD Inc. GST</div>
       </div>
+      `}
     </div>
     `}
 
     ${cameraOptions.length > 0 ? `
     <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
-      <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">Extend Your Coverage <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 Add additional options to your install</span></h3>
+      <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">${isLocked ? 'Additional Options' : 'Extend Your Coverage'} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 ${isLocked ? 'Selected by customer' : 'Add additional options to your install'}</span></h3>
     </div>
     ${upgradeCardsHtml}
     ` : ''}
 
+    ${isTechView ? '' : `
     <div class="total-bar">
       <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
       <div style="text-align:right;">
@@ -767,9 +834,17 @@ ${sitePhotoPages}
         <div class="total-bar-amount" id="totalAmount">${formatCurrency(basePrice)}</div>
       </div>
     </div>
+    `}
   </div>
   <div class="cta-section">
-    ${proposalPaused ? `
+    ${isTechView ? `
+    <div style="font-size:12px; color:var(--gray-400); padding:10px 0;">Installation reference for Great White Security technicians</div>
+    ` : isConfirmed ? `
+    <div class="confirmed-banner">
+      <h3>\u2713 Proposal Accepted</h3>
+      <p>${f['Accepted At'] ? 'Accepted on ' + new Date(f['Accepted At']).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'This proposal has been accepted'}</p>
+    </div>
+    ` : proposalPaused ? `
     <button class="cta-button" disabled style="opacity:0.5;cursor:not-allowed;">Proposal Unavailable</button>
     <div class="cta-sub" style="color:var(--red);font-weight:600;">This proposal is currently being updated. Please contact us at 0413 346 978 if you have any questions.</div>
     ` : `
@@ -796,6 +871,8 @@ ${sitePhotoPages}
 </div>
 
 <script>
+  const IS_CONFIRMED = ${isConfirmed};
+  const IS_TECH_VIEW = ${isTechView};
   let selectedBasePrice = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   let discountableUpgradeTotal = 0;
@@ -823,27 +900,32 @@ ${sitePhotoPages}
     const discountAmt = applyDiscount(discountableSubtotal);
     const finalTotal = Math.max(subtotal - discountAmt, 0);
     const discountEl = document.getElementById('discountDisplay');
-    if (discountAmt > 0) {
-      discountEl.style.display = 'block';
-      document.getElementById('originalPrice').textContent = '$' + subtotal.toLocaleString('en-AU');
-      const label = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
-      document.getElementById('discountBadge').textContent = label;
-      const expiryEl = document.getElementById('discountExpiry');
-      if (DISCOUNT_EXPIRES) {
-        const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
-        expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
-        expiryEl.style.display = 'block';
+    if (discountEl) {
+      if (discountAmt > 0) {
+        discountEl.style.display = 'block';
+        document.getElementById('originalPrice').textContent = '$' + subtotal.toLocaleString('en-AU');
+        const label = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
+        document.getElementById('discountBadge').textContent = label;
+        const expiryEl = document.getElementById('discountExpiry');
+        if (DISCOUNT_EXPIRES) {
+          const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
+          expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+          expiryEl.style.display = 'block';
+        } else {
+          expiryEl.style.display = 'none';
+        }
       } else {
-        expiryEl.style.display = 'none';
+        discountEl.style.display = 'none';
       }
-    } else {
-      discountEl.style.display = 'none';
     }
-    document.getElementById('totalAmount').textContent = '$' + finalTotal.toLocaleString('en-AU');
-    document.getElementById('acceptBtn').textContent = 'Accept Proposal & Secure My Booking \u2192';
+    var totalEl = document.getElementById('totalAmount');
+    if (totalEl) totalEl.textContent = '$' + finalTotal.toLocaleString('en-AU');
+    var acceptEl = document.getElementById('acceptBtn');
+    if (acceptEl) acceptEl.textContent = 'Accept Proposal & Secure My Booking \u2192';
   }
 
   function selectPackage(card, price) {
+    if (IS_CONFIRMED || IS_TECH_VIEW) return;
     document.querySelectorAll('.og-radio-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     selectedBasePrice = price;
@@ -851,6 +933,7 @@ ${sitePhotoPages}
   }
 
   function toggleUpgrade(card, price, discountable) {
+    if (IS_CONFIRMED || IS_TECH_VIEW) return;
     card.classList.toggle('selected');
     const delta = card.classList.contains('selected') ? price : -price;
     if (discountable) {
@@ -862,6 +945,7 @@ ${sitePhotoPages}
   }
 
   function acceptAndPay() {
+    if (IS_CONFIRMED || IS_TECH_VIEW) return;
     const btn = document.getElementById('acceptBtn');
     btn.disabled = true;
     btn.textContent = 'Processing...';
@@ -902,8 +986,10 @@ ${sitePhotoPages}
   // Set initial total including default option group selections
   updateTotalDisplay();
 
-  // Track view
-  fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
+  // Track view (skip for tech/install views)
+  if (!IS_TECH_VIEW) {
+    fetch('/api/proposals/' + PROJECT_NUMBER + '/track-view', { method: 'POST' }).catch(() => {});
+  }
 </script>
 
 <button class="pdf-btn" onclick="downloadPDF()" title="Download PDF" style="position:fixed;top:20px;right:20px;z-index:9999;background:var(--navy);color:var(--cyan);border:2px solid var(--cyan);padding:10px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.2s ease;" onmouseover="this.style.background='var(--cyan)';this.style.color='var(--navy)'" onmouseout="this.style.background='var(--navy)';this.style.color='var(--cyan)'">
@@ -952,7 +1038,8 @@ async function downloadPDF() {
 </script>
 
 <script>
-// ── Proposal Analytics ──
+// ── Proposal Analytics (skip for tech/install views) ──
+if (IS_TECH_VIEW) { /* no analytics */ } else
 (function() {
   var PN = '${escapeHtml(projectNumber)}';
   var SID = 'S' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
