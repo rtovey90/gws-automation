@@ -226,12 +226,13 @@ exports.showProposal = async (req, res) => {
 
     // Build upgrade cards for pricing page
     const selectedOptionNames = isConfirmed ? selectedOptions.map(o => o.name) : [];
+    const hasSelectionData = selectedOptions.length > 0;
     const isLocked = isConfirmed || isTechView;
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
       const classes = ['upgrade-card'];
-      if (isLocked && optSelected) classes.push('selected', 'confirmed');
-      if (isLocked && !optSelected) classes.push('not-chosen');
+      if (isLocked && hasSelectionData && optSelected) classes.push('selected', 'confirmed');
+      if (isLocked && hasSelectionData && !optSelected) classes.push('not-chosen');
       const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false})"`;
       const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>`;
       return `
@@ -249,11 +250,12 @@ exports.showProposal = async (req, res) => {
     ];
     const hasMultiplePackages = optionGroups.length > 0;
     const packageCardsHtml = hasMultiplePackages ? allPackages.map((pkg, i) => {
-      const pkgSelected = isConfirmed ? pkg.name === selectedPackageName : i === 0;
+      const hasPackageData = !!selectedPackageName;
+      const pkgSelected = isConfirmed && hasPackageData ? pkg.name === selectedPackageName : i === 0;
       const classes = ['og-radio-card'];
       if (pkgSelected) classes.push('selected');
-      if (isLocked) classes.push('confirmed');
-      if (isLocked && !pkgSelected) classes.push('not-chosen');
+      if (isLocked && hasPackageData) classes.push('confirmed');
+      if (isLocked && hasPackageData && !pkgSelected) classes.push('not-chosen');
       const onclick = isLocked ? '' : `onclick="selectPackage(this, ${pkg.price || 0})"`;
       const priceHtml = isTechView ? '' : `<div class="og-radio-price">${formatCurrency(pkg.price || 0)}</div>`;
       return `
