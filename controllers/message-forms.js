@@ -71,6 +71,11 @@ exports.showMessageForm = async (req, res) => {
         sentField = null; // No separate tracking field — Status change covers it
         pageTitle = 'Payment Received';
         break;
+      case 'follow-up':
+        templateName = 'Follow Up';
+        sentField = null;
+        pageTitle = 'Follow Up';
+        break;
       default:
         return res.status(400).send(`
           <!DOCTYPE html>
@@ -89,7 +94,7 @@ exports.showMessageForm = async (req, res) => {
     // Get template from Templates table
     const template = await airtableService.getTemplate(templateName);
 
-    if (!template) {
+    if (!template && messageType !== 'follow-up') {
       return res.status(404).send(`
         <!DOCTYPE html>
         <html>
@@ -106,7 +111,8 @@ exports.showMessageForm = async (req, res) => {
     }
 
     // Get template content and replace variables
-    let messageContent = template.fields.Content || '';
+    const followUpDefault = `Hi {{FIRST_NAME}}, just checking in — we haven't seen anything come through yet. Would you still like our help with this? Happy to chat if you have any questions. - Ricky, Great White Security`;
+    let messageContent = template ? (template.fields.Content || '') : followUpDefault;
     // Get first name from customer if available, fallback to engagement
     const firstName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
     const uploadLink = `${process.env.BASE_URL}/upload-photos/${engagementId}`;
@@ -530,6 +536,9 @@ exports.sendMessage = async (req, res) => {
     }
     if (messageType === 'payment-received') {
       updates.Status = 'Payment Received ✅';
+    }
+    if (messageType === 'follow-up') {
+      updates['Follow Up Sent'] = true;
     }
 
     await airtableService.updateEngagement(engagementId, updates);
