@@ -228,7 +228,13 @@ exports.showProposal = async (req, res) => {
     const selectedOptionNames = isConfirmed ? selectedOptions.map(o => o.name) : [];
     const hasSelectionData = selectedOptions.length > 0;
     const isLocked = isConfirmed || isTechView;
-    const confirmedTotal = isConfirmed ? basePrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0), 0) : basePrice;
+    // For confirmed total, use selected package price if a different package was chosen
+    const selectedPkgPrice = (() => {
+      if (!isConfirmed || !selectedPackageName) return basePrice;
+      const match = [...optionGroups, { name: packageName, price: basePrice }].find(p => p.name === selectedPackageName);
+      return match ? Number(match.price) || basePrice : basePrice;
+    })();
+    const confirmedTotal = isConfirmed ? selectedPkgPrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0), 0) : basePrice;
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
       const classes = ['upgrade-card'];
