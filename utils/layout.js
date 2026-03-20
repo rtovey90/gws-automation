@@ -18,8 +18,8 @@ function wrapInLayout(title, bodyHtml, activePage, options = {}) {
   ];
 
   const vaNavItems = [
-    { id: 'queue', label: 'Queue', href: '/va' },
     { id: 'messages', label: 'Messages', href: '/messages' },
+    { id: 'queue', label: 'Queue', href: '/va' },
   ];
 
   const navItems = role === 'va' ? vaNavItems : adminNavItems;

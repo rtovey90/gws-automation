@@ -2,7 +2,7 @@ const { verifyLogin } = require('../middleware/auth');
 
 exports.showLogin = (req, res) => {
   if (req.session && req.session.authenticated) {
-    return res.redirect(req.session.role === 'va' ? '/va' : '/dashboard');
+    return res.redirect(req.session.role === 'va' ? '/messages' : '/dashboard');
   }
 
   const error = req.query.error === '1' ? 'Invalid email or password' : '';
@@ -68,7 +68,7 @@ exports.handleLogin = async (req, res) => {
     req.session.authenticated = true;
     req.session.userEmail = email;
     req.session.role = role;
-    const defaultRedirect = role === 'va' ? '/va' : '/dashboard';
+    const defaultRedirect = role === 'va' ? '/messages' : '/dashboard';
     const returnTo = req.session.returnTo || defaultRedirect;
     delete req.session.returnTo;
     return res.redirect(returnTo);

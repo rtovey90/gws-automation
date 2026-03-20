@@ -649,7 +649,7 @@ exports.showInbox = async (req, res) => {
         </script>
     `;
 
-    res.send(wrapInLayout('Messages', inboxBody, 'messages', { customStyles: inboxStyles, customScripts: inboxScripts }));
+    res.send(wrapInLayout('Messages', inboxBody, 'messages', { customStyles: inboxStyles, customScripts: inboxScripts, role: req.session.role || 'admin' }));
   } catch (error) {
     console.error('Error showing inbox:', error);
     res.status(500).send('Error loading messages');
@@ -1543,7 +1543,7 @@ Ricky (Great White Security)\`
         </script>
     `;
 
-    res.send(wrapInLayout('Messages', conversationBody, 'messages', { customStyles: conversationStyles, customScripts: conversationScripts }));
+    res.send(wrapInLayout('Messages', conversationBody, 'messages', { customStyles: conversationStyles, customScripts: conversationScripts, role: req.session.role || 'admin' }));
   } catch (error) {
     console.error('Error showing conversation:', error);
     res.status(500).send('Error loading conversation');

@@ -28,8 +28,8 @@ function requireRole(...roles) {
     }
     const userRole = req.session.role || 'admin';
     if (roles.includes(userRole)) return next();
-    // VA trying to access admin-only page → redirect to VA queue
-    if (userRole === 'va') return res.redirect('/va');
+    // VA trying to access admin-only page → redirect to messages
+    if (userRole === 'va') return res.redirect('/messages');
     res.redirect('/dashboard');
   };
 }
