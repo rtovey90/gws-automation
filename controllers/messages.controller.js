@@ -688,21 +688,22 @@ exports.showInbox = async (req, res) => {
 
           // Search filter
           document.getElementById('searchInput').addEventListener('input', function() {
-            const query = this.value.toLowerCase().replace(/[\s\-\(\)\+]/g, '');
-            const activeTab = document.querySelector('.tab-content.active');
-            const conversations = activeTab.querySelectorAll('.conversation');
-            const noResults = activeTab.querySelector('.no-results');
-            let visible = 0;
+            var raw = this.value.toLowerCase();
+            var query = raw.replace(/[\\s\\-\\(\\)\\+]/g, '');
+            var activeTab = document.querySelector('.tab-content.active');
+            var conversations = activeTab.querySelectorAll('.conversation');
+            var noResults = activeTab.querySelector('.no-results');
+            var visible = 0;
 
-            conversations.forEach(conv => {
-              const name = conv.dataset.name || '';
-              const phone = (conv.dataset.phone || '').replace(/[\s\-\(\)\+]/g, '').toLowerCase();
-              const match = name.includes(query) || phone.includes(query);
+            conversations.forEach(function(conv) {
+              var name = conv.getAttribute('data-name') || '';
+              var phone = (conv.getAttribute('data-phone') || '').replace(/[\\s\\-\\(\\)\\+]/g, '').toLowerCase();
+              var match = name.indexOf(raw) !== -1 || phone.indexOf(query) !== -1;
               conv.style.display = match ? '' : 'none';
               if (match) visible++;
             });
 
-            if (noResults) noResults.style.display = visible === 0 && query ? 'block' : 'none';
+            if (noResults) noResults.style.display = visible === 0 && raw ? 'block' : 'none';
           });
 
           // Close modal when clicking outside
