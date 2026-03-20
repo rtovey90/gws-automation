@@ -208,7 +208,7 @@ exports.showInbox = async (req, res) => {
         const unreadBadge = isUnread ? `<span class="unread-badge">${conv.unreadCount}</span>` : '';
 
         return `
-          <div class="conversation${isUnread ? ' unread' : ''}" onclick="window.location.href='/messages/${encodeURIComponent(conv.phone)}'">
+          <div class="conversation${isUnread ? ' unread' : ''}" data-name="${conv.contactName.toLowerCase()}" data-phone="${conv.phone}" onclick="window.location.href='/messages/${encodeURIComponent(conv.phone)}'">
             <div class="conversation-avatar">${initials}</div>
             <div class="conversation-content">
               <div class="conversation-header">
@@ -382,6 +382,39 @@ exports.showInbox = async (req, res) => {
             padding: 0 6px;
             margin-left: 8px;
           }
+          .search-bar {
+            padding: 12px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+          }
+          .search-input {
+            width: 100%;
+            padding: 10px 14px 10px 38px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+            color: #1a202c;
+            background: #f7fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") 12px center no-repeat;
+            outline: none;
+            transition: border-color 0.2s;
+          }
+          .search-input:focus {
+            border-color: #00d4ff;
+            background-color: white;
+          }
+          .search-input::placeholder {
+            color: #a0aec0;
+          }
+          .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #a0aec0;
+            font-size: 14px;
+            display: none;
+          }
           .empty-state {
             text-align: center;
             padding: 80px 20px;
@@ -535,17 +568,24 @@ exports.showInbox = async (req, res) => {
         </div>
 
         <div class="conversations-container">
+          <div class="search-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search by name or phone..." autocomplete="off">
+          </div>
           <div class="tab-content active" id="all">
             ${renderConversations(allConversations)}
+            <div class="no-results">No conversations match your search.</div>
           </div>
           <div class="tab-content" id="customers">
             ${renderConversations(customersConversations)}
+            <div class="no-results">No conversations match your search.</div>
           </div>
           <div class="tab-content" id="techs">
             ${renderConversations(techsConversations)}
+            <div class="no-results">No conversations match your search.</div>
           </div>
           <div class="tab-content" id="suppliers">
             ${renderConversations(suppliersConversations)}
+            <div class="no-results">No conversations match your search.</div>
           </div>
         </div>
 
@@ -601,6 +641,12 @@ exports.showInbox = async (req, res) => {
               content.classList.remove('active');
             });
             document.getElementById(tabName).classList.add('active');
+
+            // Re-apply search filter to new tab
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput.value) {
+              searchInput.dispatchEvent(new Event('input'));
+            }
           }
 
           function openAddContactModal() {
@@ -638,6 +684,25 @@ exports.showInbox = async (req, res) => {
             } catch (error) {
               alert('Error creating message thread: ' + error.message);
             }
+          });
+
+          // Search filter
+          document.getElementById('searchInput').addEventListener('input', function() {
+            const query = this.value.toLowerCase().replace(/[\s\-\(\)\+]/g, '');
+            const activeTab = document.querySelector('.tab-content.active');
+            const conversations = activeTab.querySelectorAll('.conversation');
+            const noResults = activeTab.querySelector('.no-results');
+            let visible = 0;
+
+            conversations.forEach(conv => {
+              const name = conv.dataset.name || '';
+              const phone = (conv.dataset.phone || '').replace(/[\s\-\(\)\+]/g, '').toLowerCase();
+              const match = name.includes(query) || phone.includes(query);
+              conv.style.display = match ? '' : 'none';
+              if (match) visible++;
+            });
+
+            if (noResults) noResults.style.display = visible === 0 && query ? 'block' : 'none';
           });
 
           // Close modal when clicking outside
