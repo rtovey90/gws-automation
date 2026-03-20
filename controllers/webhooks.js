@@ -223,7 +223,8 @@ exports.handleFormspree = async (req, res) => {
     };
 
     // Prepare data for customer + engagement creation
-    // Support both old form structure (firstName/suburb) and new form (firstName/propertyAddress)
+    // Support main form (firstName/propertyAddress), old form (suburb), and PPC forms (reason/lead-source)
+    const leadSource = formData['lead-source'] || formData.leadSource || '';
     const leadData = {
       name: formData.firstName || formData.name || 'Unknown',
       phone: formData.phone,
@@ -231,10 +232,10 @@ exports.handleFormspree = async (req, res) => {
       businessName: formData.companyName || formData.company || '',
       address: formData.propertyAddress || (formData.suburb ? `${formData.suburb}, Perth` : ''),
       location: formData.propertyAddress || formData.suburb || '',
-      source: 'Form',
+      source: leadSource ? `Form (${leadSource})` : 'Form',
       systemType: systemTypeMap[formData.services] || 'Other',
-      leadType: 'Service Call', // Forms are typically service calls
-      notes: formData.message || '',
+      leadType: 'Service Call',
+      notes: formData.message || formData.reason || '',
       rawData: JSON.stringify(formData, null, 2),
     };
 
