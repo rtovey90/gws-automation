@@ -484,11 +484,7 @@ exports.sendFollowUp = async (req, res) => {
     const twilioService = require('../services/twilio.service');
     const defaultMsg = `Hi ${firstName}, just following up on our earlier message. Did you have any questions about the service call? We're ready to get this sorted for you whenever you'd like to proceed. - Great White Security`;
     const finalMsg = message && message.trim() ? message.trim() : defaultMsg;
-    await twilioService.sendSMS(phone, finalMsg);
-    await airtableService.logMessage({
-      direction: 'Outbound', type: 'SMS', to: phone,
-      from: process.env.TWILIO_PHONE_NUMBER, content: finalMsg, engagement: engagementId,
-    });
+    await twilioService.sendSMS(phone, finalMsg, { leadId: engagementId });
     res.json({ ok: true });
   } catch (error) {
     console.error('Follow-up error:', error);

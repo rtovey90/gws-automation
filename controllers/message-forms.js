@@ -513,17 +513,6 @@ exports.sendMessage = async (req, res) => {
       { leadId: engagementId, messageType }
     );
 
-    // Log message
-    await airtableService.logMessage({
-      engagementId: engagementId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: customerPhone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
-      status: 'Sent',
-    });
-
     // Mark as sent in Airtable and update status
     const updates = {};
     if (sentField) {
@@ -1977,17 +1966,6 @@ exports.sendPricingForm = async (req, res) => {
       { leadId: engagementId, type: 'pricing', checkoutSessionId: checkoutSessionId, shortCode }
     );
 
-    // Log message with actual checkout URL
-    await airtableService.logMessage({
-      engagementId: engagementId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: customerPhone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: finalMessage,
-      status: 'Sent',
-    });
-
     // Update engagement with selected product, status, and pricing sent checkbox
     const engUpdate = {
       'Selected Product': [productId],
@@ -2627,17 +2605,6 @@ exports.sendCompletionForm = async (req, res) => {
       message,
       { leadId, techId, type: 'completion_form' }
     );
-
-    // Log message
-    await airtableService.logMessage({
-      engagementId: leadId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: techPhone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
-      status: 'Sent',
-    });
 
     // Mark as sent in Airtable (non-blocking — field may not exist yet)
     try {

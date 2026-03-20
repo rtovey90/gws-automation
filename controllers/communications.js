@@ -71,17 +71,6 @@ Ricky`;
       { leadId: engagementId, productId, type: 'pricing' }
     );
 
-    // Log message
-    await airtableService.logMessage({
-      engagementId: engagementId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: lead.fields.Phone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
-      status: 'Sent',
-    });
-
     // Update engagement status and pricing sent checkbox
     const engUpdate = {
       Status: 'Payment Link Sent',
@@ -432,22 +421,6 @@ exports.sendMessage = async (req, res) => {
     await airtableService.updateEngagement(engagementId, {
       [sentField]: true,
     });
-
-    // Log the message in Messages table
-    try {
-      await airtableService.logMessage({
-        engagementId: engagementId,
-        direction: 'Outbound',
-        type: 'SMS',
-        to: lead.fields.Phone,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        content: message,
-        status: 'Sent',
-      });
-    } catch (messageError) {
-      console.error('Error logging message:', messageError);
-      // Don't fail the request if message logging fails
-    }
 
     console.log(`✓ ${messageLabel} sent to ${lead.fields.Name} (${lead.fields.Phone})`);
 
@@ -898,17 +871,6 @@ exports.submitReviewRequest = async (req, res) => {
       message,
       { leadId: engagementId, type: 'review_request' }
     );
-
-    // Log message
-    await airtableService.logMessage({
-      engagementId: engagementId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: customerPhone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: message,
-      status: 'Sent',
-    });
 
     // Update engagement
     await airtableService.updateEngagement(engagementId, {

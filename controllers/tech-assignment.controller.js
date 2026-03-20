@@ -459,17 +459,6 @@ exports.assignTech = async (req, res) => {
 
     console.log(`✓ SMS sent to tech: ${techFirstName}`);
 
-    // Log message
-    await airtableService.logMessage({
-      engagementId: engagementId,
-      direction: 'Outbound',
-      type: 'SMS',
-      to: tech.fields.Phone,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      content: finalMessage,
-      status: 'Sent',
-    });
-
     // Log activity
     const techFullName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || techFirstName;
     airtableService.logActivity(engagementId, `Tech ${techFullName} assigned`);
