@@ -99,8 +99,8 @@ exports.showInbox = async (req, res) => {
       const normalizedPhone = normalizePhone(contactPhone);
 
       if (!conversations[normalizedPhone]) {
-        // Determine contact type and name using normalized phone
-        let contactInfo = customerPhoneMap[normalizedPhone] || techPhoneMap[normalizedPhone];
+        // Determine contact type and name — check techs first so they're categorised correctly
+        let contactInfo = techPhoneMap[normalizedPhone] || customerPhoneMap[normalizedPhone];
 
         conversations[normalizedPhone] = {
           phone: normalizedPhone,
@@ -643,10 +643,7 @@ exports.showInbox = async (req, res) => {
             document.getElementById(tabName).classList.add('active');
 
             // Re-apply search filter to new tab
-            var searchInput = document.getElementById('searchInput');
-            if (searchInput.value) {
-              searchInput.dispatchEvent(new Event('input'));
-            }
+            filterConversations();
           }
 
           function openAddContactModal() {
@@ -687,24 +684,33 @@ exports.showInbox = async (req, res) => {
           });
 
           // Search filter
-          document.getElementById('searchInput').addEventListener('input', function() {
-            var raw = this.value.toLowerCase();
-            var query = raw.replace(/[\\s\\-\\(\\)\\+]/g, '');
-            var activeTab = document.querySelector('.tab-content.active');
-            var conversations = activeTab.querySelectorAll('.conversation');
-            var noResults = activeTab.querySelector('.no-results');
-            var visible = 0;
+          function filterConversations() {
+            var raw = document.getElementById('searchInput').value.toLowerCase().trim();
+            var digits = raw.replace(/[^0-9]/g, '');
+            document.querySelectorAll('.tab-content').forEach(function(tab) {
+              var conversations = tab.querySelectorAll('.conversation');
+              var noResults = tab.querySelector('.no-results');
+              var visible = 0;
 
-            conversations.forEach(function(conv) {
-              var name = conv.getAttribute('data-name') || '';
-              var phone = (conv.getAttribute('data-phone') || '').replace(/[\\s\\-\\(\\)\\+]/g, '').toLowerCase();
-              var match = name.indexOf(raw) !== -1 || phone.indexOf(query) !== -1;
-              conv.style.display = match ? '' : 'none';
-              if (match) visible++;
+              conversations.forEach(function(conv) {
+                if (!raw) {
+                  conv.style.display = '';
+                  visible++;
+                  return;
+                }
+                var name = conv.getAttribute('data-name') || '';
+                var phone = (conv.getAttribute('data-phone') || '').replace(/[^0-9]/g, '');
+                var match = name.indexOf(raw) !== -1 || (digits && phone.indexOf(digits) !== -1);
+                conv.style.display = match ? '' : 'none';
+                if (match) visible++;
+              });
+
+              if (noResults) noResults.style.display = visible === 0 && raw ? 'block' : 'none';
             });
+          }
 
-            if (noResults) noResults.style.display = visible === 0 && raw ? 'block' : 'none';
-          });
+          document.getElementById('searchInput').addEventListener('input', filterConversations);
+          document.getElementById('searchInput').addEventListener('keyup', filterConversations);
 
           // Close modal when clicking outside
           document.getElementById('addContactModal').addEventListener('click', (e) => {
