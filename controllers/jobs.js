@@ -277,7 +277,7 @@ exports.updateJob = async (req, res) => {
       });
 
       // Notify admin
-      pushover.notify(
+      pushover.notifyAll(
         'Job Needs Follow-up',
         `Job ${jobId}\n\n${notes}`
       );

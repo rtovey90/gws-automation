@@ -251,7 +251,7 @@ exports.handleFormspree = async (req, res) => {
 
     // Send push notification to admin
     const notePreview = leadData.notes ? `\nMessage: ${leadData.notes.substring(0, 100)}${leadData.notes.length > 100 ? '...' : ''}` : '';
-    pushover.notify(
+    pushover.notifyAll(
       'New Lead — Website Form',
       `Name: ${leadData.name}\nPhone: ${leadData.phone}\nEmail: ${leadData.email || 'N/A'}\nAddress: ${leadData.address || 'N/A'}\nService: ${leadData.systemType || 'Other'}${notePreview}`
     );
@@ -377,7 +377,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
         }
 
         // Notify admin
-        pushover.notify(
+        pushover.notifyOwner(
           `Proposal Paid — #${projectNumber}`,
           `Customer: ${paymentObject.metadata.customer_name || 'Unknown'}\nAmount: $${proposalAmount}\n\nTime to order equipment!`
         );
@@ -427,7 +427,7 @@ async function handlePaymentSuccess(paymentObject, eventType) {
         }
 
         // Notify admin
-        pushover.notify(
+        pushover.notifyOwner(
           `OTO Upgrade — #${projectNumber}`,
           `Type: ${otoType}\nAmount: $${otoAmount}`
         );
@@ -620,7 +620,7 @@ exports.handleEmailTranscript = async (req, res) => {
 
       // Send push notification to admin
       const callNotesPreview = leadData.notes ? `\n${leadData.notes.substring(0, 250)}${leadData.notes.length > 250 ? '...' : ''}` : '';
-      pushover.notify(
+      pushover.notifyAll(
         `New Lead — Phone Call (${handledBy || 'Unknown'})`,
         `Name: ${leadData.name}\nPhone: ${leadData.phone}\nHandled by: ${handledBy || 'Unknown'}\nLocation: ${leadData.location || 'N/A'}${callNotesPreview}`
       );
@@ -749,7 +749,7 @@ exports.handleTwilioSMS = async (req, res) => {
           }
 
           // Notify admin
-          pushover.notify(
+          pushover.notifyAll(
             `Tech Reply — ${techName}`,
             `${techName} replied ${bodyLower.toUpperCase()} to availability check.${engagementId ? '' : '\n\nNote: Could not find which engagement this is for.'}`
           );
@@ -833,7 +833,7 @@ exports.handleTwilioSMS = async (req, res) => {
       }
 
       // Notify admin of unknown number message
-      pushover.notify(
+      pushover.notifyAll(
         `SMS — Unknown Number`,
         `From: ${clientPhone}\n\n${Body || '(media only)'}`
       );
@@ -948,7 +948,7 @@ exports.handleTwilioSMS = async (req, res) => {
     // Send push notification to admin
     const photoCount = cloudinaryAttachments.length || mediaUrls.length;
     const photoText = photoCount > 0 ? `\n${photoCount} photo(s) saved` : '';
-    pushover.notify(
+    pushover.notifyAll(
       `Reply — ${customerName}`,
       `${Body || '(no text)'}${photoText}`
     );

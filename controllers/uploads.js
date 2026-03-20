@@ -495,7 +495,7 @@ exports.handleUpload = async (req, res) => {
 
     // Notify admin
     const pushover = require('../services/pushover.service');
-    pushover.notify(
+    pushover.notifyAll(
       `Photos Uploaded — ${clientName}`,
       `${attachments.length} photo(s) uploaded`
     );

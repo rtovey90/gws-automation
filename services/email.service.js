@@ -182,7 +182,7 @@ Examples of NOT LEADS:
 
         // Send push notification
         const pushover = require('./pushover.service');
-        pushover.notify(
+        pushover.notifyAll(
           'New Lead — Email',
           `Name: ${leadData.name}\nEmail: ${contactEmail}\nPhone: ${phone || 'N/A'}\n\n${analysis.notes.substring(0, 150)}...`
         );

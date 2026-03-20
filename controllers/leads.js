@@ -184,7 +184,7 @@ exports.handleAvailabilityResponse = async (req, res) => {
     // Notify admin
     const techDisplayName2 = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || tech.fields.Name;
     const leadDisplayName = [lead.fields['First Name'], lead.fields['Last Name']].filter(Boolean).join(' ');
-    pushover.notify(
+    pushover.notifyAll(
       `Tech ${response.toUpperCase() === 'YES' ? 'Available' : 'Unavailable'} — ${techDisplayName2}`,
       `${leadDisplayName} - ${lead.fields['Address/Location']}`
     );

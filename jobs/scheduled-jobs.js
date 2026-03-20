@@ -307,7 +307,7 @@ function startProposalFollowUpJob() {
         if (!match) continue;
 
         const ctx = { name: clientName, firstName, price, viewCount };
-        pushover.notify(
+        pushover.notifyOwner(
           `${match.title} — ${clientName} ($${price.toLocaleString()})`,
           `#${f['Project Number']} — sent ${daysAgo}d ago | ${viewCount} view(s)\n\n${match.message(ctx)}`
         );

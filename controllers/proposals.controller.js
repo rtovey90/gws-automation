@@ -206,7 +206,7 @@ exports.showProposal = async (req, res) => {
       // Push notification
       const newViewCount = (f['View Count'] || 0) + 1;
       const viewLabel = newViewCount === 1 ? '1st view' : `view #${newViewCount}`;
-      pushover.notify(
+      pushover.notifyOwner(
         `Proposal Viewed — ${clientName}`,
         `#${f['Project Number']} ($${Number(f['Base Price'] || 0).toLocaleString()})\n${viewLabel} — ${device} / ${browser}\n\nCall them now while it's on their mind.`
       );
