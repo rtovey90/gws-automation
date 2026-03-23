@@ -2330,7 +2330,7 @@ exports.showCreateFormForEngagement = async (req, res) => {
         clientEmail: email,
         projectNumber,
         quoteAmount: parseFloat(eng['Quote Amount']) || 0,
-        brand: normalizeBrandName(eng['Business']),
+        brand: normalizeBrandName(eng['Our Business Name']),
       };
     }
 
