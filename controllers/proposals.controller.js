@@ -132,7 +132,7 @@ const BRAND_CONFIG = {
       --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
       --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
       --gray-800: #1e2235; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
-      --cta-btn-text: #0a0e27; --step-num-color: #78e4ff; --logo-height: 32px;`,
+      --cta-btn-text: #0a0e27; --step-num-color: #78e4ff; --logo-height: 32px; --header-padding: 16px 50px;`,
     bodyFont: "'DM Sans', sans-serif",
     headingFont: "'Playfair Display', serif",
     signerName: 'Richard Campbell-Tovey',
@@ -177,7 +177,7 @@ const BRAND_CONFIG = {
       --white: #ffffff; --gray-50: #f5f5f5; --gray-100: #e5e5e5;
       --gray-200: #d4d4d4; --gray-400: #a3a3a3; --gray-600: #525252;
       --gray-800: #1e1e1e; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
-      --cta-btn-text: #ffffff; --step-num-color: #ffffff; --logo-height: 130px;`,
+      --cta-btn-text: #ffffff; --step-num-color: #ffffff; --logo-height: 80px; --header-padding: 8px 50px;`,
     bodyFont: "'Inter', 'Roboto', sans-serif",
     headingFont: "'Inter', 'Roboto', sans-serif",
     signerName: 'Richard Campbell-Tovey',
@@ -495,7 +495,7 @@ exports.showProposal = async (req, res) => {
 
   /* ===== PAGE CHROME ===== */
   .pg-header {
-    background: var(--navy); padding: 16px 50px;
+    background: var(--navy); padding: var(--header-padding, 16px 50px);
     display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
   .pg-header img { height: var(--logo-height, 32px); object-fit: contain; }
