@@ -131,7 +131,8 @@ const BRAND_CONFIG = {
       --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
       --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
       --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
-      --gray-800: #1e2235; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;`,
+      --gray-800: #1e2235; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
+      --cta-btn-text: #0a0e27; --step-num-color: #78e4ff; --logo-height: 32px;`,
     bodyFont: "'DM Sans', sans-serif",
     headingFont: "'Playfair Display', serif",
     signerName: 'Richard Campbell-Tovey',
@@ -175,7 +176,8 @@ const BRAND_CONFIG = {
       --cyan-pale: #FEF2F2; --cyan-bg: #FFF5F5;
       --white: #ffffff; --gray-50: #f5f5f5; --gray-100: #e5e5e5;
       --gray-200: #d4d4d4; --gray-400: #a3a3a3; --gray-600: #525252;
-      --gray-800: #1e1e1e; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;`,
+      --gray-800: #1e1e1e; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
+      --cta-btn-text: #ffffff; --step-num-color: #ffffff; --logo-height: 50px;`,
     bodyFont: "'Inter', 'Roboto', sans-serif",
     headingFont: "'Inter', 'Roboto', sans-serif",
     signerName: 'Richard Campbell-Tovey',
@@ -496,7 +498,7 @@ exports.showProposal = async (req, res) => {
     background: var(--navy); padding: 16px 50px;
     display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
-  .pg-header img { height: 32px; object-fit: contain; }
+  .pg-header img { height: var(--logo-height, 32px); object-fit: contain; }
   .pg-header-right { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
   .pg-body { padding: 40px 50px; flex: 1; }
   .pg-footer {
@@ -694,7 +696,7 @@ exports.showProposal = async (req, res) => {
   .cta-steps { display: flex; gap: 30px; justify-content: center; margin: 20px 0 5px; }
   .cta-step { flex: 1; max-width: 220px; text-align: center; }
   .cta-step-num {
-    width: 42px; height: 42px; border-radius: 50%; background: var(--navy); color: var(--cyan);
+    width: 42px; height: 42px; border-radius: 50%; background: var(--navy); color: var(--step-num-color, var(--cyan));
     font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center;
     margin: 0 auto 12px;
   }
@@ -708,7 +710,7 @@ exports.showProposal = async (req, res) => {
     display: block; width: 100%; margin-top: 0;
     background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
     background-size: 200% 100%;
-    color: var(--navy); font-weight: 800; font-size: 16px;
+    color: var(--cta-btn-text, var(--navy)); font-weight: 800; font-size: 16px;
     padding: 18px 45px; border-radius: 12px; text-decoration: none; letter-spacing: 0.5px;
     transition: all 0.3s ease; border: none; cursor: pointer;
     box-shadow: 0 4px 20px rgba(120,228,255,0.35);
