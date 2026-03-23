@@ -177,7 +177,7 @@ const BRAND_CONFIG = {
       --white: #ffffff; --gray-50: #f5f5f5; --gray-100: #e5e5e5;
       --gray-200: #d4d4d4; --gray-400: #a3a3a3; --gray-600: #525252;
       --gray-800: #1e1e1e; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
-      --cta-btn-text: #ffffff; --step-num-color: #ffffff; --logo-height: 50px;`,
+      --cta-btn-text: #ffffff; --step-num-color: #ffffff; --logo-height: 65px;`,
     bodyFont: "'Inter', 'Roboto', sans-serif",
     headingFont: "'Inter', 'Roboto', sans-serif",
     signerName: 'Richard Campbell-Tovey',
