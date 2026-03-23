@@ -115,7 +115,7 @@ function getFirstNames(fullName) {
 
 // ── Brand Configuration ──
 const BRAND_CONFIG = {
-  'Great White Security': {
+  'Great White Security (WA)': {
     companyName: 'Great White Security',
     legalName: 'Great White Security Pty Ltd',
     phone: '0413 346 978',
@@ -159,7 +159,7 @@ const BRAND_CONFIG = {
     thankYouBg: '#0e1231',
     thankYouAccent: '#00bcd4',
   },
-  'The Alarm Guy': {
+  'The Alarm Guy (SA)': {
     companyName: 'The Alarm Guy',
     legalName: 'The Alarm Guy Pty Ltd',
     phone: '0485 001 498',
@@ -201,7 +201,7 @@ const BRAND_CONFIG = {
   },
 };
 
-const DEFAULT_BRAND = 'Great White Security';
+const DEFAULT_BRAND = 'Great White Security (WA)';
 function getBrandConfig(brandName) {
   return BRAND_CONFIG[brandName] || BRAND_CONFIG[DEFAULT_BRAND];
 }
@@ -278,7 +278,7 @@ exports.showProposal = async (req, res) => {
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = getFirstNames(clientName);
     const greeting = salutation || `Dear ${escapeHtml(firstName)},`;
-    const brand = getBrandConfig(f['Brand']);
+    const brand = getBrandConfig(f['Our Business Name']);
     const logoPath = brand.logoPath;
     const dateObj = new Date(proposalDate + 'T00:00:00');
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -1449,7 +1449,7 @@ exports.showOTO = async (req, res) => {
     }
 
     const f = proposal.fields;
-    const brand = getBrandConfig(f['Brand']);
+    const brand = getBrandConfig(f['Our Business Name']);
     const clientName = f['Client Name'] || '';
     const firstName = getFirstNames(clientName);
 
@@ -2322,7 +2322,7 @@ exports.showCreateFormForEngagement = async (req, res) => {
         clientEmail: email,
         projectNumber,
         quoteAmount: parseFloat(eng['Quote Amount']) || 0,
-        brand: eng['Business'] || 'Great White Security',
+        brand: eng['Business'] || 'Great White Security (WA)',
       };
     }
 
@@ -2525,7 +2525,7 @@ exports.sendProposal = async (req, res) => {
     }
 
     // Use custom message if provided, otherwise default
-    const brand = getBrandConfig(f['Brand']);
+    const brand = getBrandConfig(f['Our Business Name']);
     let message;
     if (req.body.message) {
       // Replace {proposalUrl} placeholder with the actual short URL
@@ -2635,7 +2635,7 @@ function buildProposalFields(body) {
   if (body.date) fields['Proposal Date'] = body.date;
   if (body.clientName) fields['Client Name'] = body.clientName;
   if (body.businessName !== undefined) fields['Business Name'] = body.businessName || '';
-  if (body.brand) fields['Brand'] = body.brand;
+  if (body.brand) fields['Our Business Name'] = body.brand;
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
   if (body.siteAddress !== undefined) fields['Site Address'] = body.siteAddress || '';
   if (body.salutation !== undefined) fields['Salutation'] = body.salutation || '';
@@ -2695,7 +2695,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const nextProjectNumber = clone.nextProjectNumber || '';
 
   // ── Brand & Job Type Templates ──────────────────────────
-  const currentBrand = f['Brand'] || (pf && pf.brand) || 'Great White Security';
+  const currentBrand = f['Our Business Name'] || (pf && pf.brand) || 'Great White Security (WA)';
   const brandForForm = getBrandConfig(currentBrand);
   const commonClarifications = [
     'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
@@ -3071,8 +3071,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
               <label>Brand</label>
               <input type="hidden" name="brand" id="brandInput" value="${escapeHtml(currentBrand)}">
               <div style="display:flex;gap:0;margin-top:4px;">
-                <button type="button" id="btn-brand-gws" onclick="setBrand('Great White Security')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${currentBrand === 'Great White Security' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Great White Security</button>
-                <button type="button" id="btn-brand-tag" onclick="setBrand('The Alarm Guy')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${currentBrand === 'The Alarm Guy' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">The Alarm Guy</button>
+                <button type="button" id="btn-brand-gws" onclick="setBrand('Great White Security (WA)')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${currentBrand === 'Great White Security (WA)' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Great White Security</button>
+                <button type="button" id="btn-brand-tag" onclick="setBrand('The Alarm Guy (SA)')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${currentBrand === 'The Alarm Guy (SA)' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">The Alarm Guy</button>
               </div>
             </div>
             ${isClone ? `
@@ -3491,7 +3491,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       document.getElementById('brandInput').value = val;
       const btnGws = document.getElementById('btn-brand-gws');
       const btnTag = document.getElementById('btn-brand-tag');
-      if (val === 'Great White Security') {
+      if (val === 'Great White Security (WA)') {
         btnGws.style.background = '#78e4ff'; btnGws.style.color = '#0a0e27'; btnGws.style.borderColor = '#78e4ff';
         btnTag.style.background = '#1a2236'; btnTag.style.color = '#8a9ab5'; btnTag.style.borderColor = '#3a4a5c';
       } else {
@@ -4026,7 +4026,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         ? clientName.split('&').map(s => s.trim().split(' ')[0]).join(' & ')
         : firstName;
       const brandVal = document.getElementById('brandInput').value;
-      if (brandVal === 'The Alarm Guy') {
+      if (brandVal === 'The Alarm Guy (SA)') {
         document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from The Alarm Guy is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0485 001 498.\\n\\nCheers,\\nRicky';
       } else {
         document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from Great White Security is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0413 346 978.\\n\\nCheers,\\nRicky';
