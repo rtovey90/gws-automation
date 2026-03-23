@@ -1190,10 +1190,11 @@ Ricky (Great White Security)`;
             loading.style.display = 'block';
 
             try {
-              const response = await fetch('/api/send-tech-availability', {
+              const response = await fetch(BASE_URL + '/api/send-tech-availability', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'Accept': 'application/json',
                 },
                 body: JSON.stringify({
                   leadId: '${engagementId}',
@@ -1221,10 +1222,33 @@ Ricky (Great White Security)`;
                 throw new Error(result.error || 'Failed to send messages');
               }
             } catch (error) {
-              alert('Error sending messages: ' + error.message);
-              sendBtn.disabled = false;
-              form.style.display = 'block';
-              loading.style.display = 'none';
+              console.warn('Fetch failed, falling back to form submission:', error.message);
+
+              // Fallback: create a hidden form and submit it traditionally
+              try {
+                const fallbackForm = document.createElement('form');
+                fallbackForm.method = 'POST';
+                fallbackForm.action = BASE_URL + '/api/send-tech-availability?fallback=1';
+                fallbackForm.style.display = 'none';
+
+                const dataInput = document.createElement('input');
+                dataInput.type = 'hidden';
+                dataInput.name = 'jsonPayload';
+                dataInput.value = JSON.stringify({
+                  leadId: '${engagementId}',
+                  selectedTechs: selectedTechs,
+                  messageTemplate: message
+                });
+                fallbackForm.appendChild(dataInput);
+
+                document.body.appendChild(fallbackForm);
+                fallbackForm.submit();
+              } catch (fallbackError) {
+                alert('Error sending messages: ' + error.message);
+                sendBtn.disabled = false;
+                form.style.display = 'block';
+                loading.style.display = 'none';
+              }
             }
           });
         </script>
@@ -1254,9 +1278,22 @@ Ricky (Great White Security)`;
  * POST /api/send-tech-availability
  */
 exports.sendTechAvailability = async (req, res) => {
+  // Determine if this is a fallback form submission (not JSON fetch)
+  const isFallback = req.query.fallback === '1' || (req.headers['content-type'] && req.headers['content-type'].includes('application/x-www-form-urlencoded'));
+
   try {
-    const engagementId = req.body.leadId;
-    const { selectedTechs, messageTemplate } = req.body;
+    // Parse body — for fallback form submissions, data arrives as jsonPayload field
+    let engagementId, selectedTechs, messageTemplate;
+    if (isFallback && req.body.jsonPayload) {
+      const parsed = JSON.parse(req.body.jsonPayload);
+      engagementId = parsed.leadId;
+      selectedTechs = parsed.selectedTechs;
+      messageTemplate = parsed.messageTemplate;
+    } else {
+      engagementId = req.body.leadId;
+      selectedTechs = req.body.selectedTechs;
+      messageTemplate = req.body.messageTemplate;
+    }
 
     console.log(`📤 Sending tech availability to ${selectedTechs.length} techs for engagement: ${engagementId}`);
 
@@ -1296,6 +1333,41 @@ exports.sendTechAvailability = async (req, res) => {
       'Tech Availability Responses': `Availability check sent to ${selectedTechs.length} techs at ${new Date().toISOString()}`
     });
 
+    // For fallback form submissions, respond with an HTML success page
+    if (isFallback) {
+      return res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Messages Sent</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+            .container { max-width: 600px; margin: 0 auto; background: white; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+            .header { background: #4CAF50; color: white; padding: 30px 20px; text-align: center; }
+            .header h1 { font-size: 24px; }
+            .content { text-align: center; padding: 50px 20px; }
+            .content p { font-size: 18px; margin-bottom: 20px; color: #333; }
+            .btn-close { background: #4CAF50; color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+            .btn-close:hover { background: #45a049; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Messages Sent!</h1>
+            </div>
+            <div class="content">
+              <p>Availability check sent to ${selectedTechs.length} tech(s)</p>
+              <button onclick="window.close()" class="btn-close">Close Window</button>
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
     res.status(200).json({
       success: true,
       leadId: engagementId,
@@ -1304,6 +1376,29 @@ exports.sendTechAvailability = async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending tech availability:', error);
+
+    if (isFallback) {
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+            .error { color: #dc3545; font-size: 24px; margin-bottom: 20px; }
+            p { color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="error">Error</div>
+          <p>Failed to send messages. Please go back and try again.</p>
+          <button onclick="history.back()" style="margin-top:20px; padding:10px 30px; cursor:pointer;">Go Back</button>
+        </body>
+        </html>
+      `);
+    }
+
     res.status(500).json({ error: 'Failed to send messages' });
   }
 };
