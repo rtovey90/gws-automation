@@ -167,7 +167,7 @@ const BRAND_CONFIG = {
     email: 'info@thealarmguy.com.au',
     website: 'www.thealarmguy.com.au',
     logoPath: '/proposal-assets/tag-logo.png',
-    coverImage: '/proposal-assets/proposal-cover-page.jpg',
+    coverImage: '/proposal-assets/tag-cover-page.png',
     signatureImage: '/proposal-assets/signature.jpeg',
     googleFontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap",
     cssVars: `--navy: #1a1a1a; --navy-mid: #111111; --navy-light: #222222;
@@ -273,7 +273,7 @@ exports.showProposal = async (req, res) => {
     const optionGroups = safeJsonParse(f['Option Groups']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
-    const coverImage = f['Cover Image URL'] || '/proposal-assets/proposal-cover-page.jpg';
+    const coverImage = f['Cover Image URL'] || brand.coverImage;
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
     const basePrice = f['Base Price'] || 0;
