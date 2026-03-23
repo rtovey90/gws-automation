@@ -111,11 +111,34 @@ exports.showMessageForm = async (req, res) => {
     }
 
     // Get template content and replace variables
-    const followUpDefault = `Hi {{FIRST_NAME}}, just checking in — we haven't seen anything come through yet. Would you still like our help with this? Happy to chat if you have any questions. - Ricky, Great White Security`;
-    let messageContent = template ? (template.fields.Content || '') : followUpDefault;
+    const followUpDefault = `Hi {{FIRST_NAME}}, just checking in — we haven't seen anything come through yet. Would you still like our help with this? Happy to chat if you have any questions. - {{SENDER_NAME}}, Great White Security`;
+    const requestPhotosDefault = `Hey {{FIRST_NAME}},
+
+{{SENDER_NAME}} here from Great White Security.
+Nice speaking with you earlier!
+
+To help us determine what's required and who to dispatch, could you please share a few photos of your system?
+
+You can upload here: {{UPLOAD_LINK}}
+
+If you have any issues please text them to 0413346978 with your name.
+
+Cheers,
+{{SENDER_NAME}}`;
+
+    let messageContent;
+    if (template && template.fields.Content) {
+      messageContent = template.fields.Content;
+    } else if (messageType === 'request-photos') {
+      messageContent = requestPhotosDefault;
+    } else {
+      messageContent = followUpDefault;
+    }
+
     // Get first name from customer if available, fallback to engagement
     const firstName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
     const uploadLink = `${process.env.BASE_URL}/upload-photos/${engagementId}`;
+    const defaultSender = 'Marjorie';
 
     // Get customer phone for disabled checks
     const customerPhone = (customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) ||
@@ -125,7 +148,8 @@ exports.showMessageForm = async (req, res) => {
     messageContent = messageContent
       .replace(/{{FIRST_NAME}}/g, firstName)
       .replace(/{{UPLOAD_LINK}}/g, uploadLink)
-      .replace(/{{NAME}}/g, firstName);
+      .replace(/{{NAME}}/g, firstName)
+      .replace(/{{SENDER_NAME}}/g, defaultSender);
 
     // Show the form
     res.send(`
@@ -318,6 +342,13 @@ exports.showMessageForm = async (req, res) => {
             ${!(customer && (customer.fields['Mobile Phone'] || customer.fields.Phone)) && !lead.fields['Mobile Phone (from Customer)'] && !lead.fields['Phone (from Customer)'] ? '<div class="warning">⚠️ Warning: This lead has no phone number!</div>' : ''}
 
             <form id="messageForm">
+              <div style="margin-bottom:20px;">
+                <label for="senderSelect">Sending as:</label>
+                <select id="senderSelect" style="width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:8px;font-size:15px;background:white;cursor:pointer;">
+                  <option value="Marjorie" selected>Marjorie</option>
+                  <option value="Ricky">Ricky</option>
+                </select>
+              </div>
               <label for="message">Message (edit as needed):</label>
               <textarea
                 id="message"
@@ -370,6 +401,23 @@ exports.showMessageForm = async (req, res) => {
           function updatePreview() {
             preview.textContent = textarea.value;
           }
+
+          // Sender swap
+          var currentSender = '${defaultSender}';
+          document.getElementById('senderSelect').addEventListener('change', function() {
+            var newSender = this.value;
+            var msg = textarea.value;
+            // Replace all occurrences of current sender name with new one
+            while (msg.indexOf(currentSender) !== -1) {
+              msg = msg.replace(currentSender, newSender);
+            }
+            textarea.value = msg;
+            currentSender = newSender;
+            updatePreview();
+            charCount.textContent = msg.length;
+            var segs = Math.ceil(msg.length / 160);
+            smsCount.textContent = segs > 1 ? '(' + segs + ' SMS messages)' : '';
+          });
 
           // Update character count and preview
           textarea.addEventListener('input', () => {
