@@ -202,8 +202,16 @@ const BRAND_CONFIG = {
 };
 
 const DEFAULT_BRAND = 'Great White Security (WA)';
+const BRAND_ALIASES = {
+  'Great White Security': 'Great White Security (WA)',
+  'The Alarm Guy': 'The Alarm Guy (SA)',
+};
 function getBrandConfig(brandName) {
-  return BRAND_CONFIG[brandName] || BRAND_CONFIG[DEFAULT_BRAND];
+  const key = BRAND_ALIASES[brandName] || brandName;
+  return BRAND_CONFIG[key] || BRAND_CONFIG[DEFAULT_BRAND];
+}
+function normalizeBrandName(brandName) {
+  return BRAND_ALIASES[brandName] || brandName || DEFAULT_BRAND;
 }
 
 function buildDefaultClarifications(brand) {
@@ -2322,7 +2330,7 @@ exports.showCreateFormForEngagement = async (req, res) => {
         clientEmail: email,
         projectNumber,
         quoteAmount: parseFloat(eng['Quote Amount']) || 0,
-        brand: eng['Business'] || 'Great White Security (WA)',
+        brand: normalizeBrandName(eng['Business']),
       };
     }
 
