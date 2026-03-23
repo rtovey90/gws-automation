@@ -470,7 +470,7 @@ exports.handleUpload = async (req, res) => {
     // Append new photos and update status to Reviewing
     await airtableService.updateEngagement(engagementId, {
       Photos: [...existingPhotos, ...attachments],
-      Status: 'Reviewing 👀',
+      Status: 'Photos Received',
     });
 
     console.log(`✓ ${attachments.length} photo(s) saved to engagement (${files.length} attempted)`);
