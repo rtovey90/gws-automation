@@ -113,9 +113,123 @@ function getFirstNames(fullName) {
   return name.split(' ')[0] || 'there';
 }
 
-function proposalPageHeader(logoPath, projectNumber) {
+// ── Brand Configuration ──
+const BRAND_CONFIG = {
+  'Great White Security': {
+    companyName: 'Great White Security',
+    legalName: 'Great White Security Pty Ltd',
+    phone: '0413 346 978',
+    phoneLink: '+61413346978',
+    email: 'hello@greatwhitesecurity.com',
+    website: 'www.greatwhitesecurity.com',
+    logoPath: '/proposal-assets/gws-logo.png',
+    coverImage: '/proposal-assets/proposal-cover-page.jpg',
+    signatureImage: '/proposal-assets/signature.jpeg',
+    googleFontsUrl: "https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&display=swap",
+    cssVars: `--navy: #0a0e27; --navy-mid: #0f1430; --navy-light: #161c3a;
+      --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
+      --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
+      --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
+      --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
+      --gray-800: #1e2235; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;`,
+    bodyFont: "'DM Sans', sans-serif",
+    headingFont: "'Playfair Display', serif",
+    signerName: 'Richard Campbell-Tovey',
+    signerTitle: 'WA Police Licensed Security Consultant 79960',
+    credentials: [
+      { img: '/proposal-assets/wa-police-badge.png', alt: 'WA Police Licensed', label: 'WA Police Licensed #79960' },
+      { img: '/proposal-assets/google-reviews.png', alt: 'Google Reviews 4.6 Stars', label: '' },
+      { img: '/proposal-assets/acma-logo.png', alt: 'ACMA Registered', label: '' },
+    ],
+    whyUsResidential: 'Great White Security is built on over 21 years of proven experience securing homes and businesses across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial and residential properties giving business owners &amp; home owners peace of mind that their staff, customers, family and assets are safe.',
+    whyUsCommercial: 'Great White Security is built on over 21 years of proven experience securing businesses and commercial properties across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial premises giving business owners and facility managers peace of mind that their staff, visitors and assets are safe.',
+    whyUsTeamLine: 'Our team is WA Police licensed and committed to seamless, professional installations. We pride ourselves on leaving every site secure, tidy, and set up for long-term protection.',
+    whyUsProductAgnostic: 'As a <strong>product-agnostic security installation business</strong>, we\'re not tied to any single brand. Instead, we partner with trusted local suppliers to provide solutions tailored to each client\'s needs.',
+    whyUsClosing: 'By choosing Great White Security, you gain a trusted partner with over two decades of expertise, a commitment to quality, and the confidence of working with a WA-based business that\'s here to support you long after installation.',
+    publicHolidayState: 'Western Australian',
+    accessClarification: 'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
+    phoneClarification: 'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
+    internetClarification: 'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
+    termsUrl: 'https://www.greatwhitesecurity.com/terms-of-service/',
+    installReferenceText: 'Installation reference for Great White Security technicians',
+    pdfPrefix: 'Great White Security',
+    smsTemplate: (firstName, url, senderName) => `Hi ${firstName}, your security proposal from Great White Security is ready!\n\nView it here: ${url}\n\nAny questions, give us a call on 0413 346 978.\n\nCheers,\n${senderName || 'Ricky'}`,
+    defaultLetterIntro: (firstName) => `<p>Thank you for taking the time to discuss your security requirements with us. Based on our consultation, I'm pleased to present a tailored security proposal for your property.</p>`,
+    defaultLetterOutro: `<p>Alternatively, please accept the proposal below, and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`,
+    thankYouBg: '#0e1231',
+    thankYouAccent: '#00bcd4',
+  },
+  'The Alarm Guy': {
+    companyName: 'The Alarm Guy',
+    legalName: 'The Alarm Guy Pty Ltd',
+    phone: '0485 001 498',
+    phoneLink: '+61485001498',
+    email: 'info@thealarmguy.com.au',
+    website: 'www.thealarmguy.com.au',
+    logoPath: '/proposal-assets/tag-logo.png',
+    coverImage: '/proposal-assets/proposal-cover-page.jpg',
+    signatureImage: '/proposal-assets/signature.jpeg',
+    googleFontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap",
+    cssVars: `--navy: #1a1a1a; --navy-mid: #111111; --navy-light: #222222;
+      --cyan: #DC2626; --cyan-mid: #B91C1C; --cyan-dark: #991B1B;
+      --cyan-pale: #FEF2F2; --cyan-bg: #FFF5F5;
+      --white: #ffffff; --gray-50: #f5f5f5; --gray-100: #e5e5e5;
+      --gray-200: #d4d4d4; --gray-400: #a3a3a3; --gray-600: #525252;
+      --gray-800: #1e1e1e; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;`,
+    bodyFont: "'Inter', 'Roboto', sans-serif",
+    headingFont: "'Inter', 'Roboto', sans-serif",
+    signerName: 'Richard Campbell-Tovey',
+    signerTitle: 'Security Consultant',
+    credentials: [],
+    whyUsResidential: 'The Alarm Guy provides modern, reliable security solutions for homes across Adelaide and South Australia. We work with trusted local contractors and suppliers to deliver protection that fits your needs and budget, giving you peace of mind knowing your home and family are safe.',
+    whyUsCommercial: 'The Alarm Guy provides modern, reliable security solutions for businesses across Adelaide and South Australia. We work with trusted local contractors and suppliers to deliver protection for commercial premises, giving business owners and facility managers peace of mind that their staff, visitors and assets are safe.',
+    whyUsTeamLine: 'Our team of licensed SA security technicians is committed to seamless, professional installations. We pride ourselves on leaving every site secure, tidy, and set up for long-term protection.',
+    whyUsProductAgnostic: 'As a <strong>product-agnostic security business</strong>, we\'re not tied to any single brand. Instead, we partner with trusted suppliers to provide solutions tailored to each client\'s needs.',
+    whyUsClosing: 'By choosing The Alarm Guy, you gain a dedicated security partner focused on quality, reliability, and ongoing support long after installation.',
+    publicHolidayState: 'South Australian',
+    accessClarification: 'The Alarm Guy requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
+    phoneClarification: 'If required, customer smartphones must be present during installation. The Alarm Guy assume customer phones are able to install/run CCTV and alarm apps as required.',
+    internetClarification: 'Customer must provide spare internet router port and have working internet for app connectivity. The Alarm Guy assumes internet speed is sufficient for CCTV app access.',
+    termsUrl: 'https://www.greatwhitesecurity.com/terms-of-service/',
+    installReferenceText: 'Installation reference for The Alarm Guy technicians',
+    pdfPrefix: 'The Alarm Guy',
+    smsTemplate: (firstName, url, senderName) => `Hi ${firstName}, your security proposal from The Alarm Guy is ready!\n\nView it here: ${url}\n\nAny questions, give us a call on 0485 001 498.\n\nCheers,\n${senderName || 'Ricky'}`,
+    defaultLetterIntro: (firstName) => `<p>Thank you for taking the time to discuss your security requirements with us. Based on our consultation, I'm pleased to present a tailored security proposal for your property.</p>`,
+    defaultLetterOutro: `<p>Alternatively, please accept the proposal below, and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`,
+    thankYouBg: '#000000',
+    thankYouAccent: '#DC2626',
+  },
+};
+
+const DEFAULT_BRAND = 'Great White Security';
+function getBrandConfig(brandName) {
+  return BRAND_CONFIG[brandName] || BRAND_CONFIG[DEFAULT_BRAND];
+}
+
+function buildDefaultClarifications(brand) {
+  return [
+    'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
+    `All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding ${brand.publicHolidayState} public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.`,
+    brand.accessClarification,
+    brand.phoneClarification,
+    'Quotation valid for 30 days.',
+    brand.internetClarification,
+    'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 – 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
+    'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
+    'Final mounting locations depend on cable and mounting access — to be confirmed by on-site technician.',
+  ];
+}
+
+function buildCredentialsHtml(brand) {
+  if (!brand.credentials || brand.credentials.length === 0) return '';
+  return `<div class="cred-row">
+${brand.credentials.map(c => `      <div class="cred-item"><img src="${c.img}" alt="${c.alt}">${c.label ? `<div class="cred-label">${c.label}</div>` : ''}</div>`).join('\n')}
+    </div>`;
+}
+
+function proposalPageHeader(logoPath, projectNumber, companyName) {
   return `<div class="header">
-    <img src="${logoPath}" class="header-logo" alt="Great White Security">
+    <img src="${logoPath}" class="header-logo" alt="${escapeHtml(companyName || 'Security Proposal')}">
     <div class="project-num">Project #${escapeHtml(projectNumber)}</div>
   </div>`;
 }
@@ -129,10 +243,11 @@ exports.showProposal = async (req, res) => {
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
 
     if (!proposal) {
+      const fb = getBrandConfig();
       return res.status(404).send(`<!DOCTYPE html><html><head><title>Not Found</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>body{font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e27;color:white;text-align:center;}</style>
-        </head><body><div><h1>Proposal Not Found</h1><p>This link may have expired. Please contact us at 0413 346 978.</p></div></body></html>`);
+        <style>body{font-family:${fb.bodyFont};display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e27;color:white;text-align:center;}</style>
+        </head><body><div><h1>Proposal Not Found</h1><p>This link may have expired. Please contact us at ${fb.phone}.</p></div></body></html>`);
     }
 
     const f = proposal.fields;
@@ -163,7 +278,8 @@ exports.showProposal = async (req, res) => {
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = getFirstNames(clientName);
     const greeting = salutation || `Dear ${escapeHtml(firstName)},`;
-    const logoPath = '/proposal-assets/gws-logo.png';
+    const brand = getBrandConfig(f['Brand']);
+    const logoPath = brand.logoPath;
     const dateObj = new Date(proposalDate + 'T00:00:00');
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const coverMonthYear = dateObj.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }).toUpperCase();
@@ -274,17 +390,7 @@ exports.showProposal = async (req, res) => {
     }).join('') : '';
 
     // Build clarification rows
-    const defaultClarifications = [
-      'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
-      'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.',
-      'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
-      'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
-      'Quotation valid for 30 days.',
-      'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
-      'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 \u2013 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
-      'License plate capture from cameras is dependent on many variables such as lighting, if vehicles are stationary or moving, speed of vehicles, license plate illumination/cleanliness, obstructions, distance from cameras etc.',
-      'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.',
-    ];
+    const defaultClarifications = buildDefaultClarifications(brand);
     const allClarifications = clarifications.length > 0 ? clarifications : defaultClarifications;
     const clarificationRows = allClarifications.map((c, i) =>
       `<tr><td>${i + 1}</td><td>${escapeHtml(typeof c === 'string' ? c : c.description || '')}</td></tr>`
@@ -295,7 +401,7 @@ exports.showProposal = async (req, res) => {
 <div class="page">
   <div class="pg-header"><img src="${logoPath}" alt="GWS"><div class="pg-header-right">Site Photos</div></div>
   <div class="photo-section"><img src="${escapeHtml(url)}" alt="Site Photo"></div>
-  <div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>www.greatwhitesecurity.com</span><span>Project #${escapeHtml(projectNumber)}</span></div>
+  <div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>${brand.website}</span><span>Project #${escapeHtml(projectNumber)}</span></div>
 </div>`).join('');
 
     // Letter note
@@ -315,28 +421,23 @@ exports.showProposal = async (req, res) => {
     <p>Alternatively, please accept the proposal below, and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`;
 
     // Page chrome helpers
-    const pgHeader = `<div class="pg-header"><img src="${logoPath}" alt="Great White Security"><div class="pg-header-right">Project #${escapeHtml(projectNumber)}</div></div>`;
-    const pgFooter = `<div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>www.greatwhitesecurity.com</span><span>Project #${escapeHtml(projectNumber)}</span></div>`;
+    const pgHeader = `<div class="pg-header"><img src="${logoPath}" alt="${escapeHtml(brand.companyName)}"><div class="pg-header-right">Project #${escapeHtml(projectNumber)}</div></div>`;
+    const pgFooter = `<div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>${brand.website}</span><span>Project #${escapeHtml(projectNumber)}</span></div>`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Great White Security \u2014 Proposal #${escapeHtml(projectNumber)}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&display=swap" rel="stylesheet">
+<title>${escapeHtml(brand.companyName)} \u2014 Proposal #${escapeHtml(projectNumber)}</title>
+<link href="${brand.googleFontsUrl}" rel="stylesheet">
 <style>
   :root {
-    --navy: #0a0e27; --navy-mid: #0f1430; --navy-light: #161c3a;
-    --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
-    --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
-    --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
-    --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
-    --gray-800: #1e2235; --red: #e05252; --green: #22c55e; --green-dark: #16a34a;
+    ${brand.cssVars}
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'DM Sans', sans-serif; color: var(--gray-800);
+    font-family: ${brand.bodyFont}; color: var(--gray-800);
     background: #c0c4cf; line-height: 1.7; font-size: 14px;
     -webkit-font-smoothing: antialiased;
   }
@@ -366,11 +467,11 @@ exports.showProposal = async (req, res) => {
   }
   .cover-spacer { height: 56%; flex-shrink: 0; }
   .cover-client-name {
-    font-family: 'DM Sans', sans-serif; font-size: 68px; font-weight: 800;
+    font-family: ${brand.bodyFont}; font-size: 68px; font-weight: 800;
     color: var(--white); line-height: 1.05; margin-bottom: 12px; margin-top: 20px;
   }
   .cover-client-address {
-    font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 600;
+    font-family: ${brand.bodyFont}; font-size: 22px; font-weight: 600;
     color: var(--cyan); margin-bottom: 0;
   }
   .cover-footer {
@@ -378,7 +479,7 @@ exports.showProposal = async (req, res) => {
     margin-top: auto;
   }
   .cover-footer span {
-    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700;
+    font-family: ${brand.bodyFont}; font-size: 16px; font-weight: 700;
     color: var(--white); letter-spacing: 2px; text-transform: uppercase;
   }
 
@@ -399,7 +500,7 @@ exports.showProposal = async (req, res) => {
 
   /* Section titles */
   .sec-title {
-    font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
+    font-family: ${brand.headingFont}; font-size: 30px; font-weight: 800;
     color: var(--navy); margin-bottom: 6px; line-height: 1.15;
   }
   .sec-title-accent { width: 50px; height: 3px; background: var(--cyan); margin-bottom: 25px; }
@@ -407,7 +508,7 @@ exports.showProposal = async (req, res) => {
   /* ===== LETTER ===== */
   .letter p { margin-bottom: 12px; color: var(--gray-600); line-height: 1.75; font-size: 13.5px; }
   .letter-greeting {
-    font-family: 'Playfair Display', serif; font-size: 17px; color: var(--navy) !important;
+    font-family: ${brand.headingFont}; font-size: 17px; color: var(--navy) !important;
     font-weight: 700; margin-bottom: 16px !important;
   }
   .letter-note {
@@ -487,7 +588,7 @@ exports.showProposal = async (req, res) => {
   .hero-price-items { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.9; padding-left: 5px; }
   .hero-price-right { text-align: right; position: relative; z-index: 1; }
   .hero-price-amount {
-    font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 800;
+    font-family: ${brand.headingFont}; font-size: 38px; font-weight: 800;
     color: var(--cyan); line-height: 1;
   }
   .hero-price-gst { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 0.5px; }
@@ -548,7 +649,7 @@ exports.showProposal = async (req, res) => {
   }
   .total-bar-left { font-size: 13px; color: var(--gray-600); }
   .total-bar-left strong { color: var(--navy); }
-  .total-bar-amount { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800; color: var(--navy); }
+  .total-bar-amount { font-family: ${brand.headingFont}; font-size: 28px; font-weight: 800; color: var(--navy); }
 
   /* ===== OPTION GROUPS ===== */
   .og-radio-card {
@@ -620,7 +721,7 @@ exports.showProposal = async (req, res) => {
   .cta-alt { font-size: 12.5px; color: var(--gray-600); }
   .cta-alt a { color: var(--cyan-dark); font-weight: 600; text-decoration: none; }
   .cta-thanks {
-    font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700;
+    font-family: ${brand.headingFont}; font-size: 16px; font-weight: 700;
     font-style: italic; color: var(--navy); margin-top: 28px;
   }
 
@@ -680,7 +781,7 @@ exports.showProposal = async (req, res) => {
 
 <!-- ==================== COVER ==================== -->
 <div class="cover-page">
-  <img class="cover-bg" src="${escapeHtml(coverImage)}" alt="Great White Security">
+  <img class="cover-bg" src="${escapeHtml(coverImage)}" alt="${escapeHtml(brand.companyName)}">
   <div class="cover-overlay">
     <div class="cover-spacer"></div>
     <div class="cover-client-name">Prepared for<br>${escapeHtml(businessName || clientName)}</div>
@@ -708,8 +809,8 @@ exports.showProposal = async (req, res) => {
     <p style="margin-bottom:0;">Kind regards,</p>
     <div class="letter-sign">
       <img src="/proposal-assets/signature.jpeg" alt="Signature">
-      <div class="letter-sign-name">Richard Campbell-Tovey</div>
-      <div class="letter-sign-title">WA Police Licensed Security Consultant 79960</div>
+      <div class="letter-sign-name">${escapeHtml(brand.signerName)}</div>
+      <div class="letter-sign-title">${escapeHtml(brand.signerTitle)}</div>
     </div>
   </div>
   ${pgFooter}
@@ -721,12 +822,10 @@ exports.showProposal = async (req, res) => {
   <div class="pg-body">
     <div class="sec-title">Why Choose Us?</div>
     <div class="sec-title-accent"></div>
-    <p class="why-intro">${isCommercial
-      ? 'Great White Security is built on over 21 years of proven experience securing businesses and commercial properties across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial premises giving business owners and facility managers peace of mind that their staff, visitors and assets are safe.'
-      : 'Great White Security is built on over 21 years of proven experience securing homes and businesses across Western Australia. Our background in the industry has seen us deliver reliable protection for thousands of commercial and residential properties giving business owners &amp; home owners peace of mind that their staff, customers, family and assets are safe.'}</p>
-    <p class="why-intro">Our team is WA Police licensed and committed to seamless, professional installations. We pride ourselves on leaving every site secure, tidy, and set up for long-term protection.</p>
+    <p class="why-intro">${isCommercial ? brand.whyUsCommercial : brand.whyUsResidential}</p>
+    <p class="why-intro">${brand.whyUsTeamLine}</p>
     <div class="why-highlight">
-      <p>As a <strong>product-agnostic security installation business</strong>, we're not tied to any single brand. Instead, we partner with trusted local suppliers to provide solutions tailored to each client's needs.</p>
+      <p>${brand.whyUsProductAgnostic}</p>
     </div>
     <div class="cap-grid">
       <div class="cap-card"><h4>24/7 Reliable Protection</h4><p>Advanced systems designed to safeguard your premises day and night.</p></div>
@@ -734,12 +833,8 @@ exports.showProposal = async (req, res) => {
       <div class="cap-card"><h4>AI Driven Technology</h4><p>Intuitive systems with simple remote access from your phone.</p></div>
       <div class="cap-card"><h4>Future-Proof Security</h4><p>Scalable solutions that can expand as your needs evolve.</p></div>
     </div>
-    <p class="why-intro">By choosing Great White Security, you gain a trusted partner with over two decades of expertise, a commitment to quality, and the confidence of working with a WA-based business that's here to support you long after installation.</p>
-    <div class="cred-row">
-      <div class="cred-item"><img src="/proposal-assets/wa-police-badge.png" alt="WA Police Licensed"><div class="cred-label">WA Police Licensed #79960</div></div>
-      <div class="cred-item"><img src="/proposal-assets/google-reviews.png" alt="Google Reviews 4.6 Stars"></div>
-      <div class="cred-item"><img src="/proposal-assets/acma-logo.png" alt="ACMA Registered"></div>
-    </div>
+    <p class="why-intro">${brand.whyUsClosing}</p>
+    ${buildCredentialsHtml(brand)}
   </div>
   ${pgFooter}
 </div>
@@ -847,7 +942,7 @@ ${sitePhotoPages}
   </div>
   <div class="cta-section">
     ${isTechView ? `
-    <div style="font-size:12px; color:var(--gray-400); padding:10px 0;">Installation reference for Great White Security technicians</div>
+    <div style="font-size:12px; color:var(--gray-400); padding:10px 0;">${brand.installReferenceText}</div>
     ` : isConfirmed ? `
     <div class="confirmed-banner">
       <h3>\u2713 Proposal Accepted</h3>
@@ -855,11 +950,11 @@ ${sitePhotoPages}
     </div>
     ` : proposalPaused ? `
     <button class="cta-button" disabled style="opacity:0.5;cursor:not-allowed;">Proposal Unavailable</button>
-    <div class="cta-sub" style="color:var(--red);font-weight:600;">This proposal is currently being updated. Please contact us at 0413 346 978 if you have any questions.</div>
+    <div class="cta-sub" style="color:var(--red);font-weight:600;">This proposal is currently being updated. Please contact us at ${brand.phone} if you have any questions.</div>
     ` : `
     <button class="cta-button" id="acceptBtn" onclick="acceptAndPay()">Accept Proposal &amp; Secure My Booking \u2192</button>
     <div class="cta-sub">
-      By clicking above you agree to the <a href="https://www.greatwhitesecurity.com/terms-of-service/" target="_blank">Terms &amp; Conditions</a>
+      By clicking above you agree to the <a href="${brand.termsUrl}" target="_blank">Terms &amp; Conditions</a>
       and the Clarifications &amp; Exclusions outlined in this proposal.<br>
       Pricing includes GST. Quotation valid for 30 days.
     </div>
@@ -884,6 +979,7 @@ ${sitePhotoPages}
   const IS_TECH_VIEW = ${isTechView};
   let selectedBasePrice = ${basePrice};
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
+  const PDF_PREFIX = '${escapeHtml(brand.pdfPrefix)}';
   let discountableUpgradeTotal = 0;
   let nonDiscountableUpgradeTotal = 0;
   const DISCOUNT_TYPE = '${escapeHtml(discountType)}';
@@ -1034,7 +1130,7 @@ async function downloadPDF() {
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
     }
 
-    pdf.save('Great White Security — Proposal #' + PROJECT_NUMBER + '.pdf');
+    pdf.save(PDF_PREFIX + ' — Proposal #' + PROJECT_NUMBER + '.pdf');
   } catch (err) {
     console.error('PDF generation failed:', err);
     alert('PDF generation failed. Please try again.');
@@ -1231,7 +1327,8 @@ exports.createProposalCheckout = async (req, res) => {
     }
 
     if (proposal.fields['Paused']) {
-      return res.status(403).json({ error: 'This proposal is currently unavailable. Please contact us at 0413 346 978.' });
+      const pb = getBrandConfig(proposal.fields['Brand']);
+      return res.status(403).json({ error: `This proposal is currently unavailable. Please contact us at ${pb.phone}.` });
     }
 
     const f = proposal.fields;
@@ -1352,6 +1449,7 @@ exports.showOTO = async (req, res) => {
     }
 
     const f = proposal.fields;
+    const brand = getBrandConfig(f['Brand']);
     const clientName = f['Client Name'] || '';
     const firstName = getFirstNames(clientName);
 
@@ -1423,21 +1521,16 @@ exports.showOTO = async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Exclusive Offer - Great White Security</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700&display=swap" rel="stylesheet">
+  <title>Exclusive Offer - ${escapeHtml(brand.companyName)}</title>
+  <link href="${brand.googleFontsUrl}" rel="stylesheet">
   <style>
     :root {
-      --navy: #0a0e27; --navy-mid: #0f1430; --navy-light: #161c3a;
-      --cyan: #78e4ff; --cyan-mid: #5dd4f0; --cyan-dark: #3dbfe0;
-      --cyan-pale: #edf9ff; --cyan-bg: #f4fbff;
-      --white: #ffffff; --gray-50: #f5f7fa; --gray-100: #e8ecf2;
-      --gray-200: #d4d9e3; --gray-400: #8b90a0; --gray-600: #4a4f63;
-      --gray-800: #1e2235; --green: #22c55e; --green-dark: #16a34a;
-      --red: #e05252; --red-bright: #dc2626;
+      ${brand.cssVars}
+      --red-bright: #dc2626;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'DM Sans', sans-serif; color: var(--gray-800);
+      font-family: ${brand.bodyFont}; color: var(--gray-800);
       background: var(--white); min-height: 100vh; line-height: 1.7; font-size: 14px;
       -webkit-font-smoothing: antialiased;
     }
@@ -1465,7 +1558,7 @@ exports.showOTO = async (req, res) => {
       position: relative; z-index: 1;
     }
     .oto-hero h1 {
-      font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900;
+      font-family: ${brand.headingFont}; font-size: 36px; font-weight: 900;
       color: var(--white); margin-bottom: 10px; position: relative; z-index: 1;
     }
     .oto-hero .hero-sub {
@@ -1479,7 +1572,7 @@ exports.showOTO = async (req, res) => {
       border-bottom: 1px solid var(--gray-100);
     }
     .wait-text {
-      font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 900;
+      font-family: ${brand.headingFont}; font-size: 42px; font-weight: 900;
       color: var(--red-bright); margin-bottom: 8px; line-height: 1.1;
     }
     .wait-sub {
@@ -1500,7 +1593,7 @@ exports.showOTO = async (req, res) => {
     .pg-body { padding: 40px 50px; max-width: 680px; margin: 0 auto; width: 100%; }
 
     .sec-title {
-      font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 800;
+      font-family: ${brand.headingFont}; font-size: 30px; font-weight: 800;
       color: var(--navy); margin-bottom: 6px; line-height: 1.15;
     }
     .sec-title-accent { width: 50px; height: 3px; background: var(--cyan); margin-bottom: 20px; }
@@ -1561,11 +1654,11 @@ exports.showOTO = async (req, res) => {
     .total-bar-label { font-size: 13px; font-weight: 700; color: var(--navy); }
     .total-bar-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
     .total-bar-amount {
-      font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 800;
+      font-family: ${brand.headingFont}; font-size: 32px; font-weight: 800;
       color: var(--navy);
     }
     .total-monthly-note {
-      font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800;
+      font-family: ${brand.headingFont}; font-size: 24px; font-weight: 800;
       color: var(--navy); text-align: right; margin-top: 4px;
     }
 
@@ -1581,7 +1674,7 @@ exports.showOTO = async (req, res) => {
 
     .cta-button {
       display: block; width: 100%; padding: 18px 24px; border: none; border-radius: 10px;
-      font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 800;
+      font-family: ${brand.bodyFont}; font-size: 16px; font-weight: 800;
       cursor: pointer; transition: all 0.3s; text-align: center; letter-spacing: 0.3px;
       background: linear-gradient(135deg, var(--cyan-dark) 0%, var(--cyan-mid) 50%, var(--cyan-dark) 100%);
       background-size: 200% 100%; color: var(--navy);
@@ -1626,7 +1719,7 @@ exports.showOTO = async (req, res) => {
 <body>
   <div class="page">
     <div class="oto-hero">
-      <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
+      <img src="${brand.logoPath}" alt="${escapeHtml(brand.companyName)}">
       <div class="check">\u2713</div>
       <h1>Payment Confirmed!</h1>
       <p class="hero-sub">Your payment has been received and your installation is locked in.</p>
@@ -1810,6 +1903,7 @@ exports.showOTOThankYou = async (req, res) => {
   try {
     const { projectNumber } = req.params;
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
+    const brand = getBrandConfig(proposal.fields['Brand']);
     const firstName = proposal ? getFirstNames(proposal.fields['Client Name'] || '') : 'there';
 
     res.send(`<!DOCTYPE html>
@@ -1817,13 +1911,13 @@ exports.showOTOThankYou = async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thank You - Great White Security</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <title>Thank You - ${escapeHtml(brand.companyName)}</title>
+  <link href="${brand.googleFontsUrl}" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'DM Sans', sans-serif;
-      background: #0e1231;
+      font-family: ${brand.bodyFont};
+      background: ${brand.thankYouBg};
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -1838,14 +1932,14 @@ exports.showOTOThankYou = async (req, res) => {
     .thank-you img { max-width: 200px; margin-bottom: 30px; }
     .check {
       width: 80px; height: 80px;
-      background: #00bcd4;
+      background: ${brand.thankYouAccent};
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       margin: 0 auto 25px;
       font-size: 40px;
     }
     h1 {
-      font-family: 'Playfair Display', Georgia, serif;
+      font-family: ${brand.headingFont};
       font-size: 36px;
       margin-bottom: 15px;
     }
@@ -1858,16 +1952,16 @@ exports.showOTOThankYou = async (req, res) => {
       margin: 30px 0;
       text-align: left;
     }
-    .steps h3 { font-size: 18px; margin-bottom: 15px; color: #00bcd4; }
+    .steps h3 { font-size: 18px; margin-bottom: 15px; color: ${brand.thankYouAccent}; }
     .steps ol { padding-left: 20px; }
     .steps li { padding: 8px 0; color: rgba(255,255,255,0.8); font-size: 14px; }
     .contact { margin-top: 30px; font-size: 14px; }
-    .contact a { color: #00bcd4; text-decoration: none; }
+    .contact a { color: ${brand.thankYouAccent}; text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="thank-you">
-    <img src="/proposal-assets/gws-logo.png" alt="Great White Security">
+    <img src="${brand.logoPath}" alt="${escapeHtml(brand.companyName)}">
     <div class="check">&#10003;</div>
     <h1>You're All Set, ${escapeHtml(firstName)}!</h1>
     <p>Your payment has been received and we're excited to get started on your security system.</p>
@@ -1884,7 +1978,7 @@ exports.showOTOThankYou = async (req, res) => {
 
     <p>If you have any questions in the meantime, don't hesitate to reach out.</p>
     <div class="contact">
-      <p><a href="tel:+61413346978">0413 346 978</a> &bull; <a href="mailto:hello@greatwhitesecurity.com">hello@greatwhitesecurity.com</a></p>
+      <p><a href="tel:${brand.phoneLink}">${escapeHtml(brand.phone)}</a> &bull; <a href="mailto:${brand.email}">${escapeHtml(brand.email)}</a></p>
     </div>
   </div>
 </body>
@@ -2228,6 +2322,7 @@ exports.showCreateFormForEngagement = async (req, res) => {
         clientEmail: email,
         projectNumber,
         quoteAmount: parseFloat(eng['Quote Amount']) || 0,
+        brand: eng['Business'] || 'Great White Security',
       };
     }
 
@@ -2430,12 +2525,13 @@ exports.sendProposal = async (req, res) => {
     }
 
     // Use custom message if provided, otherwise default
+    const brand = getBrandConfig(f['Brand']);
     let message;
     if (req.body.message) {
       // Replace {proposalUrl} placeholder with the actual short URL
       message = req.body.message.replace(/\{proposalUrl\}/g, shortUrl);
     } else {
-      message = `Hi ${firstName}, your security proposal from Great White Security is ready!\n\nView it here: ${shortUrl}\n\nAny questions, give us a call on 0413 346 978.\n\nCheers,\nRicky`;
+      message = brand.smsTemplate(firstName, shortUrl);
     }
 
     await twilioService.sendSMS(phone, message);
@@ -2539,6 +2635,7 @@ function buildProposalFields(body) {
   if (body.date) fields['Proposal Date'] = body.date;
   if (body.clientName) fields['Client Name'] = body.clientName;
   if (body.businessName !== undefined) fields['Business Name'] = body.businessName || '';
+  if (body.brand) fields['Brand'] = body.brand;
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
   if (body.siteAddress !== undefined) fields['Site Address'] = body.siteAddress || '';
   if (body.salutation !== undefined) fields['Salutation'] = body.salutation || '';
@@ -2597,14 +2694,16 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const customers = clone.customers || [];
   const nextProjectNumber = clone.nextProjectNumber || '';
 
-  // ── Job Type Templates ──────────────────────────────────
+  // ── Brand & Job Type Templates ──────────────────────────
+  const currentBrand = f['Brand'] || (pf && pf.brand) || 'Great White Security';
+  const brandForForm = getBrandConfig(currentBrand);
   const commonClarifications = [
     'Only items expressly listed above are included in this quotation. Any additional parts or works to other items are chargeable at the applicable rate.',
-    'All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding Western Australian public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.',
-    'Great White Security requires full and free access to all areas of the site containing security equipment covered in the works outlined in this proposal for the duration of the works. This includes vehicles or equipment which may be in the way of accessing install locations. Delays in access or return attendances required to complete works due to access restrictions may be chargeable at the applicable service rates.',
-    'If required, customer smartphones must be present during installation. Great White Security assume customer phones are able to install/run CCTV and alarm apps as required.',
+    `All works quoted and any subsequent warranty works are conducted between the hours of 08:00 & 17:00 Monday to Friday excluding ${brandForForm.publicHolidayState} public holidays. Warranty attendances do not include provision of EWP which must be organised by the client.`,
+    brandForForm.accessClarification,
+    brandForForm.phoneClarification,
     'Quotation valid for 30 days.',
-    'Customer must provide spare internet router port and have working internet for app connectivity. Great White Security assumes internet speed is sufficient for CCTV app access.',
+    brandForForm.internetClarification,
   ];
   const cctvOnlyClarifications = [
     'CCTV Alarm Monitoring by Monitoring Station pricing is based on being set to only send alarms overnight between 2200 \u2013 0530. More than 8 events per month may require a plan increase but will be reviewed first.',
@@ -2968,6 +3067,14 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         <div class="step" id="step-1">
           <div class="card">
             <h2 class="card-title">Client Details</h2>
+            <div class="fg">
+              <label>Brand</label>
+              <input type="hidden" name="brand" id="brandInput" value="${escapeHtml(currentBrand)}">
+              <div style="display:flex;gap:0;margin-top:4px;">
+                <button type="button" id="btn-brand-gws" onclick="setBrand('Great White Security')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${currentBrand === 'Great White Security' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Great White Security</button>
+                <button type="button" id="btn-brand-tag" onclick="setBrand('The Alarm Guy')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${currentBrand === 'The Alarm Guy' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">The Alarm Guy</button>
+              </div>
+            </div>
             ${isClone ? `
             <div class="fg" id="customer-selector-wrap">
               <label>Select Customer</label>
@@ -3378,6 +3485,19 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       list.appendChild(div);
       initPkgDrag(div);
       div.querySelector('.oto-item-name').focus();
+    }
+
+    function setBrand(val) {
+      document.getElementById('brandInput').value = val;
+      const btnGws = document.getElementById('btn-brand-gws');
+      const btnTag = document.getElementById('btn-brand-tag');
+      if (val === 'Great White Security') {
+        btnGws.style.background = '#78e4ff'; btnGws.style.color = '#0a0e27'; btnGws.style.borderColor = '#78e4ff';
+        btnTag.style.background = '#1a2236'; btnTag.style.color = '#8a9ab5'; btnTag.style.borderColor = '#3a4a5c';
+      } else {
+        btnTag.style.background = '#78e4ff'; btnTag.style.color = '#0a0e27'; btnTag.style.borderColor = '#78e4ff';
+        btnGws.style.background = '#1a2236'; btnGws.style.color = '#8a9ab5'; btnGws.style.borderColor = '#3a4a5c';
+      }
     }
 
     function setPropertyType(type) {
@@ -3905,7 +4025,12 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       const fullFirstNames = clientName.includes('&')
         ? clientName.split('&').map(s => s.trim().split(' ')[0]).join(' & ')
         : firstName;
-      document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from Great White Security is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0413 346 978.\\n\\nCheers,\\nRicky';
+      const brandVal = document.getElementById('brandInput').value;
+      if (brandVal === 'The Alarm Guy') {
+        document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from The Alarm Guy is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0485 001 498.\\n\\nCheers,\\nRicky';
+      } else {
+        document.getElementById('sendMessage').value = 'Hi ' + fullFirstNames + ', your security proposal from Great White Security is ready!\\n\\nView it here: {proposalUrl}\\n\\nAny questions, give us a call on 0413 346 978.\\n\\nCheers,\\nRicky';
+      }
 
       // Reset and update send button
       const sendBtn = document.getElementById('sendModalBtn');
