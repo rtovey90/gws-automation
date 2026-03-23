@@ -127,10 +127,10 @@ Cheers,
 {{SENDER_NAME}}`;
 
     let messageContent;
-    if (template && template.fields.Content) {
-      messageContent = template.fields.Content;
-    } else if (messageType === 'request-photos') {
+    if (messageType === 'request-photos') {
       messageContent = requestPhotosDefault;
+    } else if (template && template.fields.Content) {
+      messageContent = template.fields.Content;
     } else {
       messageContent = followUpDefault;
     }
