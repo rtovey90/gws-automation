@@ -271,6 +271,7 @@ exports.showProposal = async (req, res) => {
     const deliverables = safeJsonParse(f['Deliverables']);
     const cameraOptions = safeJsonParse(f['Camera Options']);
     const optionGroups = safeJsonParse(f['Option Groups']);
+    const brand = getBrandConfig(f['Our Business Name']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
     const coverImage = f['Cover Image URL'] || brand.coverImage;
@@ -286,7 +287,6 @@ exports.showProposal = async (req, res) => {
     const proposalDate = f['Proposal Date'] || new Date().toISOString().split('T')[0];
     const firstName = getFirstNames(clientName);
     const greeting = salutation || `Dear ${escapeHtml(firstName)},`;
-    const brand = getBrandConfig(f['Our Business Name']);
     const logoPath = brand.logoPath;
     const dateObj = new Date(proposalDate + 'T00:00:00');
     const formattedDate = dateObj.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
