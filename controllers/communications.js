@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const { getBrandForEngagement } = require('../config/brands');
 
 /**
  * Communications Controllers - Handle pricing SMS and review requests
@@ -45,6 +46,7 @@ exports.sendPricing = async (req, res) => {
     }
 
     // Build pricing message
+    const brand = await getBrandForEngagement(engagementId, airtableService);
     const clientName = lead.fields['First Name'] || 'there';
     const productName = product.fields['Product Name'];
     const price = product.fields.Price;
@@ -62,7 +64,7 @@ ${paymentLink}
 Once payment's through, we'll reach out to schedule.
 
 Thanks!
-Ricky`;
+${brand.senderName}`;
 
     // Send SMS
     await twilioService.sendSMS(
@@ -582,9 +584,10 @@ exports.sendEngagementReviewRequest = async (req, res) => {
       systemSuggestion = 'additional security';
     }
 
+    const brand = await getBrandForEngagement(engagementId, airtableService);
     const reviewLink = 'https://g.page/r/CWLImL52RIBEEBM/review';
 
-    const defaultMessage = `Hey ${firstName}, thanks again for trusting Great White Security.
+    const defaultMessage = `Hey ${firstName}, thanks again for trusting ${brand.companyName}.
 
 If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
 
@@ -593,7 +596,7 @@ Here's the link: ${reviewLink}
 If you're interested in looking at potentially having ${systemSuggestion} installed, or need anything else, feel free to reach out anytime!
 
 Kind regards,
-Ricky (Great White Security)`;
+${brand.senderName} (${brand.companyName})`;
 
     // Show editable form
     res.send(`
@@ -922,6 +925,8 @@ exports.showJobSummaryForm = async (req, res) => {
     firstName = firstName || 'there';
     const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Client';
 
+    const summaryBrand = await getBrandForEngagement(engagementId, airtableService);
+
     const templateNoBalance = `Hi ${firstName},
 
 Here's a summary from the technician's attendance today:
@@ -947,8 +952,8 @@ No additional charges — everything was covered within the call-out fee.
 If you'd like us to provide a quote for the recommended next steps, we can arrange this during the week.
 
 Kind regards,
-Ricky
-Great White Security`;
+${summaryBrand.senderName}
+${summaryBrand.companyName}`;
 
     const templateBalanceDue = `Hi ${firstName},
 
@@ -967,8 +972,8 @@ For the follow-up visit, the standard $247 call-out will apply to secure the boo
 [PAYMENT LINK OR INSTRUCTIONS]
 
 Kind regards,
-Ricky
-Great White Security`;
+${summaryBrand.senderName}
+${summaryBrand.companyName}`;
 
     res.send(`
       <!DOCTYPE html>

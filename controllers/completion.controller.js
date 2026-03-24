@@ -2,6 +2,7 @@ const airtableService = require('../services/airtable.service');
 const multer = require('multer');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
+const { getBrandForEngagement } = require('../config/brands');
 
 /**
  * Completion Controllers - Tech marks job complete and uploads photos
@@ -160,12 +161,13 @@ exports.showCompletionForm = async (req, res) => {
     const priorVisits = Math.max(previousVisits.length, legacyVisitCount, hasLegacyCompletion ? 1 : 0);
     const visitNumber = priorVisits + 1;
     const submitLabel = visitNumber === 1 ? 'Submit Visit Notes' : `Submit Visit ${visitNumber} Notes`;
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     res.send(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Complete Job - Great White Security</title>
+        <title>Complete Job - ${brand.companyName}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           * {
@@ -347,10 +349,10 @@ exports.showCompletionForm = async (req, res) => {
       <body>
         <div class="container">
           <div class="card-header">
-            <img src="/gws-logo.webp" alt="Great White Security">
+            <img src="${brand.logoWebp}" alt="${brand.companyName}">
             <h1>Visit ${visitNumber} — ${clientName}</h1>
             ${engNumber ? `<p style="font-size:16px;color:#78e4ff;font-weight:700;margin-bottom:4px;">${engNumber}</p>` : ''}
-            <p>Great White Security</p>
+            <p>${brand.companyName}</p>
           </div>
           <div class="card-body">
 

@@ -1,4 +1,5 @@
 const airtableService = require('../services/airtable.service');
+const { getBrandForEngagement } = require('../config/brands');
 
 /**
  * Generate code by encoding IDs directly into the URL (stateless, survives deploys)
@@ -134,6 +135,7 @@ exports.techYes = async (req, res) => {
     }
 
     const { engagementId, techId } = decoded;
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     const tech = await airtableService.getTech(techId);
     const firstName = tech ? tech.fields['First Name'] || 'there' : 'there';
@@ -150,9 +152,9 @@ exports.techYes = async (req, res) => {
       <body>
         <div class="card">
           <div class="card-header">
-            <img src="/gws-logo.webp" alt="Great White Security">
+            <img src="${brand.logoWebp}" alt="${brand.companyName}">
             <h1>Confirm Availability</h1>
-            <p>Great White Security</p>
+            <p>${brand.companyName}</p>
           </div>
           <div class="card-body">
             <div class="status-icon">&#128075;</div>
@@ -186,6 +188,7 @@ exports.techYesConfirm = async (req, res) => {
     }
 
     const { engagementId, techId } = decoded;
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     console.log(`✅ Tech ${techId} CONFIRMED YES for engagement ${engagementId}`);
 
@@ -231,9 +234,9 @@ exports.techYesConfirm = async (req, res) => {
       <body>
         <div class="card">
           <div class="card-header">
-            <img src="/gws-logo.webp" alt="Great White Security">
+            <img src="${brand.logoWebp}" alt="${brand.companyName}">
             <h1>Response Recorded</h1>
-            <p>Great White Security</p>
+            <p>${brand.companyName}</p>
           </div>
           <div class="card-body">
             <div class="status-icon">&#10003;</div>
@@ -270,6 +273,7 @@ exports.techNo = async (req, res) => {
     }
 
     const { engagementId, techId } = decoded;
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     const tech = await airtableService.getTech(techId);
     const firstName = tech ? tech.fields['First Name'] || 'there' : 'there';
@@ -286,9 +290,9 @@ exports.techNo = async (req, res) => {
       <body>
         <div class="card">
           <div class="card-header">
-            <img src="/gws-logo.webp" alt="Great White Security">
+            <img src="${brand.logoWebp}" alt="${brand.companyName}">
             <h1>Confirm Response</h1>
-            <p>Great White Security</p>
+            <p>${brand.companyName}</p>
           </div>
           <div class="card-body">
             <div class="status-icon">&#128075;</div>
@@ -322,6 +326,7 @@ exports.techNoConfirm = async (req, res) => {
     }
 
     const { engagementId, techId } = decoded;
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     console.log(`❌ Tech ${techId} CONFIRMED NO for engagement ${engagementId}`);
 
@@ -367,9 +372,9 @@ exports.techNoConfirm = async (req, res) => {
       <body>
         <div class="card">
           <div class="card-header">
-            <img src="/gws-logo.webp" alt="Great White Security">
+            <img src="${brand.logoWebp}" alt="${brand.companyName}">
             <h1>Response Recorded</h1>
-            <p>Great White Security</p>
+            <p>${brand.companyName}</p>
           </div>
           <div class="card-body">
             <div class="status-icon">&#128078;</div>
@@ -378,7 +383,7 @@ exports.techNoConfirm = async (req, res) => {
             <div class="close-msg">You can close this window.</div>
           </div>
           <div class="card-footer">
-            <a href="tel:0413346978">Call Ricky — 0413 346 978</a>
+            <a href="tel:${brand.phoneLink}">Call ${brand.senderName} — ${brand.phone}</a>
           </div>
         </div>
       </body>

@@ -1,5 +1,6 @@
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const { getBrandForEngagement } = require('../config/brands');
 
 /**
  * Schedule Controllers - Tech schedules job date/time
@@ -51,12 +52,13 @@ exports.showScheduleForm = async (req, res) => {
     const clientAddress = (customer && customer.fields.Address) || lead.fields['Address (from Customer)'] || '';
     const scope = lead.fields['Job Scope'] || lead.fields['Client intake info'] || '';
     const engNumber = lead.fields['Engagement Number'] || '';
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     res.send(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Schedule Job - Great White Security</title>
+        <title>Schedule Job - ${brand.companyName}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           * {
@@ -183,10 +185,10 @@ exports.showScheduleForm = async (req, res) => {
       <body>
         <div class="container">
           <div class="card-header">
-            <img src="/gws-logo.webp" alt="Great White Security">
+            <img src="${brand.logoWebp}" alt="${brand.companyName}">
             <h1>Schedule Job</h1>
             ${engNumber ? `<p style="font-size:16px;color:#78e4ff;font-weight:700;margin-bottom:4px;">${engNumber}</p>` : ''}
-            <p>Great White Security</p>
+            <p>${brand.companyName}</p>
           </div>
           <div class="card-body">
           <p class="subtitle">Please select the time and date you've scheduled to attend with ${clientName} so we can be available to support.</p>
@@ -378,6 +380,7 @@ exports.scheduleJob = async (req, res) => {
 
       if (techPhone) {
         // Send SMS to tech with completion link
+        const schedBrand = await getBrandForEngagement(engagementId, airtableService);
         const schedEngNumber = engagement.fields['Engagement Number'] || '';
         const schedRefLine = schedEngNumber ? `(${schedEngNumber}) ` : '';
         const message = `Hey ${techFirstName},
@@ -391,7 +394,7 @@ ${completionUrl}
 This helps us track system details, codes, and upgrade opportunities.
 
 Cheers,
-Ricky (Great White Security)`;
+${schedBrand.senderName} (${schedBrand.companyName})`;
 
         await twilioService.sendSMS(
           techPhone,

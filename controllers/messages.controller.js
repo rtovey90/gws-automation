@@ -1,6 +1,7 @@
 const { wrapInLayout } = require('../utils/layout');
 const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
+const { getBrandForEngagement, getBrandConfig } = require('../config/brands');
 
 // Helper function to normalize Australian phone numbers
 // Converts all formats to +61XXXXXXXXX for consistent matching
@@ -956,6 +957,9 @@ exports.showConversation = async (req, res) => {
       }
     }
 
+    // Get brand config for templates
+    const brand = leadId ? await getBrandForEngagement(leadId, airtableService) : getBrandConfig();
+
     const conversationStyles = `
           .conversation-wrapper {
             height: calc(100vh - 52px);
@@ -1325,7 +1329,7 @@ exports.showConversation = async (req, res) => {
           const templates = {
             photos: \`Hey ${customerName},
 
-Ricky here from Great White Security.
+${brand.senderName} here from ${brand.companyName}.
 Nice speaking with you!
 
 To help us determine what's required and who to dispatch, could you please share a few photos of your system?
@@ -1334,7 +1338,7 @@ You can send the photos to this number.
 
 Cheers,
 
-Ricky\`,
+${brand.senderName}\`,
             payment: \`Hi ${customerName}, thanks for sending those through.
 
 Good news — I can have one of our technicians attend this week (or early next week).
@@ -1349,8 +1353,8 @@ To secure the booking, please make payment here:
 Once payment is through, the technician will reach out to confirm a suitable time.
 
 Thanks,
-Ricky
-Great White Security\`,
+${brand.senderName}
+${brand.companyName}\`,
             paymentReceived: \`Hi ${customerName}, thanks for your payment!
 
 The assigned technician will be in touch within the next 24 hours to schedule the booking with you.
@@ -1358,8 +1362,8 @@ The assigned technician will be in touch within the next 24 hours to schedule th
 If you have any questions in the meantime, feel free to reach out.
 
 Thanks,
-Ricky
-Great White Security\`,
+${brand.senderName}
+${brand.companyName}\`,
             summaryNoBalance: \`Hi ${customerName},
 
 Here's a summary from the technician's attendance today:
@@ -1385,8 +1389,8 @@ No additional charges — everything was covered within the call-out fee.
 If you'd like us to provide a quote for the recommended next steps, we can arrange this during the week.
 
 Kind regards,
-Ricky
-Great White Security\`,
+${brand.senderName}
+${brand.companyName}\`,
             summaryBalanceDue: \`Hi ${customerName},
 
 Just a summary from our attendance and the proposed next steps:
@@ -1404,9 +1408,9 @@ For the follow-up visit, the standard $247 call-out will apply to secure the boo
 [PAYMENT LINK OR INSTRUCTIONS]
 
 Kind regards,
-Ricky
-Great White Security\`,
-            review: \`Hey ${customerName}, thanks again for trusting Great White Security.
+${brand.senderName}
+${brand.companyName}\`,
+            review: \`Hey ${customerName}, thanks again for trusting ${brand.companyName}.
 
 If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
 
@@ -1415,7 +1419,7 @@ Here's the link: https://g.page/r/CWLImL52RIBEEBM/review
 If you need anything else, feel free to reach out anytime!
 
 Kind regards,
-Ricky (Great White Security)\`
+${brand.senderName} (${brand.companyName})\`
           };
 
           // Scroll to bottom on load

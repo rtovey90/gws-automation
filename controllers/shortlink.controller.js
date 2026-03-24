@@ -1,4 +1,5 @@
 const shortLinkService = require('../services/shortlink.service');
+const { getBrandConfig } = require('../config/brands');
 
 /**
  * Short Link Controllers - Handle payment link redirects
@@ -19,11 +20,12 @@ exports.redirect = async (req, res) => {
 
     if (!fullUrl) {
       console.log(`❌ Short link not found: ${code}`);
+      const brand = getBrandConfig(); // default brand fallback
       return res.status(404).send(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Link Not Found - Great White Security</title>
+          <title>Link Not Found - ${brand.companyName}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             * {
@@ -76,7 +78,7 @@ exports.redirect = async (req, res) => {
             <div class="error-icon">❌</div>
             <h1>Link Not Found</h1>
             <p>This link has expired or is invalid.</p>
-            <p class="contact">Please contact us at 0413 346 978</p>
+            <p class="contact">Please contact us at ${brand.phone}</p>
           </div>
         </body>
         </html>

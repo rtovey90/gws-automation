@@ -2,6 +2,7 @@ const airtableService = require('../services/airtable.service');
 const multer = require('multer');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
+const { getBrandForEngagement } = require('../config/brands');
 
 // Configure Cloudinary (prefer CLOUDINARY_URL when available)
 const cloudinaryUrl = process.env.CLOUDINARY_URL;
@@ -89,12 +90,13 @@ exports.showUploadForm = async (req, res) => {
     const lead = engagement; // For backward compatibility
 
     const clientName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     res.send(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Upload Photos - Great White Security</title>
+        <title>Upload Photos - ${brand.companyName}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           * {

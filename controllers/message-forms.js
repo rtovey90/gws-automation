@@ -2,6 +2,7 @@ const airtableService = require('../services/airtable.service');
 const twilioService = require('../services/twilio.service');
 const { generateShortCode } = require('./tech-availability-short.controller');
 const shortLinkService = require('../services/shortlink.service');
+const { getBrandForEngagement, getBrandConfig } = require('../config/brands');
 
 /**
  * Message Form Controllers - Show editable message forms before sending
@@ -49,6 +50,9 @@ exports.showMessageForm = async (req, res) => {
 
     const { engagement, customer } = result;
     const lead = engagement; // For backward compatibility with existing code
+
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
 
     // Determine template name and field mappings based on message type
     let templateName;
@@ -111,17 +115,17 @@ exports.showMessageForm = async (req, res) => {
     }
 
     // Get template content and replace variables
-    const followUpDefault = `Hi {{FIRST_NAME}}, just checking in — we haven't seen anything come through yet. Would you still like our help with this? Happy to chat if you have any questions. - {{SENDER_NAME}}, Great White Security`;
+    const followUpDefault = `Hi {{FIRST_NAME}}, just checking in — we haven't seen anything come through yet. Would you still like our help with this? Happy to chat if you have any questions. - {{SENDER_NAME}}, ${brand.companyName}`;
     const requestPhotosDefault = `Hey {{FIRST_NAME}},
 
-{{SENDER_NAME}} here from Great White Security.
+{{SENDER_NAME}} here from ${brand.companyName}.
 Nice speaking with you earlier!
 
 To help us determine what's required and who to dispatch, could you please share a few photos of your system?
 
 You can upload here: {{UPLOAD_LINK}}
 
-If you have any issues please text them to 0413346978 with your name.
+If you have any issues please text them to ${brand.phone.replace(/\s/g, '')} with your name.
 
 Cheers,
 {{SENDER_NAME}}`;
@@ -137,7 +141,7 @@ Cheers,
 
     // Get first name from customer if available, fallback to engagement
     const firstName = (customer && customer.fields['First Name']) || lead.fields['First Name (from Customer)'] || 'there';
-    const uploadLink = `${process.env.BASE_URL}/upload-photos/${engagementId}`;
+    const uploadLink = `${brand.baseUrl}/upload-photos/${engagementId}`;
     const defaultSender = 'Marjorie';
 
     // Get customer phone for disabled checks
@@ -346,7 +350,7 @@ Cheers,
                 <label for="senderSelect">Sending as:</label>
                 <select id="senderSelect" style="width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:8px;font-size:15px;background:white;cursor:pointer;">
                   <option value="Marjorie" selected>Marjorie</option>
-                  <option value="Ricky">Ricky</option>
+                  <option value="${brand.senderName}">${brand.senderName}</option>
                 </select>
               </div>
               <label for="message">Message (edit as needed):</label>
@@ -620,6 +624,9 @@ exports.showTechAvailabilityForm = async (req, res) => {
       `);
     }
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     // Get all techs and messages for this engagement
     const [techs, allMessages] = await Promise.all([
       airtableService.getAllTechs(),
@@ -698,7 +705,7 @@ I'll be in touch with more info once it's confirmed.
 
 Thanks,
 
-Ricky (Great White Security)`;
+${brand.senderName} (${brand.companyName})`;
 
     const emergencyMessage = `Hey ${techName}, got an emergency service call today if you're available!
 
@@ -718,7 +725,7 @@ Please make your selection:
 
 Thanks,
 
-Ricky (Great White Security)`;
+${brand.senderName} (${brand.companyName})`;
 
     // Build tech list HTML — show who's already been contacted
     const now = new Date();
@@ -1079,7 +1086,7 @@ Ricky (Great White Security)`;
 
         <script>
           // Server-injected variables
-          const BASE_URL = '${process.env.BASE_URL}';
+          const BASE_URL = '${brand.baseUrl}';
           const engagementId = '${engagementId}';
 
           // Templates injected from server
@@ -1297,6 +1304,9 @@ exports.sendTechAvailability = async (req, res) => {
 
     console.log(`📤 Sending tech availability to ${selectedTechs.length} techs for engagement: ${engagementId}`);
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     const results = [];
 
     // Send to each selected tech
@@ -1304,8 +1314,8 @@ exports.sendTechAvailability = async (req, res) => {
       try {
         // Generate short codes for YES/NO links
         const shortCode = generateShortCode(engagementId, tech.id);
-        const yesLink = `${process.env.BASE_URL}/ty/${shortCode}`;
-        const noLink = `${process.env.BASE_URL}/tn/${shortCode}`;
+        const yesLink = `${brand.baseUrl}/ty/${shortCode}`;
+        const noLink = `${brand.baseUrl}/tn/${shortCode}`;
 
         // Replace variables in template
         const message = messageTemplate
@@ -1442,6 +1452,9 @@ exports.showPricingForm = async (req, res) => {
       `);
     }
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     // Fire-and-forget: sync Stripe products in background (don't block page load)
     const productsController = require('./products');
     productsController.syncStripeProductsInternal().catch(err => {
@@ -1518,8 +1531,8 @@ ${paymentLink}
 Once payment is through, the technician will reach out to confirm a suitable time.
 
 Thanks,
-Ricky
-Great White Security`;
+${brand.senderName}
+${brand.companyName}`;
 
     // Show form
     res.send(`
@@ -1807,8 +1820,8 @@ To secure the booking, please make payment here:
 Once payment is through, the technician will reach out to confirm a suitable time.
 
 Thanks,
-Ricky
-Great White Security\`;
+${brand.senderName}
+${brand.companyName}\`;
           }
 
           function getEmergencyTemplate(name, systemType, price, link) {
@@ -1822,8 +1835,8 @@ To confirm the booking, please make payment here:
 Once payment is received, the technician will contact you shortly to confirm their ETA.
 
 Thanks,
-Ricky
-Great White Security\`;
+${brand.senderName}
+${brand.companyName}\`;
           }
 
           // Update preview when message changes
@@ -2028,6 +2041,9 @@ exports.sendPricingForm = async (req, res) => {
 
     console.log(`💵 Sending pricing message for engagement: ${engagementId}`);
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     // Get engagement details
     const lead = await airtableService.getEngagement(engagementId);
 
@@ -2086,8 +2102,8 @@ exports.sendPricingForm = async (req, res) => {
         priceId: price.id,
         leadName: leadName,
         leadPhone: customerPhone,
-        successUrl: `${process.env.BASE_URL}/payment-success.html`,
-        cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
+        successUrl: `${brand.baseUrl}/payment-success.html`,
+        cancelUrl: `${brand.baseUrl}/send-pricing-form/${engagementId}`,
       });
 
       paymentUrl = session.url;
@@ -2097,7 +2113,7 @@ exports.sendPricingForm = async (req, res) => {
 
     // Create short link for the payment URL
     const shortCode = shortLinkService.createShortLink(paymentUrl, engagementId);
-    const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    const shortUrl = `https://${brand.shortLinkDomain}/${shortCode}`;
 
     // Replace payment link placeholder with short URL
     const finalMessage = message.replace(/https:\/\/(?:buy|book)\.stripe\.com\/[^\s]+/g, shortUrl);
@@ -2156,6 +2172,9 @@ exports.createCheckoutSession = async (req, res) => {
 
     console.log(`💳 Creating checkout session for engagement: ${engagementId}, product: ${productId}`);
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     // Get engagement details
     const lead = await airtableService.getEngagement(engagementId);
     if (!lead) {
@@ -2186,15 +2205,15 @@ exports.createCheckoutSession = async (req, res) => {
       priceId: price.id,
       leadName: leadName,
       leadPhone: lead.fields.Phone || '',
-      successUrl: `${process.env.BASE_URL}/payment-success.html`,
-      cancelUrl: `${process.env.BASE_URL}/send-pricing-form/${engagementId}`,
+      successUrl: `${brand.baseUrl}/payment-success.html`,
+      cancelUrl: `${brand.baseUrl}/send-pricing-form/${engagementId}`,
     });
 
     console.log(`✓ Checkout session created: ${session.id}`);
 
     // Create short link for the checkout URL
     const shortCode = shortLinkService.createShortLink(session.url, engagementId);
-    const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    const shortUrl = `https://${brand.shortLinkDomain}/${shortCode}`;
 
     res.status(200).json({
       success: true,
@@ -2223,12 +2242,15 @@ exports.generateMessageFormLink = async (req, res) => {
       return res.status(404).json({ error: 'Engagement not found' });
     }
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     // Create the full message form URL
     const fullUrl = `/send-message-form/${engagementId}/${messageType}`;
 
     // Create short link
     const shortCode = shortLinkService.createShortLink(fullUrl, engagementId);
-    const shortUrl = `https://${process.env.SHORT_LINK_DOMAIN || 'book.greatwhitesecurity.com'}/${shortCode}`;
+    const shortUrl = `https://${brand.shortLinkDomain}/${shortCode}`;
 
     console.log(`✓ Short link created: ${shortUrl}`);
 
@@ -2236,7 +2258,7 @@ exports.generateMessageFormLink = async (req, res) => {
       success: true,
       shortUrl: shortUrl,
       shortCode: shortCode,
-      fullUrl: `${process.env.BASE_URL}${fullUrl}`
+      fullUrl: `${brand.baseUrl}${fullUrl}`
     });
   } catch (error) {
     console.error('Error generating message form link:', error);
@@ -2301,10 +2323,13 @@ exports.showSendCompletionForm = async (req, res) => {
       `);
     }
 
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(engagementId, airtableService);
+
     const clientName = lead.fields['First Name (from Customer)'] || 'Client';
     const clientAddress = lead.fields['Address (from Customer)'] || 'TBD';
     const alreadySent = lead.fields['Completion Form Sent'] || false;
-    const completionLink = `${process.env.BASE_URL}/c/${engagementId}`;
+    const completionLink = `${brand.baseUrl}/c/${engagementId}`;
 
     // Try to find the assigned tech
     const assignedTechName = lead.fields['Assigned Tech'] || lead.fields['Tech Name'] || null;
@@ -2316,7 +2341,7 @@ Please fill it in once you're done on site:
 {{LINK}}
 
 Thanks,
-Ricky (Great White Security)`;
+${brand.senderName} (${brand.companyName})`;
 
     // Build tech radio list HTML — auto-select assigned tech if found
     const techListHTML = techs.map(tech => {
@@ -2612,7 +2637,7 @@ Ricky (Great White Security)`;
         </div>
 
         <script>
-          const BASE_URL = '${process.env.BASE_URL}';
+          const BASE_URL = '${brand.baseUrl}';
           const engagementId = '${engagementId}';
           const baseCompletionLink = '${completionLink}';
 
@@ -2734,7 +2759,10 @@ exports.sendCompletionForm = async (req, res) => {
 
     console.log(`📤 Sending completion form to ${techName} for engagement: ${leadId}`);
 
-    const completionLink = `${process.env.BASE_URL}/c/${leadId}?tech=${encodeURIComponent(techName)}`;
+    // Get brand config for this engagement
+    const brand = await getBrandForEngagement(leadId, airtableService);
+
+    const completionLink = `${brand.baseUrl}/c/${leadId}?tech=${encodeURIComponent(techName)}`;
     const firstName = techName.split(' ')[0];
 
     // Replace placeholders
