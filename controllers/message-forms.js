@@ -461,7 +461,7 @@ Cheers,
                   leadId: '${engagementId}',
                   messageType: '${messageType}',
                   message: message,
-                  sentField: '${sentField}'
+                  sentField: ${sentField ? `'${sentField}'` : 'null'}
                 }),
               });
 
