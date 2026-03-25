@@ -213,7 +213,9 @@ exports.techYesConfirm = async (req, res) => {
       : `${techName} - YES (${new Date().toLocaleString()})`;
 
     const currentAvailableTechs = engagement.fields['Available Techs'] || [];
-    const updatedAvailableTechs = [...currentAvailableTechs, techId];
+    const updatedAvailableTechs = currentAvailableTechs.includes(techId)
+      ? currentAvailableTechs
+      : [...currentAvailableTechs, techId];
 
     await airtableService.updateEngagement(engagementId, {
       'Tech Availability Responses': updatedResponses,
