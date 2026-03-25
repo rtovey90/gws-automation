@@ -1625,3 +1625,46 @@ ${brand.senderName} (${brand.companyName})\`
     res.status(500).send('Error loading conversation');
   }
 };
+
+/**
+ * Open message thread for an engagement (Airtable button)
+ * GET /messages/open/:leadId
+ * Looks up the customer phone from the engagement and redirects to the conversation.
+ * Uses the brand's baseUrl so TAG leads open on book.thealarmguy.com.au.
+ */
+exports.openFromEngagement = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const result = await airtableService.getEngagementWithCustomer(leadId);
+
+    if (!result || !result.engagement) {
+      return res.status(404).send('Engagement not found');
+    }
+
+    // Get phone from customer record, or fall back to engagement lookup fields
+    let phone = null;
+    if (result.customer) {
+      phone = result.customer.fields['Mobile Phone'] || result.customer.fields['Phone'] || '';
+    }
+    if (!phone) {
+      const f = result.engagement.fields;
+      const raw = f['Mobile Phone (from Customer)'] || f['Phone (from Customer)'] || '';
+      phone = Array.isArray(raw) ? raw[0] || '' : raw;
+    }
+
+    if (!phone) {
+      return res.status(404).send('No phone number found for this engagement');
+    }
+
+    const normalized = normalizePhone(phone);
+
+    // Determine the brand to get the correct base URL
+    const brand = await getBrandForEngagement(leadId, airtableService);
+    const baseUrl = brand.baseUrl || 'https://book.greatwhitesecurity.com';
+
+    res.redirect(`${baseUrl}/messages/${encodeURIComponent(normalized)}`);
+  } catch (error) {
+    console.error('Error opening messages for engagement:', error);
+    res.status(500).send('Error opening messages');
+  }
+};
