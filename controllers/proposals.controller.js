@@ -242,13 +242,15 @@ exports.showProposal = async (req, res) => {
     const confirmedTotal = isConfirmed ? selectedPkgPrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0), 0) : basePrice;
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
+      const isMonthly = !!opt.monthly;
       const classes = ['upgrade-card'];
       if (isLocked && hasSelectionData && optSelected) classes.push('selected', 'confirmed');
       if (isLocked && hasSelectionData && !optSelected) classes.push('not-chosen');
-      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false})"`;
-      const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}</div>`;
+      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly})"`;
+      const priceSuffix = isMonthly ? '<span class="upgrade-monthly-badge">/mo</span>' : '';
+      const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}${priceSuffix}</div>`;
       return `
-      <div class="${classes.join(' ')}" ${onclick} data-discountable="${opt.discountable !== false}">
+      <div class="${classes.join(' ')}" ${onclick} data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}">
         <div class="upgrade-check">&#10003;</div>
         <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p></div>
         ${priceHtml}
@@ -505,6 +507,7 @@ exports.showProposal = async (req, res) => {
   .upgrade-info h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
   .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
   .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+  .upgrade-monthly-badge { font-size: 11px; font-weight: 600; color: var(--cyan-dark); }
 
   /* Confirmed & tech view states */
   .upgrade-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
@@ -827,6 +830,12 @@ ${sitePhotoPages}
         <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
       </div>
     </div>
+    <div id="monthlyTotalBar" class="total-bar" style="display:none; margin-top:8px; background:var(--cyan-bg); border:1px solid var(--cyan); border-radius:10px;">
+      <div class="total-bar-left"><strong style="color:var(--cyan-dark);">Monthly</strong><br><span style="font-size:11px; color:var(--gray-400);">Recurring monthly \u00b7 Inc. GST</span></div>
+      <div style="text-align:right;">
+        <div class="total-bar-amount" id="monthlyTotalAmount" style="color:var(--cyan-dark);"></div>
+      </div>
+    </div>
     `}
   </div>
   <div class="cta-section">
@@ -871,6 +880,7 @@ ${sitePhotoPages}
   const PDF_PREFIX = '${escapeHtml(brand.pdfPrefix)}';
   let discountableUpgradeTotal = 0;
   let nonDiscountableUpgradeTotal = 0;
+  let monthlyUpgradeTotal = 0;
   const DISCOUNT_TYPE = '${escapeHtml(discountType)}';
   const DISCOUNT_VALUE = ${Number(discountValue) || 0};
   const DISCOUNT_NAME = '${escapeHtml(discountName)}';
@@ -914,6 +924,16 @@ ${sitePhotoPages}
     }
     var totalEl = document.getElementById('totalAmount');
     if (totalEl) totalEl.textContent = '$' + finalTotal.toLocaleString('en-AU');
+    var monthlyBar = document.getElementById('monthlyTotalBar');
+    var monthlyEl = document.getElementById('monthlyTotalAmount');
+    if (monthlyBar && monthlyEl) {
+      if (monthlyUpgradeTotal > 0) {
+        monthlyBar.style.display = 'flex';
+        monthlyEl.textContent = '$' + monthlyUpgradeTotal.toLocaleString('en-AU') + '/mo';
+      } else {
+        monthlyBar.style.display = 'none';
+      }
+    }
     var acceptEl = document.getElementById('acceptBtn');
     if (acceptEl) acceptEl.textContent = 'Accept Proposal & Secure My Booking \u2192';
   }
@@ -926,11 +946,13 @@ ${sitePhotoPages}
     updateTotalDisplay();
   }
 
-  function toggleUpgrade(card, price, discountable) {
+  function toggleUpgrade(card, price, discountable, monthly) {
     if (IS_CONFIRMED || IS_TECH_VIEW) return;
     card.classList.toggle('selected');
     const delta = card.classList.contains('selected') ? price : -price;
-    if (discountable) {
+    if (monthly) {
+      monthlyUpgradeTotal += delta;
+    } else if (discountable) {
       discountableUpgradeTotal += delta;
     } else {
       nonDiscountableUpgradeTotal += delta;
@@ -948,7 +970,8 @@ ${sitePhotoPages}
     document.querySelectorAll('.upgrade-card.selected').forEach(card => {
       const name = card.querySelector('h4').textContent;
       const price = parseInt(card.querySelector('.upgrade-price').textContent.replace(/[^0-9]/g, ''));
-      selectedUpgrades.push({ name, price });
+      const monthly = card.dataset.monthly === 'true';
+      selectedUpgrades.push({ name, price, monthly });
     });
     const selectedPkgEl = document.querySelector('.og-radio-card.selected');
     const selectedPkg = selectedPkgEl ? {
@@ -1251,14 +1274,18 @@ exports.createProposalCheckout = async (req, res) => {
     }
 
     // Server-side total calculation (never trust client amount)
-    // Split upgrades into discountable and non-discountable
+    // Split upgrades into discountable, non-discountable, and monthly (recurring)
     let discountableTotal = selectedPrice;
     let nonDiscountableTotal = 0;
+    const selectedMonthlyUpgrades = [];
     if (Array.isArray(selectedUpgrades)) {
       for (const upgrade of selectedUpgrades) {
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
         if (match && match.price) {
-          if (match.discountable === false) {
+          if (match.monthly) {
+            // Monthly items are charged as subscriptions after checkout, not in the one-time total
+            selectedMonthlyUpgrades.push({ name: match.name, price: Number(match.price) });
+          } else if (match.discountable === false) {
             nonDiscountableTotal += Number(match.price);
           } else {
             discountableTotal += Number(match.price);
@@ -1297,13 +1324,15 @@ exports.createProposalCheckout = async (req, res) => {
       cancelUrl: `${baseUrl}/proposals/${projectNumber}`,
     });
 
-    // Build list of selected options with server-verified prices
+    // Build list of selected options with server-verified prices (including monthly flag)
     const selectedOptionsList = [];
     if (Array.isArray(selectedUpgrades)) {
       for (const upgrade of selectedUpgrades) {
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
         if (match) {
-          selectedOptionsList.push({ name: match.name, price: Number(match.price) });
+          const item = { name: match.name, price: Number(match.price) };
+          if (match.monthly) item.monthly = true;
+          selectedOptionsList.push(item);
         }
       }
     }
@@ -1374,33 +1403,65 @@ exports.showOTO = async (req, res) => {
       if (carePrice > 0) otoItems.push({ key: 'care', name: 'After Install Support Package', desc: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: carePrice, wasPrice: 0, saving: 0, monthly: true });
     }
 
-    const hasAnyOto = otoItems.length > 0;
-
-    if (!hasAnyOto) {
-      return res.redirect(`/offers/${projectNumber}/thank-you`);
-    }
-
     // If session_id is present, retrieve customer & payment method and save to Airtable
+    // (must happen before hasAnyOto check so monthly upgrade subscriptions get created)
     const sessionId = req.query.session_id;
     let hasCard = !!(f['Stripe Customer ID'] && f['Stripe Payment Method ID']);
+    let savedCustomerId = f['Stripe Customer ID'] || null;
+    let savedPaymentMethodId = f['Stripe Payment Method ID'] || null;
 
     if (sessionId && !hasCard) {
       try {
         const session = await stripeService.getCheckoutSession(sessionId);
         if (session.customer && session.payment_intent?.payment_method) {
-          const customerId = session.customer;
-          const paymentMethodId = typeof session.payment_intent.payment_method === 'object'
+          savedCustomerId = session.customer;
+          savedPaymentMethodId = typeof session.payment_intent.payment_method === 'object'
             ? session.payment_intent.payment_method.id
             : session.payment_intent.payment_method;
           await airtableService.updateProposal(proposal.id, {
-            'Stripe Customer ID': customerId,
-            'Stripe Payment Method ID': paymentMethodId,
+            'Stripe Customer ID': savedCustomerId,
+            'Stripe Payment Method ID': savedPaymentMethodId,
           });
           hasCard = true;
         }
       } catch (e) {
         console.error('Could not retrieve session for card-on-file:', e.message);
       }
+    }
+
+    // Create subscriptions for any monthly upgrades selected on the proposal (once only)
+    if (sessionId && savedCustomerId && savedPaymentMethodId && !f['Monthly Subs Created']) {
+      const selectedOptions = safeJsonParse(f['Selected Options']);
+      const monthlyOptions = selectedOptions.filter(opt => opt.monthly);
+      if (monthlyOptions.length > 0) {
+        for (const item of monthlyOptions) {
+          try {
+            await stripeService.createOffSessionSubscription({
+              customerId: savedCustomerId,
+              paymentMethodId: savedPaymentMethodId,
+              amount: item.price,
+              productName: item.name,
+              metadata: {
+                type: 'proposal',
+                product_name: item.name,
+                project_number: projectNumber,
+                proposal_id: proposal.id,
+              },
+            });
+            console.log(`✓ Created monthly subscription for "${item.name}" — $${item.price}/mo`);
+          } catch (subErr) {
+            console.error(`Error creating subscription for "${item.name}":`, subErr.message);
+          }
+        }
+        // Flag so subscriptions aren't duplicated on page refresh
+        await airtableService.updateProposal(proposal.id, { 'Monthly Subs Created': true });
+      }
+    }
+
+    const hasAnyOto = otoItems.length > 0;
+
+    if (!hasAnyOto) {
+      return res.redirect(`/offers/${projectNumber}/thank-you`);
     }
 
     const otoItemsJson = JSON.stringify(otoItems);
@@ -2838,11 +2899,13 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   // Build camera option rows
   const cameraRowsHtml = cameraOptions.map(opt => {
     const discChecked = opt.discountable !== false ? 'checked' : '';
+    const monthlyChecked = opt.monthly ? 'checked' : '';
     return `<div class="list-row camera-row" data-list="camera">
       <input type="text" class="cam-name" value="${escapeHtml(opt.name || '')}" placeholder="Option name">
       <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
       <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
       <label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
+      <label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly" ${monthlyChecked}> /mo</label>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -3717,7 +3780,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       const row = document.createElement('div');
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
-      row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       row.querySelector('.cam-name').focus();
     }
@@ -3802,7 +3865,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const desc = row.querySelector('.cam-desc').value.trim();
         const price = parseFloat(row.querySelector('.cam-price').value) || 0;
         const discountable = row.querySelector('.cam-disc') ? row.querySelector('.cam-disc').checked : true;
-        if (name) cameras.push({ name, description: desc, price, discountable });
+        const monthly = row.querySelector('.cam-monthly') ? row.querySelector('.cam-monthly').checked : false;
+        if (name) cameras.push({ name, description: desc, price, discountable, monthly });
       });
       data.cameraOptions = JSON.stringify(cameras);
 
