@@ -1434,6 +1434,8 @@ exports.showOTO = async (req, res) => {
       const selectedOptions = safeJsonParse(f['Selected Options']);
       const monthlyOptions = selectedOptions.filter(opt => opt.monthly);
       if (monthlyOptions.length > 0) {
+        // Set flag FIRST to prevent duplicates if page is refreshed mid-creation
+        await airtableService.updateProposal(proposal.id, { 'Monthly Subs Created': true });
         for (const item of monthlyOptions) {
           try {
             await stripeService.createOffSessionSubscription({
@@ -1453,8 +1455,6 @@ exports.showOTO = async (req, res) => {
             console.error(`Error creating subscription for "${item.name}":`, subErr.message);
           }
         }
-        // Flag so subscriptions aren't duplicated on page refresh
-        await airtableService.updateProposal(proposal.id, { 'Monthly Subs Created': true });
       }
     }
 
