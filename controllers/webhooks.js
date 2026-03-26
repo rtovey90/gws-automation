@@ -545,7 +545,7 @@ exports.handleEmailTranscript = async (req, res) => {
     console.log('📨 Email transcript webhook received');
     console.log('Webhook body:', JSON.stringify(req.body, null, 2));
 
-    const { isLead, name, location, email, phone, mentionedPhone, notes, transcript, callDirection, handledBy } = req.body;
+    const { isLead, name, location, email, phone, mentionedPhone, notes, transcript, callDirection, handledBy, recordingUrl } = req.body;
 
     // Log phone numbers explicitly
     if (phone) {
@@ -588,7 +588,7 @@ exports.handleEmailTranscript = async (req, res) => {
             type: 'Call',
             from: direction === 'Inbound' ? phone : ourNumber,
             to: direction === 'Inbound' ? ourNumber : phone,
-            content: `[Handled by ${handledBy || 'Unknown'}]\n\nCall transcript:\n\n${transcript || notes || 'No transcript available'}`,
+            content: `[Handled by ${handledBy || 'Unknown'}]${recordingUrl ? `\n\n🔊 Recording: ${recordingUrl}` : ''}\n\nCall transcript:\n\n${transcript || notes || 'No transcript available'}`,
             status: 'Received',
           });
         } catch (logError) {
@@ -647,7 +647,7 @@ exports.handleEmailTranscript = async (req, res) => {
             type: 'Call',
             from: direction === 'Inbound' ? phone : ourNumber,
             to: direction === 'Inbound' ? ourNumber : phone,
-            content: `[Handled by ${handledBy || 'Unknown'}]\n\nCall transcript:\n\n${transcript}`,
+            content: `[Handled by ${handledBy || 'Unknown'}]${recordingUrl ? `\n\n🔊 Recording: ${recordingUrl}` : ''}\n\nCall transcript:\n\n${transcript}`,
             status: 'Received',
             customerId: customer ? customer.id : null
           });
