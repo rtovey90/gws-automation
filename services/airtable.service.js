@@ -624,22 +624,10 @@ class AirtableService {
   }
 
   /**
-   * Get all jobs
+   * Get all jobs (table removed — returns empty array)
    */
   async getAllJobs() {
-    const cached = getCached('jobs');
-    if (cached) return cached;
-    try {
-      const records = await tables.jobs
-        .select()
-        .all();
-
-      setCache('jobs', records);
-      return records;
-    } catch (error) {
-      console.error('Error getting all jobs:', error);
-      throw error;
-    }
+    return [];
   }
 
   // ============ MESSAGES ============
