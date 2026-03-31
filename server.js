@@ -270,7 +270,7 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Short link routes
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
-app.get('/:code', shortLinkController.redirect); // Must be last - catch-all redirect
+app.get('/p/:code', shortLinkController.redirect); // Payment short links: /p/AbCd1234
 
 // Error handling middleware
 app.use((err, req, res, next) => {

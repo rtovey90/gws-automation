@@ -2113,7 +2113,13 @@ exports.sendPricingForm = async (req, res) => {
 
     // Create short link for the payment URL
     const shortCode = shortLinkService.createShortLink(paymentUrl, engagementId);
-    const shortUrl = `https://${brand.shortLinkDomain}/${shortCode}`;
+    const shortUrl = `https://${brand.shortLinkDomain}/p/${shortCode}`;
+
+    // Save short link code + target URL to Airtable for persistence across restarts
+    await airtableService.updateEngagement(engagementId, {
+      'Short Link Code': shortCode,
+      'Short Link URL': paymentUrl,
+    });
 
     // Replace payment link placeholder with short URL
     const finalMessage = message.replace(/https:\/\/(?:buy|book)\.stripe\.com\/[^\s]+/g, shortUrl);

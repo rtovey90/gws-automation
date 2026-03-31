@@ -630,6 +630,21 @@ class AirtableService {
     return [];
   }
 
+  /**
+   * Look up an engagement by its Short Link Code (for payment link redirects)
+   */
+  async resolveShortLinkCode(code) {
+    try {
+      const records = await tables.engagements
+        .select({ filterByFormula: `{Short Link Code} = '${code}'`, maxRecords: 1 })
+        .firstPage();
+      return records.length > 0 ? records[0] : null;
+    } catch (error) {
+      console.error('Error resolving short link code:', error);
+      return null;
+    }
+  }
+
   // ============ MESSAGES ============
 
   /**
