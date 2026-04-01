@@ -1130,14 +1130,15 @@ exports.showTechAvailabilityForm = async (req, res) => {
             const yesLink = \`\${BASE_URL}/ty/abc123\`;
             const noLink = \`\${BASE_URL}/tn/abc123\`;
 
-            const preview = message
+            let preview = message
               .replace(/{{TECH_NAME}}/g, techName)
               .replace(/{{YES_LINK}}/g, '<span class="preview-link">' + yesLink + '</span>')
-              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>')
-              .replace(/\[Brand\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Brand]</span>')
-              .replace(/\[Supplier\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Supplier]</span>')
-              .replace(/\[Phone\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Phone]</span>')
-              .replace(/\[Type\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Type]</span>');
+              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>');
+            // Highlight placeholders the VA needs to fill in
+            const hl = function(t) { return '<mark style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">' + t + '</mark>'; };
+            preview = preview.replace(/\[Brand\]/g, hl('[Brand]'));
+            preview = preview.replace(/\[Supplier\]/g, hl('[Supplier]'));
+            preview = preview.replace(/\[Phone\]/g, hl('[Phone]'));
 
             previewContent.innerHTML = preview;
           }
