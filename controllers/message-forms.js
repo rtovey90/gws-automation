@@ -1157,9 +1157,21 @@ exports.showTechAvailabilityForm = async (req, res) => {
           // Update preview when message changes
           messageTextarea.addEventListener('input', updatePreview);
 
-          // Save system type changes to Airtable
+          // Save system type changes to Airtable + update message text
+          let currentSystemTypeText = ${JSON.stringify(
+            Array.isArray(currentSystemTypes) && currentSystemTypes.length > 0
+              ? currentSystemTypes.join(' & ') + ' System'
+              : '[Type] System'
+          )};
           document.getElementById('systemTypeChecks').addEventListener('change', function() {
             const selected = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(cb => cb.value);
+            const newTypeText = selected.length > 0 ? selected.join(' & ') + ' System' : '[Type] System';
+            // Update the scope line in the message
+            const msg = messageTextarea.value;
+            messageTextarea.value = msg.replace(currentSystemTypeText, newTypeText);
+            currentSystemTypeText = newTypeText;
+            updatePreview();
+            // Save to Airtable
             fetch(BASE_URL + '/api/update-system-type', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
