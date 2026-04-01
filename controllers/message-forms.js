@@ -711,9 +711,12 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Sanitize scope for safe embedding in template literal
     const scopeText = String(jobScope).replace(/`/g, "'");
 
-    const defaultMessage = 'Hey ' + techName + ', got a service call this week if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + brand.senderName + ' (' + brand.companyName + ')';
+    // Use Marjorie for VA, Ricky for admin
+    const senderName = (req.session && req.session.role === 'va') ? 'Marjorie' : brand.senderName;
 
-    const emergencyMessage = 'Hey ' + techName + ', got an emergency service call today if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPay: $250 + GST for 1st hour\n$150 + GST for additional hours\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nThanks,\n\n' + brand.senderName + ' (' + brand.companyName + ')';
+    const defaultMessage = 'Hey ' + techName + ', got a service call [this week] if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
+
+    const emergencyMessage = 'Hey ' + techName + ', got an emergency service call today if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPay: $250 + GST for 1st hour\n$150 + GST for additional hours\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
 
     // Build tech list HTML — show who's already been contacted
     const now = new Date();
@@ -1055,7 +1058,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
 
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
                 <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#1565c0">
-                  ✏️ Replace <strong>[Brand]</strong>, <strong>[Supplier]</strong> and <strong>[Phone]</strong> in the message below before sending
+                  ✏️ Replace <strong>[Brand]</strong>, <strong>[Supplier]</strong>, <strong>[Phone]</strong> and <strong>[this week]</strong> before sending
                 </div>
                 <textarea id="message" name="message" required>${defaultMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 <div class="help-text">
