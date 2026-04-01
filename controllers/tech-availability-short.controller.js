@@ -1,4 +1,5 @@
 const airtableService = require('../services/airtable.service');
+const pushover = require('../services/pushover.service');
 const { getBrandForEngagement } = require('../config/brands');
 
 /**
@@ -224,6 +225,17 @@ exports.techYesConfirm = async (req, res) => {
     });
 
     console.log(`✓ Recorded YES response from ${techName}`);
+
+    // Notify admin + VA — prompt to send payment link
+    const engNum = engagement.fields['Engagement Number'] || '';
+    const customerName = [
+      engagement.fields['First Name (from Customer)']?.[0],
+      engagement.fields['Last Name (from Customer)']?.[0],
+    ].filter(Boolean).join(' ') || 'Customer';
+    pushover.notifyAll(
+      `Tech Available — ${techName}`,
+      `${engNum} ${customerName}\n${techName} is available. Send payment link to secure the booking.`
+    );
 
     res.send(`
       <!DOCTYPE html>

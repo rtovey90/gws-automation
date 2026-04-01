@@ -1,4 +1,5 @@
 const airtableService = require('../services/airtable.service');
+const pushover = require('../services/pushover.service');
 const multer = require('multer');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
@@ -700,6 +701,39 @@ exports.completeJob = async (req, res) => {
 
     console.log(`✓ Visit ${vNum} text data saved for engagement ${engagementId}`);
     airtableService.logActivity(engagementId, 'Job marked as completed');
+
+    // ── Notify admin + VA ──
+    const engNum = engagement.fields['Engagement Number'] || '';
+    const custName = [
+      engagement.fields['First Name (from Customer)']?.[0],
+      engagement.fields['Last Name (from Customer)']?.[0],
+    ].filter(Boolean).join(' ') || 'Customer';
+
+    if (!resolved) {
+      // Return visit required
+      pushover.notifyAll(
+        `Return Visit Required — ${engNum}`,
+        `${custName}\nTech: ${techName || 'Unknown'}\n\nCheck technician's notes on the engagement to see what is required for the return visit.\n\nNext Steps: ${nextSteps || 'Not specified'}`
+      );
+    } else if (upgradeOpportunities || nextSteps) {
+      // Completed but may need extra billing
+      pushover.notifyAll(
+        `Job Completed — ${engNum}`,
+        `${custName}\nTech: ${techName || 'Unknown'}\n\nReview technician's notes to check if we need to bill for any additional parts or extra time.${upgradeOpportunities ? '\n\nUpgrade opportunities noted.' : ''}`
+      );
+    } else if (clientMood === 'Happy') {
+      // Completed, no extras, client happy — send review request
+      pushover.notifyAll(
+        `Job Completed — ${engNum}`,
+        `${custName}\nTech: ${techName || 'Unknown'}\nClient is happy!\n\nSend a review request to the customer.`
+      );
+    } else {
+      // Completed, no extras, client not explicitly happy
+      pushover.notifyAll(
+        `Job Completed — ${engNum}`,
+        `${custName}\nTech: ${techName || 'Unknown'}\nClient Mood: ${clientMood || 'Not specified'}\n\nReview technician's notes.`
+      );
+    }
 
     // ── STEP 2: Upload photos to Cloudinary (text data is already safe) ──
 
