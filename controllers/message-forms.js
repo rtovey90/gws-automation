@@ -680,6 +680,9 @@ exports.showTechAvailabilityForm = async (req, res) => {
       `);
     }
 
+    // System types for checkboxes
+    const currentSystemTypes = lead.fields['System Type'] || [];
+
     // Build Job Scope template if not already set
     let jobScope = lead.fields['Job Scope'] || '';
     if (!jobScope) {
@@ -689,26 +692,20 @@ exports.showTechAvailabilityForm = async (req, res) => {
       if (/\b(replac|swap|upgrad|new system)\b/i.test(intakeText)) actionType = 'Replace';
       else if (/\b(service|maintenanc|annual|routine)\b/i.test(intakeText)) actionType = 'Service';
 
-      // Get system type
-      const systemTypes = lead.fields['System Type'];
-      const systemTypeStr = Array.isArray(systemTypes) && systemTypes.length > 0
-        ? systemTypes.join(' & ') + ' System'
-        : 'System';
+      const systemTypeStr = Array.isArray(currentSystemTypes) && currentSystemTypes.length > 0
+        ? currentSystemTypes.join(' & ') + ' System'
+        : '[Type] System';
 
-      // Get issues summary
-      const issuesRaw = lead.fields['Client intake info'] || lead.fields.Notes || '';
-      const issuesSummary = issuesRaw.length > 300 ? issuesRaw.substring(0, 300) + '...' : issuesRaw;
+      // Get issues from client intake info
+      const issuesSummary = lead.fields['Client intake info'] || lead.fields.Notes || '';
 
       jobScope = `${actionType} [Brand] ${systemTypeStr}\n\nIssues:\n${issuesSummary || '[Enter specific issues discussed with client]'}\n\nTech Support: [Supplier] — [Phone]`;
     }
 
-    // Get job description for SMS scope
-    const jobDescription = jobScope;
-
     // Build message templates (will be editable)
     const techName = '{{TECH_NAME}}';
     const locationText = lead.fields['Address (from Customer)'] || 'TBD';
-    const scopeText = jobDescription.length > 200 ? jobDescription.substring(0, 200) + '...' : jobDescription;
+    const scopeText = jobScope;
 
     const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
 
@@ -1048,6 +1045,19 @@ ${brand.senderName} (${brand.companyName})`;
             </div>
 
             <form id="techForm">
+              <!-- System Type -->
+              <div class="section">
+                <label style="font-weight:600;font-size:14px;">🔧 System Type:</label>
+                <div id="systemTypeChecks" style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 4px;">
+                  ${['CCTV', 'Alarm', 'Access Control', 'Intercom', 'Other'].map(t => `
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+                      <input type="checkbox" name="systemType" value="${t}" ${currentSystemTypes.includes(t) ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;">
+                      ${t}
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+
               <!-- Tech Selection -->
               <div class="section">
                 <div class="section-title">
@@ -1174,6 +1184,16 @@ ${brand.senderName} (${brand.companyName})`;
 
           // Update preview when message changes
           messageTextarea.addEventListener('input', updatePreview);
+
+          // Save system type changes to Airtable
+          document.getElementById('systemTypeChecks').addEventListener('change', function() {
+            const selected = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(cb => cb.value);
+            fetch(BASE_URL + '/api/update-system-type', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ leadId: engagementId, systemTypes: selected })
+            }).catch(err => console.error('Failed to save system type:', err));
+          });
 
           // Initial preview
           updatePreview();
