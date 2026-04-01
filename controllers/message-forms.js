@@ -646,6 +646,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
         alarm: !!b.fields.Alarm,
         intercom: !!b.fields.Intercom,
         accessControl: !!b.fields['Access Control'],
+        preferredTechs: b.fields['Preferred Techs'] || [],
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1254,6 +1255,59 @@ exports.showTechAvailabilityForm = async (req, res) => {
               }
             }
             updatePreview();
+            updatePreferredTechs();
+          }
+
+          // Sort and pre-check preferred techs based on selected brands
+          function updatePreferredTechs() {
+            // Collect preferred tech IDs from all selected brands
+            var preferredIds = [];
+            var allBrandSels = document.querySelectorAll('#brandSelectors select');
+            for (var i = 0; i < allBrandSels.length; i++) {
+              var brandName = allBrandSels[i].value;
+              if (!brandName) continue;
+              var brandData = brandsData.find(function(b) { return b.name === brandName; });
+              if (brandData && brandData.preferredTechs) {
+                brandData.preferredTechs.forEach(function(id) {
+                  if (preferredIds.indexOf(id) === -1) preferredIds.push(id);
+                });
+              }
+            }
+            if (preferredIds.length === 0) return;
+
+            // Sort: preferred techs to top, check them, uncheck others
+            var container = document.querySelector('.tech-selection');
+            var selectAllRow = container.querySelector('.select-all');
+            var items = Array.from(container.querySelectorAll('.tech-item'));
+
+            // Uncheck all first
+            items.forEach(function(item) {
+              var cb = item.querySelector('input[name="techs"]');
+              if (cb) cb.checked = false;
+            });
+
+            // Sort preferred to top and check them
+            var preferred = [];
+            var others = [];
+            items.forEach(function(item) {
+              var cb = item.querySelector('input[name="techs"]');
+              if (cb && preferredIds.indexOf(cb.value) !== -1) {
+                cb.checked = true;
+                item.style.borderColor = '#4CAF50';
+                item.style.background = '#f0fff4';
+                preferred.push(item);
+              } else {
+                item.style.borderColor = '#e0e0e0';
+                item.style.background = 'white';
+                others.push(item);
+              }
+            });
+            preferred.forEach(function(item) { container.insertBefore(item, selectAllRow.nextSibling); });
+            others.forEach(function(item) { container.appendChild(item); });
+
+            // Update select all checkbox state
+            if (selectAll) selectAll.checked = false;
+            updateCounts();
           }
 
           // Timing dropdown
