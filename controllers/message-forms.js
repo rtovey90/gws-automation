@@ -704,8 +704,9 @@ exports.showTechAvailabilityForm = async (req, res) => {
 
     // Build message templates (will be editable)
     const techName = '{{TECH_NAME}}';
-    const locationText = lead.fields['Address (from Customer)'] || 'TBD';
-    const scopeText = jobScope;
+    const locationText = (lead.fields['Address (from Customer)'] || 'TBD').replace(/`/g, "'").replace(/\$\{/g, '$');
+    // Sanitize scope to prevent template literal breakage
+    const scopeText = jobScope.replace(/`/g, "'").replace(/\$\{/g, '$');
 
     const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
 
@@ -1085,7 +1086,7 @@ ${brand.senderName} (${brand.companyName})`;
                 </select>
 
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
-                <textarea id="message" name="message" required>${defaultMessage}</textarea>
+                <textarea id="message" name="message" required>${defaultMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 <div class="help-text">
                   💡 Use {{TECH_NAME}}, {{YES_LINK}}, and {{NO_LINK}} - they'll be replaced for each tech
                 </div>
