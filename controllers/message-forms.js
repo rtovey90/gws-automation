@@ -704,7 +704,8 @@ exports.showTechAvailabilityForm = async (req, res) => {
 
     // Build message templates (will be editable)
     const techName = '{{TECH_NAME}}';
-    const locationText = (lead.fields['Address (from Customer)'] || 'TBD').replace(/`/g, "'").replace(/\$\{/g, '$');
+    const locationRaw = lead.fields['Address (from Customer)'];
+    const locationText = String(Array.isArray(locationRaw) ? locationRaw[0] || 'TBD' : locationRaw || 'TBD').replace(/`/g, "'").replace(/\$\{/g, '$');
     // Sanitize scope to prevent template literal breakage
     const scopeText = jobScope.replace(/`/g, "'").replace(/\$\{/g, '$');
 
