@@ -640,11 +640,8 @@ exports.showTechAvailabilityForm = async (req, res) => {
       .map(b => ({
         name: b.fields.Brand || '',
         supplier: b.fields.Supplier || '',
-        phone: b.fields['Phone Number'] || '',
-        cctv: !!b.fields.CCTV,
-        alarm: !!b.fields.Alarm,
-        intercom: !!b.fields.Intercom,
-        accessControl: !!b.fields['Access Control'],
+        techSupportName: b.fields['Tech Support Name'] || b.fields.Supplier || '',
+        techSupportPhone: b.fields['Tech Support Phone'] || b.fields['Phone Number'] || '',
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -835,27 +832,29 @@ exports.showTechAvailabilityForm = async (req, res) => {
           .tech-selection {
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            padding: 20px;
+            padding: 12px;
             background: #fafafa;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
           }
+          .select-all { grid-column: 1 / -1; }
           .tech-item {
             display: flex;
             align-items: center;
-            padding: 12px;
+            padding: 6px 8px;
             background: white;
-            border-radius: 6px;
-            margin-bottom: 10px;
+            border-radius: 4px;
             border: 1px solid #e0e0e0;
-            transition: all 0.2s;
+            font-size: 13px;
           }
           .tech-item:hover {
             border-color: #4CAF50;
-            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.1);
           }
           .tech-item input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            margin-right: 12px;
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
             cursor: pointer;
           }
           .tech-item label {
@@ -1032,19 +1031,6 @@ exports.showTechAvailabilityForm = async (req, res) => {
             </div>
 
             <form id="techForm">
-              <!-- System Type -->
-              <div class="section">
-                <label style="font-weight:600;font-size:14px;">🔧 System Type:</label>
-                <div id="systemTypeChecks" style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 4px;">
-                  ${['CCTV', 'Alarm', 'Access Control', 'Intercom', 'Other'].map(t => `
-                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
-                      <input type="checkbox" name="systemType" value="${t}" ${currentSystemTypes.includes(t) ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;">
-                      ${t}
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-
               <!-- Tech Selection -->
               <div class="section">
                 <div class="section-title">
@@ -1072,8 +1058,8 @@ exports.showTechAvailabilityForm = async (req, res) => {
                 </select>
 
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                  <div style="flex:1;min-width:140px;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                  <div style="flex:1;min-width:110px;">
                     <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">TIMING</label>
                     <select id="timingSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
                       <option value="this week">This Week</option>
@@ -1082,13 +1068,19 @@ exports.showTechAvailabilityForm = async (req, res) => {
                       <option value="next week">Next Week</option>
                     </select>
                   </div>
-                  <div style="flex:1;min-width:140px;">
+                  <div style="flex:1;min-width:110px;">
                     <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">BRAND</label>
                     <select id="brandSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
                       <option value="">-- Select Brand --</option>
-                      ${brandsData.map(b => '<option value="' + b.name + '" data-supplier="' + b.supplier + '" data-phone="' + b.phone + '">' + b.name + '</option>').join('')}
+                      ${brandsData.map(b => '<option value="' + b.name + '" data-support="' + b.techSupportName + '" data-phone="' + b.techSupportPhone + '">' + b.name + '</option>').join('')}
                       <option value="__custom__">Other (type in message)</option>
                     </select>
+                  </div>
+                </div>
+                <div style="margin-bottom:10px;">
+                  <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">SYSTEM TYPE</label>
+                  <div id="systemTypeChecks" style="display:flex;gap:10px;flex-wrap:wrap;">
+                    ${['CCTV', 'Alarm', 'Access Control', 'Intercom', 'Other'].map(t => '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" name="systemType" value="' + t + '" ' + (currentSystemTypes.includes(t) ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"> ' + t + '</label>').join('')}
                   </div>
                 </div>
                 <textarea id="message" name="message" required>${defaultMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
@@ -1216,18 +1208,18 @@ exports.showTechAvailabilityForm = async (req, res) => {
           // Set initial timing
           replaceInMessage('__TIMING__', currentTiming);
 
-          // Brand dropdown — auto-fills supplier + phone
+          // Brand dropdown — auto-fills tech support name + phone
           document.getElementById('brandSelect').addEventListener('change', function() {
             const opt = this.options[this.selectedIndex];
             if (this.value && this.value !== '__custom__') {
               const newBrand = this.value;
-              const newSupplier = opt.dataset.supplier || '';
+              const newSupport = opt.dataset.support || '';
               const newPhone = opt.dataset.phone || '';
               replaceInMessage(currentBrand, newBrand);
-              if (newSupplier) replaceInMessage(currentSupplier, newSupplier);
+              if (newSupport) replaceInMessage(currentSupplier, newSupport);
               if (newPhone) replaceInMessage(currentPhone, newPhone);
               currentBrand = newBrand;
-              if (newSupplier) currentSupplier = newSupplier;
+              if (newSupport) currentSupplier = newSupport;
               if (newPhone) currentPhone = newPhone;
             }
           });
