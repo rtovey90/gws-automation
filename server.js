@@ -272,6 +272,17 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/api/shortlinks/stats', shortLinkController.getStats); // Debug stats
 app.get('/p/:code', shortLinkController.redirect); // Payment short links: /p/AbCd1234
 
+// Backward compat: old base64-encoded short links (/:code catch-all)
+app.get('/:code', (req, res) => {
+  try {
+    const decoded = Buffer.from(req.params.code, 'base64url').toString();
+    if (decoded.startsWith('http') || decoded.startsWith('/')) {
+      return res.redirect(302, decoded);
+    }
+  } catch {}
+  res.status(404).send('Not found');
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

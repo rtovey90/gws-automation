@@ -2459,13 +2459,9 @@ exports.sendProposal = async (req, res) => {
     const clientName = f['Client Name'] || 'there';
     const firstName = getFirstNames(clientName);
 
-    // Build proposal URL
-    const baseUrl = process.env.BASE_URL || 'https://book.greatwhitesecurity.com';
-    const proposalUrl = `${baseUrl}/proposals/${projectNumber}`;
-
-    // Create short link
-    const shortCode = shortLinkService.createShortLink(proposalUrl, proposalId);
-    const shortUrl = `${baseUrl}/${shortCode}`;
+    // Build proposal URL (already short — no encoding needed)
+    const brand = getBrandConfig(f['Our Business Name']);
+    const proposalUrl = `${brand.baseUrl}/proposals/${projectNumber}`;
 
     // Get phone number from request body
     const phone = req.body.phone;
@@ -2475,13 +2471,11 @@ exports.sendProposal = async (req, res) => {
     }
 
     // Use custom message if provided, otherwise default
-    const brand = getBrandConfig(f['Our Business Name']);
     let message;
     if (req.body.message) {
-      // Replace {proposalUrl} placeholder with the actual short URL
-      message = req.body.message.replace(/\{proposalUrl\}/g, shortUrl);
+      message = req.body.message.replace(/\{proposalUrl\}/g, proposalUrl);
     } else {
-      message = brand.smsTemplate(firstName, shortUrl);
+      message = brand.smsTemplate(firstName, proposalUrl);
     }
 
     await twilioService.sendSMS(phone, message);
@@ -2511,7 +2505,7 @@ exports.sendProposal = async (req, res) => {
       airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} sent${basePrice > 0 ? ' ($' + basePrice.toFixed(2) + ')' : ''}`);
     }
 
-    res.json({ success: true, shortUrl });
+    res.json({ success: true, shortUrl: proposalUrl });
   } catch (error) {
     console.error('Error sending proposal:', error);
     res.status(500).json({ error: 'Failed to send proposal' });

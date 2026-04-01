@@ -2219,7 +2219,7 @@ exports.createCheckoutSession = async (req, res) => {
 
     // Create short link for the checkout URL
     const shortCode = shortLinkService.createShortLink(session.url, engagementId);
-    const shortUrl = `https://${brand.shortLinkDomain}/${shortCode}`;
+    const shortUrl = `https://${brand.shortLinkDomain}/p/${shortCode}`;
 
     res.status(200).json({
       success: true,
@@ -2256,7 +2256,7 @@ exports.generateMessageFormLink = async (req, res) => {
 
     // Create short link
     const shortCode = shortLinkService.createShortLink(fullUrl, engagementId);
-    const shortUrl = `https://${brand.shortLinkDomain}/${shortCode}`;
+    const shortUrl = `https://${brand.shortLinkDomain}/p/${shortCode}`;
 
     console.log(`✓ Short link created: ${shortUrl}`);
 
