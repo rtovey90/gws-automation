@@ -707,44 +707,9 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Sanitize scope for safe embedding in template literal
     const scopeText = String(jobScope).replace(/`/g, "'");
 
-    const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
+    const defaultMessage = 'Hey ' + techName + ', got a service call this week if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + brand.senderName + ' (' + brand.companyName + ')';
 
-Location: ${locationText}
-
-Scope:
-${scopeText}
-
-Please make your selection:
-
-👍 YES: {{YES_LINK}}
-
-👎 NO: {{NO_LINK}}
-
-I'll be in touch with more info once it's confirmed.
-
-Thanks,
-
-${brand.senderName} (${brand.companyName})`;
-
-    const emergencyMessage = `Hey ${techName}, got an emergency service call today if you're available!
-
-Location: ${locationText}
-
-Scope:
-${scopeText}
-
-Pay: $250 + GST for 1st hour
-$150 + GST for additional hours
-
-Please make your selection:
-
-👍 YES: {{YES_LINK}}
-
-👎 NO: {{NO_LINK}}
-
-Thanks,
-
-${brand.senderName} (${brand.companyName})`;
+    const emergencyMessage = 'Hey ' + techName + ', got an emergency service call today if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPay: $250 + GST for 1st hour\n$150 + GST for additional hours\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nThanks,\n\n' + brand.senderName + ' (' + brand.companyName + ')';
 
     // Build tech list HTML — show who's already been contacted
     const now = new Date();
