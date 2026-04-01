@@ -641,7 +641,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
         name: b.fields.Brand || '',
         supplier: b.fields.Supplier || '',
         techSupportName: b.fields['Tech Support Name'] || b.fields.Supplier || '',
-        techSupportPhone: b.fields['Tech Support Phone'] || b.fields['Phone Number'] || '',
+        techSupportPhone: b.fields['Tech Support Number'] || b.fields['Phone Number'] || '',
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -712,8 +712,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
         ? currentSystemTypes.join(' & ') + ' System'
         : 'System';
 
-      const issues = intakeInfo || '';
-      jobScope = actionType + ' __BRAND__ ' + systemTypeStr + '\n\nIssues:\n' + issues + '\n\nTech Support: __SUPPLIER__ — __PHONE__';
+      jobScope = actionType + ' __BRAND__ ' + systemTypeStr + '\n\nIssues:\n\n\nTech Support: __SUPPLIER__ — __PHONE__';
     }
 
     // Build message templates (will be editable)
@@ -726,7 +725,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Use Marjorie for VA, Ricky for admin
     const senderName = (req.session && req.session.role === 'va') ? 'Marjorie' : brand.senderName;
 
-    const defaultMessage = 'Hey ' + techName + ', got a service call __TIMING__ if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
+    const defaultMessage = 'Hey ' + techName + ', got a service call this week (or early next week) if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
 
     const emergencyMessage = 'Hey ' + techName + ', got an emergency service call today if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPay: $250 + GST for 1st hour\n$150 + GST for additional hours\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
 
@@ -1062,6 +1061,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
                   <div style="flex:1;min-width:110px;">
                     <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">TIMING</label>
                     <select id="timingSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
+                      <option value="this week (or early next week)">This Week / Early Next</option>
                       <option value="this week">This Week</option>
                       <option value="today">Today</option>
                       <option value="tomorrow">Tomorrow</option>
@@ -1184,7 +1184,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
           messageTextarea.addEventListener('input', updatePreview);
 
           // Dropdown-driven message updates
-          let currentTiming = 'this week';
+          let currentTiming = 'this week (or early next week)';
           let currentBrand = '__BRAND__';
           let currentSupplier = '__SUPPLIER__';
           let currentPhone = '__PHONE__';
@@ -1205,8 +1205,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
             replaceInMessage(currentTiming, this.value);
             currentTiming = this.value;
           });
-          // Set initial timing
-          replaceInMessage('__TIMING__', currentTiming);
+          // No initial replacement needed — timing is baked into the template
 
           // Brand dropdown — auto-fills tech support name + phone
           document.getElementById('brandSelect').addEventListener('change', function() {
