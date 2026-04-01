@@ -680,8 +680,30 @@ exports.showTechAvailabilityForm = async (req, res) => {
       `);
     }
 
-    // Get job description from lead
-    const jobDescription = lead.fields['Job Scope'] || lead.fields['Client intake info'] || lead.fields.Notes || 'No details provided yet';
+    // Build Job Scope template if not already set
+    let jobScope = lead.fields['Job Scope'] || '';
+    if (!jobScope) {
+      // Determine action type from intake/notes
+      const intakeText = (lead.fields['Client intake info'] || lead.fields.Notes || '').toLowerCase();
+      let actionType = 'Troubleshoot';
+      if (/\b(replac|swap|upgrad|new system)\b/i.test(intakeText)) actionType = 'Replace';
+      else if (/\b(service|maintenanc|annual|routine)\b/i.test(intakeText)) actionType = 'Service';
+
+      // Get system type
+      const systemTypes = lead.fields['System Type'];
+      const systemTypeStr = Array.isArray(systemTypes) && systemTypes.length > 0
+        ? systemTypes.join(' & ') + ' System'
+        : 'System';
+
+      // Get issues summary
+      const issuesRaw = lead.fields['Client intake info'] || lead.fields.Notes || '';
+      const issuesSummary = issuesRaw.length > 300 ? issuesRaw.substring(0, 300) + '...' : issuesRaw;
+
+      jobScope = `${actionType} [Brand] ${systemTypeStr}\n\nIssues:\n${issuesSummary || '[Enter specific issues discussed with client]'}\n\nTech Support: [Supplier] — [Phone]`;
+    }
+
+    // Get job description for SMS scope
+    const jobDescription = jobScope;
 
     // Build message templates (will be editable)
     const techName = '{{TECH_NAME}}';
@@ -1026,6 +1048,13 @@ ${brand.senderName} (${brand.companyName})`;
             </div>
 
             <form id="techForm">
+              <!-- Job Scope -->
+              <div class="section">
+                <label class="message-label" for="jobScope">📋 Job Scope <span style="color:#999;font-weight:400">(edit before sending — saved to engagement)</span></label>
+                <textarea id="jobScope" name="jobScope" style="width:100%;min-height:120px;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;line-height:1.5">${jobScope.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                <div class="help-text">💡 Fill in [Brand], [Supplier] and [Phone] from the Brands & Suppliers table. This is what techs will see.</div>
+              </div>
+
               <!-- Tech Selection -->
               <div class="section">
                 <div class="section-title">
@@ -1153,6 +1182,20 @@ ${brand.senderName} (${brand.companyName})`;
           // Update preview when message changes
           messageTextarea.addEventListener('input', updatePreview);
 
+          // Sync Job Scope edits into the SMS message's Scope: section
+          const jobScopeTextarea = document.getElementById('jobScope');
+          jobScopeTextarea.addEventListener('input', function() {
+            const scope = jobScopeTextarea.value.trim();
+            const scopePreview = scope.length > 200 ? scope.substring(0, 200) + '...' : scope;
+            const msg = messageTextarea.value;
+            // Replace everything between "Scope:\n" and the next double newline
+            const updated = msg.replace(/(Scope:\n)[\\s\\S]*?(\n\n)/, '$1' + scopePreview + '$2');
+            if (updated !== msg) {
+              messageTextarea.value = updated;
+            }
+            updatePreview();
+          });
+
           // Initial preview
           updatePreview();
 
@@ -1206,7 +1249,8 @@ ${brand.senderName} (${brand.companyName})`;
                 body: JSON.stringify({
                   leadId: '${engagementId}',
                   selectedTechs: selectedTechs,
-                  messageTemplate: message
+                  messageTemplate: message,
+                  jobScope: document.getElementById('jobScope').value
                 }),
               });
 
@@ -1290,16 +1334,18 @@ exports.sendTechAvailability = async (req, res) => {
 
   try {
     // Parse body — for fallback form submissions, data arrives as jsonPayload field
-    let engagementId, selectedTechs, messageTemplate;
+    let engagementId, selectedTechs, messageTemplate, jobScope;
     if (isFallback && req.body.jsonPayload) {
       const parsed = JSON.parse(req.body.jsonPayload);
       engagementId = parsed.leadId;
       selectedTechs = parsed.selectedTechs;
       messageTemplate = parsed.messageTemplate;
+      jobScope = parsed.jobScope;
     } else {
       engagementId = req.body.leadId;
       selectedTechs = req.body.selectedTechs;
       messageTemplate = req.body.messageTemplate;
+      jobScope = req.body.jobScope;
     }
 
     console.log(`📤 Sending tech availability to ${selectedTechs.length} techs for engagement: ${engagementId}`);
@@ -1337,11 +1383,13 @@ exports.sendTechAvailability = async (req, res) => {
       }
     }
 
-    // Update engagement to mark availability requested
-    await airtableService.updateEngagement(engagementId, {
+    // Update engagement to mark availability requested + save Job Scope
+    const engUpdate = {
       'Tech Availability Requested': true,
       'Tech Availability Responses': `Availability check sent to ${selectedTechs.length} techs at ${new Date().toISOString()}`
-    });
+    };
+    if (jobScope) engUpdate['Job Scope'] = jobScope;
+    await airtableService.updateEngagement(engagementId, engUpdate);
 
     // For fallback form submissions, respond with an HTML success page
     if (isFallback) {
