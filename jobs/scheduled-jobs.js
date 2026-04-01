@@ -330,9 +330,76 @@ function startProposalFollowUpJob() {
   console.log('Proposal follow-up job started (8:30am Perth, Mon-Fri)');
 }
 
+/**
+ * Check for tech availability requests with no responses after 30 minutes
+ * Runs every 5 minutes
+ */
+function startTechAvailabilityFollowUp() {
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      // Find engagements waiting for tech availability with no responses yet
+      const records = await tables.leads
+        .select({
+          filterByFormula: `AND({Tech Availability Requested} = TRUE(), {Status} = 'Tech Availability Check')`,
+        })
+        .all();
+
+      const now = new Date();
+
+      for (const record of records) {
+        const responses = record.fields['Tech Availability Responses'] || '';
+        const availableTechs = record.fields['Available Techs'] || [];
+
+        // Skip if someone already said YES
+        if (availableTechs.length > 0) continue;
+
+        // Skip if already notified (check for our marker)
+        if (responses.includes('⏰ No response reminder sent')) continue;
+
+        // Check if any YES/NO responses have come in
+        const hasResponses = /- (YES|NO) \(/.test(responses);
+        if (hasResponses) continue;
+
+        // Parse the send timestamp from the responses field
+        const timeMatch = responses.match(/Availability check sent to \d+ techs at (.+)/);
+        if (!timeMatch) continue;
+
+        const sentAt = new Date(timeMatch[1]);
+        const minutesAgo = (now - sentAt) / (1000 * 60);
+
+        // Send reminder after 30 minutes
+        if (minutesAgo >= 30) {
+          const engNum = record.fields['Engagement Number'] || '';
+          const customerName = [
+            record.fields['First Name (from Customer)']?.[0],
+            record.fields['Last Name (from Customer)']?.[0],
+          ].filter(Boolean).join(' ') || 'Customer';
+
+          pushover.notifyAll(
+            `No Tech Response — ${engNum}`,
+            `${customerName}\nIt's been ${Math.round(minutesAgo)} mins since the availability check was sent and no techs have responded.\n\nCheck with additional techs. If unsure who to try next, check with Ricky.`
+          );
+
+          // Mark as notified so we don't spam
+          await airtableService.updateEngagement(record.id, {
+            'Tech Availability Responses': responses + '\n⏰ No response reminder sent at ' + now.toISOString(),
+          });
+
+          console.log(`⏰ No tech response reminder sent for ${engNum} (${Math.round(minutesAgo)} mins)`);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking tech availability follow-ups:', error);
+    }
+  });
+
+  console.log('Tech availability follow-up checker started (every 5 mins)');
+}
+
 module.exports = {
   startScheduledJobChecker,
   startScheduleReminderJob,
   startEngagementNumberCheck,
   startProposalFollowUpJob,
+  startTechAvailabilityFollowUp,
 };
