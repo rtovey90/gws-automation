@@ -686,7 +686,11 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Build Job Scope template if not already set
     let jobScope = String(lead.fields['Job Scope'] || '');
     if (!jobScope) {
-      const intakeInfo = String(lead.fields['Client intake info'] || '');
+      let intakeInfo = String(lead.fields['Client intake info'] || '');
+      // Strip AI summary section — only keep the human-readable part
+      const aiIdx = intakeInfo.indexOf('AI Summary:');
+      if (aiIdx > 0) intakeInfo = intakeInfo.substring(0, aiIdx).trim();
+
       const intakeText = intakeInfo.toLowerCase();
       let actionType = 'Troubleshoot';
       if (/replac|swap|upgrad|new system/.test(intakeText)) actionType = 'Replace';
@@ -1050,6 +1054,9 @@ exports.showTechAvailabilityForm = async (req, res) => {
                 </select>
 
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
+                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#1565c0">
+                  ✏️ Replace <strong>[Brand]</strong>, <strong>[Supplier]</strong> and <strong>[Phone]</strong> in the message below before sending
+                </div>
                 <textarea id="message" name="message" required>${defaultMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 <div class="help-text">
                   💡 Use {{TECH_NAME}}, {{YES_LINK}}, and {{NO_LINK}} - they'll be replaced for each tech
@@ -1133,8 +1140,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
             const preview = message
               .replace(/{{TECH_NAME}}/g, techName)
               .replace(/{{YES_LINK}}/g, '<span class="preview-link">' + yesLink + '</span>')
-              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>')
-              .replace(/\[(Brand|Supplier|Phone)\]/g, function(m) { return '<mark style="background:#fff3cd">' + m + '</mark>'; });
+              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>');
 
             previewContent.innerHTML = preview;
           }
