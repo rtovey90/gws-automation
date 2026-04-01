@@ -684,30 +684,28 @@ exports.showTechAvailabilityForm = async (req, res) => {
     const currentSystemTypes = lead.fields['System Type'] || [];
 
     // Build Job Scope template if not already set
-    let jobScope = lead.fields['Job Scope'] || '';
+    let jobScope = String(lead.fields['Job Scope'] || '');
     if (!jobScope) {
-      // Determine action type from intake/notes
-      const intakeText = (lead.fields['Client intake info'] || lead.fields.Notes || '').toLowerCase();
+      const intakeInfo = String(lead.fields['Client intake info'] || '');
+      const intakeText = intakeInfo.toLowerCase();
       let actionType = 'Troubleshoot';
-      if (/\b(replac|swap|upgrad|new system)\b/i.test(intakeText)) actionType = 'Replace';
-      else if (/\b(service|maintenanc|annual|routine)\b/i.test(intakeText)) actionType = 'Service';
+      if (/replac|swap|upgrad|new system/.test(intakeText)) actionType = 'Replace';
+      else if (/service|maintenanc|annual|routine/.test(intakeText)) actionType = 'Service';
 
       const systemTypeStr = Array.isArray(currentSystemTypes) && currentSystemTypes.length > 0
         ? currentSystemTypes.join(' & ') + ' System'
         : '[Type] System';
 
-      // Get issues from client intake info only (not the full AI summary in Notes)
-      const issuesSummary = lead.fields['Client intake info'] || '';
-
-      jobScope = `${actionType} [Brand] ${systemTypeStr}\n\nIssues:\n${issuesSummary || '[Enter specific issues discussed with client]'}\n\nTech Support: [Supplier] — [Phone]`;
+      const issues = intakeInfo || '[Enter specific issues discussed with client]';
+      jobScope = actionType + ' [Brand] ' + systemTypeStr + '\n\nIssues:\n' + issues + '\n\nTech Support: [Supplier] — [Phone]';
     }
 
     // Build message templates (will be editable)
     const techName = '{{TECH_NAME}}';
     const locationRaw = lead.fields['Address (from Customer)'];
-    const locationText = String(Array.isArray(locationRaw) ? locationRaw[0] || 'TBD' : locationRaw || 'TBD').replace(/`/g, "'").replace(/\$\{/g, '$');
-    // Sanitize scope to prevent template literal breakage
-    const scopeText = jobScope.replace(/`/g, "'").replace(/\$\{/g, '$');
+    const locationText = String(Array.isArray(locationRaw) ? locationRaw[0] || 'TBD' : locationRaw || 'TBD');
+    // Sanitize scope for safe embedding in template literal
+    const scopeText = String(jobScope).replace(/`/g, "'");
 
     const defaultMessage = `Hey ${techName}, got a service call this week if you're available!
 
@@ -1087,7 +1085,7 @@ ${brand.senderName} (${brand.companyName})`;
                 </select>
 
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
-                <textarea id="message" name="message" required>${defaultMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                <textarea id="message" name="message" required>${defaultMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 <div class="help-text">
                   💡 Use {{TECH_NAME}}, {{YES_LINK}}, and {{NO_LINK}} - they'll be replaced for each tech
                 </div>
