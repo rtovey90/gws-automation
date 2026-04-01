@@ -696,8 +696,8 @@ exports.showTechAvailabilityForm = async (req, res) => {
         ? currentSystemTypes.join(' & ') + ' System'
         : '[Type] System';
 
-      // Get issues from client intake info
-      const issuesSummary = lead.fields['Client intake info'] || lead.fields.Notes || '';
+      // Get issues from client intake info only (not the full AI summary in Notes)
+      const issuesSummary = lead.fields['Client intake info'] || '';
 
       jobScope = `${actionType} [Brand] ${systemTypeStr}\n\nIssues:\n${issuesSummary || '[Enter specific issues discussed with client]'}\n\nTech Support: [Supplier] — [Phone]`;
     }
@@ -1168,7 +1168,11 @@ ${brand.senderName} (${brand.companyName})`;
             const preview = message
               .replace(/{{TECH_NAME}}/g, techName)
               .replace(/{{YES_LINK}}/g, '<span class="preview-link">' + yesLink + '</span>')
-              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>');
+              .replace(/{{NO_LINK}}/g, '<span class="preview-link">' + noLink + '</span>')
+              .replace(/\[Brand\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Brand]</span>')
+              .replace(/\[Supplier\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Supplier]</span>')
+              .replace(/\[Phone\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Phone]</span>')
+              .replace(/\[Type\]/g, '<span style="background:#fff3cd;color:#856404;padding:1px 4px;border-radius:3px;font-weight:600">[Type]</span>');
 
             previewContent.innerHTML = preview;
           }
