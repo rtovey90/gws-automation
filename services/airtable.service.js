@@ -631,6 +631,18 @@ class AirtableService {
   }
 
   /**
+   * Get all brands from Brands & Suppliers table
+   */
+  async getAllBrands() {
+    try {
+      return await tables.brands.select().all();
+    } catch (error) {
+      console.error('Error getting brands:', error);
+      return [];
+    }
+  }
+
+  /**
    * Look up an engagement by its Short Link Code (for payment link redirects)
    */
   async resolveShortLinkCode(code) {

@@ -627,11 +627,26 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Get brand config for this engagement
     const brand = await getBrandForEngagement(engagementId, airtableService);
 
-    // Get all techs and messages for this engagement
-    const [techs, allMessages] = await Promise.all([
+    // Get all techs, messages, and brands for this engagement
+    const [techs, allMessages, allBrands] = await Promise.all([
       airtableService.getAllTechs(),
       airtableService.getAllMessages(),
+      airtableService.getAllBrands(),
     ]);
+
+    // Build brands data for dropdown (filter to non-discontinued, relevant system types)
+    const brandsData = allBrands
+      .filter(b => !b.fields['Discontinued?'])
+      .map(b => ({
+        name: b.fields.Brand || '',
+        supplier: b.fields.Supplier || '',
+        phone: b.fields['Phone Number'] || '',
+        cctv: !!b.fields.CCTV,
+        alarm: !!b.fields.Alarm,
+        intercom: !!b.fields.Intercom,
+        accessControl: !!b.fields['Access Control'],
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     // Find techs already contacted for this engagement (outbound availability messages with YES/NO links)
     const engMessages = allMessages.filter(m => {
@@ -698,10 +713,10 @@ exports.showTechAvailabilityForm = async (req, res) => {
 
       const systemTypeStr = Array.isArray(currentSystemTypes) && currentSystemTypes.length > 0
         ? currentSystemTypes.join(' & ') + ' System'
-        : '[Type] System';
+        : 'System';
 
-      const issues = intakeInfo || '[Enter specific issues discussed with client]';
-      jobScope = actionType + ' [Brand] ' + systemTypeStr + '\n\nIssues:\n' + issues + '\n\nTech Support: [Supplier] — [Phone]';
+      const issues = intakeInfo || '';
+      jobScope = actionType + ' __BRAND__ ' + systemTypeStr + '\n\nIssues:\n' + issues + '\n\nTech Support: __SUPPLIER__ — __PHONE__';
     }
 
     // Build message templates (will be editable)
@@ -714,7 +729,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Use Marjorie for VA, Ricky for admin
     const senderName = (req.session && req.session.role === 'va') ? 'Marjorie' : brand.senderName;
 
-    const defaultMessage = 'Hey ' + techName + ', got a service call [this week] if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
+    const defaultMessage = 'Hey ' + techName + ', got a service call __TIMING__ if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
 
     const emergencyMessage = 'Hey ' + techName + ', got an emergency service call today if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPay: $250 + GST for 1st hour\n$150 + GST for additional hours\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
 
@@ -1057,8 +1072,24 @@ exports.showTechAvailabilityForm = async (req, res) => {
                 </select>
 
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
-                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#1565c0">
-                  ✏️ Replace <strong>[Brand]</strong>, <strong>[Supplier]</strong>, <strong>[Phone]</strong> and <strong>[this week]</strong> before sending
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                  <div style="flex:1;min-width:140px;">
+                    <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">TIMING</label>
+                    <select id="timingSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
+                      <option value="this week">This Week</option>
+                      <option value="today">Today</option>
+                      <option value="tomorrow">Tomorrow</option>
+                      <option value="next week">Next Week</option>
+                    </select>
+                  </div>
+                  <div style="flex:1;min-width:140px;">
+                    <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">BRAND</label>
+                    <select id="brandSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
+                      <option value="">-- Select Brand --</option>
+                      ${brandsData.map(b => '<option value="' + b.name + '" data-supplier="' + b.supplier + '" data-phone="' + b.phone + '">' + b.name + '</option>').join('')}
+                      <option value="__custom__">Other (type in message)</option>
+                    </select>
+                  </div>
                 </div>
                 <textarea id="message" name="message" required>${defaultMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 <div class="help-text">
@@ -1160,20 +1191,53 @@ exports.showTechAvailabilityForm = async (req, res) => {
           // Update preview when message changes
           messageTextarea.addEventListener('input', updatePreview);
 
-          // Save system type changes to Airtable + update message text
+          // Dropdown-driven message updates
+          let currentTiming = 'this week';
+          let currentBrand = '__BRAND__';
+          let currentSupplier = '__SUPPLIER__';
+          let currentPhone = '__PHONE__';
           let currentSystemTypeText = ${JSON.stringify(
             Array.isArray(currentSystemTypes) && currentSystemTypes.length > 0
               ? currentSystemTypes.join(' & ') + ' System'
-              : '[Type] System'
+              : 'System'
           )};
+
+          function replaceInMessage(oldVal, newVal) {
+            if (oldVal === newVal) return;
+            messageTextarea.value = messageTextarea.value.split(oldVal).join(newVal);
+            updatePreview();
+          }
+
+          // Timing dropdown
+          document.getElementById('timingSelect').addEventListener('change', function() {
+            replaceInMessage(currentTiming, this.value);
+            currentTiming = this.value;
+          });
+          // Set initial timing
+          replaceInMessage('__TIMING__', currentTiming);
+
+          // Brand dropdown — auto-fills supplier + phone
+          document.getElementById('brandSelect').addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            if (this.value && this.value !== '__custom__') {
+              const newBrand = this.value;
+              const newSupplier = opt.dataset.supplier || '';
+              const newPhone = opt.dataset.phone || '';
+              replaceInMessage(currentBrand, newBrand);
+              if (newSupplier) replaceInMessage(currentSupplier, newSupplier);
+              if (newPhone) replaceInMessage(currentPhone, newPhone);
+              currentBrand = newBrand;
+              if (newSupplier) currentSupplier = newSupplier;
+              if (newPhone) currentPhone = newPhone;
+            }
+          });
+
+          // System type checkboxes
           document.getElementById('systemTypeChecks').addEventListener('change', function() {
             const selected = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(cb => cb.value);
-            const newTypeText = selected.length > 0 ? selected.join(' & ') + ' System' : '[Type] System';
-            // Update the scope line in the message
-            const msg = messageTextarea.value;
-            messageTextarea.value = msg.replace(currentSystemTypeText, newTypeText);
+            const newTypeText = selected.length > 0 ? selected.join(' & ') + ' System' : 'System';
+            replaceInMessage(currentSystemTypeText, newTypeText);
             currentSystemTypeText = newTypeText;
-            updatePreview();
             // Save to Airtable
             fetch(BASE_URL + '/api/update-system-type', {
               method: 'POST',
