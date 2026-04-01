@@ -642,6 +642,10 @@ exports.showTechAvailabilityForm = async (req, res) => {
         supplier: b.fields.Supplier || '',
         techSupportName: b.fields['Tech Support Name'] || b.fields.Supplier || '',
         techSupportPhone: b.fields['Tech Support Number'] || b.fields['Phone Number'] || '',
+        cctv: !!b.fields.CCTV,
+        alarm: !!b.fields.Alarm,
+        intercom: !!b.fields.Intercom,
+        accessControl: !!b.fields['Access Control'],
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1069,20 +1073,22 @@ exports.showTechAvailabilityForm = async (req, res) => {
                     </select>
                   </div>
                   <div style="flex:1;min-width:110px;">
-                    <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">BRAND</label>
-                    <select id="brandSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
-                      <option value="">-- Select Brand --</option>
-                      ${brandsData.map(b => '<option value="' + b.name + '" data-support="' + b.techSupportName + '" data-phone="' + b.techSupportPhone + '">' + b.name + '</option>').join('')}
-                      <option value="__custom__">Other (type in message)</option>
+                    <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">ACTION</label>
+                    <select id="actionSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
+                      <option value="Troubleshoot">Troubleshoot</option>
+                      <option value="Service">Service</option>
+                      <option value="Replace">Replace</option>
+                      <option value="Upgrade">Upgrade</option>
                     </select>
                   </div>
                 </div>
-                <div style="margin-bottom:10px;">
+                <div style="margin-bottom:6px;">
                   <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">SYSTEM TYPE</label>
                   <div id="systemTypeChecks" style="display:flex;gap:10px;flex-wrap:wrap;">
                     ${['CCTV', 'Alarm', 'Access Control', 'Intercom', 'Other'].map(t => '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" name="systemType" value="' + t + '" ' + (currentSystemTypes.includes(t) ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"> ' + t + '</label>').join('')}
                   </div>
                 </div>
+                <div id="brandSelectors" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
                 <textarea id="message" name="message" required>${defaultMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                 <div class="help-text">
                   💡 Use {{TECH_NAME}}, {{YES_LINK}}, and {{NO_LINK}} - they'll be replaced for each tech
@@ -1183,59 +1189,96 @@ exports.showTechAvailabilityForm = async (req, res) => {
           // Update preview when message changes
           messageTextarea.addEventListener('input', updatePreview);
 
-          // Dropdown-driven message updates
-          let currentTiming = 'this week (or early next week)';
-          let currentBrand = '__BRAND__';
-          let currentSupplier = '__SUPPLIER__';
-          let currentPhone = '__PHONE__';
-          let currentSystemTypeText = ${JSON.stringify(
-            Array.isArray(currentSystemTypes) && currentSystemTypes.length > 0
-              ? currentSystemTypes.join(' & ') + ' System'
-              : 'System'
-          )};
+          // Brands data from server
+          const brandsData = ${JSON.stringify(brandsData)};
+          const sysTypeMap = { CCTV: 'cctv', Alarm: 'alarm', Intercom: 'intercom', 'Access Control': 'accessControl' };
 
-          function replaceInMessage(oldVal, newVal) {
-            if (oldVal === newVal) return;
-            messageTextarea.value = messageTextarea.value.split(oldVal).join(newVal);
+          // Current scope state
+          let currentTiming = 'this week (or early next week)';
+          let currentAction = 'Troubleshoot';
+          let currentScopeText = ${JSON.stringify(scopeText)};
+          let currentSupport = '__SUPPLIER__';
+          let currentSupportPhone = '__PHONE__';
+
+          // Build the scope line from current selections
+          function buildScopeLine() {
+            const action = document.getElementById('actionSelect').value;
+            const systems = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(cb => cb.value);
+            const parts = [];
+            systems.forEach(function(sys) {
+              const sel = document.getElementById('brand-' + sys.replace(/\s/g, '-'));
+              const brand = sel ? sel.value : '';
+              parts.push((brand || '__BRAND__') + ' ' + sys + ' System');
+            });
+            if (parts.length === 0) parts.push('__BRAND__ System');
+            return action + ' ' + parts.join(' & ');
+          }
+
+          // Rebuild the brand dropdowns based on checked system types
+          function rebuildBrandSelectors() {
+            const container = document.getElementById('brandSelectors');
+            const systems = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(cb => cb.value);
+            container.innerHTML = '';
+            systems.forEach(function(sys) {
+              const id = 'brand-' + sys.replace(/\\s/g, '-');
+              const filterKey = sysTypeMap[sys];
+              const filtered = filterKey ? brandsData.filter(function(b) { return b[filterKey]; }) : brandsData;
+              const div = document.createElement('div');
+              div.style.cssText = 'flex:1;min-width:110px;';
+              div.innerHTML = '<label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">' + sys + ' BRAND</label>' +
+                '<select id="' + id + '" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">' +
+                '<option value="">-- Select --</option>' +
+                filtered.map(function(b) { return '<option value="' + b.name + '" data-support="' + b.techSupportName + '" data-phone="' + b.techSupportPhone + '">' + b.name + '</option>'; }).join('') +
+                '</select>';
+              container.appendChild(div);
+              div.querySelector('select').addEventListener('change', updateScope);
+            });
+            updateScope();
+          }
+
+          // Update the scope line + tech support in the message
+          function updateScope() {
+            const newScope = buildScopeLine();
+            messageTextarea.value = messageTextarea.value.split(currentScopeText).join(newScope);
+            currentScopeText = newScope;
+            // Update tech support from first brand with support info
+            var allBrandSels = document.querySelectorAll('#brandSelectors select');
+            for (var i = 0; i < allBrandSels.length; i++) {
+              var opt = allBrandSels[i].options[allBrandSels[i].selectedIndex];
+              if (opt && opt.dataset.support) {
+                var ns = opt.dataset.support;
+                var np = opt.dataset.phone || '';
+                if (ns) { messageTextarea.value = messageTextarea.value.split(currentSupport).join(ns); currentSupport = ns; }
+                if (np) { messageTextarea.value = messageTextarea.value.split(currentSupportPhone).join(np); currentSupportPhone = np; }
+                break;
+              }
+            }
             updatePreview();
           }
 
           // Timing dropdown
           document.getElementById('timingSelect').addEventListener('change', function() {
-            replaceInMessage(currentTiming, this.value);
+            messageTextarea.value = messageTextarea.value.split(currentTiming).join(this.value);
             currentTiming = this.value;
-          });
-          // No initial replacement needed — timing is baked into the template
-
-          // Brand dropdown — auto-fills tech support name + phone
-          document.getElementById('brandSelect').addEventListener('change', function() {
-            const opt = this.options[this.selectedIndex];
-            if (this.value && this.value !== '__custom__') {
-              const newBrand = this.value;
-              const newSupport = opt.dataset.support || '';
-              const newPhone = opt.dataset.phone || '';
-              replaceInMessage(currentBrand, newBrand);
-              if (newSupport) replaceInMessage(currentSupplier, newSupport);
-              if (newPhone) replaceInMessage(currentPhone, newPhone);
-              currentBrand = newBrand;
-              if (newSupport) currentSupplier = newSupport;
-              if (newPhone) currentPhone = newPhone;
-            }
+            updatePreview();
           });
 
-          // System type checkboxes
+          // Action dropdown
+          document.getElementById('actionSelect').addEventListener('change', updateScope);
+
+          // System type checkboxes — rebuild brand dropdowns + save to Airtable
           document.getElementById('systemTypeChecks').addEventListener('change', function() {
-            const selected = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(cb => cb.value);
-            const newTypeText = selected.length > 0 ? selected.join(' & ') + ' System' : 'System';
-            replaceInMessage(currentSystemTypeText, newTypeText);
-            currentSystemTypeText = newTypeText;
-            // Save to Airtable
+            rebuildBrandSelectors();
+            var selected = Array.from(document.querySelectorAll('input[name="systemType"]:checked')).map(function(cb) { return cb.value; });
             fetch(BASE_URL + '/api/update-system-type', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ leadId: engagementId, systemTypes: selected })
-            }).catch(err => console.error('Failed to save system type:', err));
+            }).catch(function(err) { console.error('Failed to save system type:', err); });
           });
+
+          // Initial brand selectors
+          rebuildBrandSelectors();
 
           // Initial preview
           updatePreview();
