@@ -717,7 +717,7 @@ exports.showTechAvailabilityForm = async (req, res) => {
         ? currentSystemTypes.join(' & ') + ' System'
         : 'System';
 
-      jobScope = actionType + ' __BRAND__ ' + systemTypeStr + '\n\nIssues:\n\n\nTech Support: __SUPPLIER__ — __PHONE__';
+      jobScope = actionType + ' __BRAND__ ' + systemTypeStr + '\n\nIssues:\n' + intakeInfo + '\n\nTech Support: __SUPPLIER__ — __PHONE__';
     }
 
     // Build message templates (will be editable)
@@ -1226,10 +1226,10 @@ exports.showTechAvailabilityForm = async (req, res) => {
           const brandsData = ${JSON.stringify(brandsData)};
           const sysTypeMap = { CCTV: 'cctv', Alarm: 'alarm', Intercom: 'intercom', 'Access Control': 'accessControl' };
 
-          // Current scope state
+          // Current scope state — only track the first line so Issues/Tech Support are preserved
           let currentTiming = 'this week (or early next week)';
           let currentAction = 'Troubleshoot';
-          let currentScopeText = ${JSON.stringify(scopeText)};
+          let currentScopeText = ${JSON.stringify(scopeText.split('\n\n')[0])};
           let currentSupport = '__SUPPLIER__';
           let currentSupportPhone = '__PHONE__';
 
