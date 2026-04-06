@@ -727,8 +727,8 @@ exports.showTechAvailabilityForm = async (req, res) => {
     // Sanitize scope for safe embedding in template literal
     const scopeText = String(jobScope).replace(/`/g, "'");
 
-    // Use Marjorie for VA, Ricky for admin
-    const senderName = (req.session && req.session.role === 'va') ? 'Marjorie' : brand.senderName;
+    // Default to Marjorie (VA sends most); form has dropdown to override
+    const senderName = 'Marjorie';
 
     const defaultMessage = 'Hey ' + techName + ', got a service call this week (or early next week) if you\'re available!\n\nLocation: ' + locationText + '\n\nScope:\n' + scopeText + '\n\nPlease make your selection:\n\n👍 YES: {{YES_LINK}}\n\n👎 NO: {{NO_LINK}}\n\nI\'ll be in touch with more info once it\'s confirmed.\n\nThanks,\n\n' + senderName + ' (' + brand.companyName + ')';
 
@@ -1064,6 +1064,13 @@ exports.showTechAvailabilityForm = async (req, res) => {
                 <label class="message-label" for="message">📝 Message (edit as needed):</label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
                   <div style="flex:1;min-width:110px;">
+                    <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">SENDER</label>
+                    <select id="senderSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
+                      <option value="Marjorie" selected>Marjorie</option>
+                      <option value="Ricky">Ricky</option>
+                    </select>
+                  </div>
+                  <div style="flex:1;min-width:110px;">
                     <label style="font-size:11px;color:#666;font-weight:600;display:block;margin-bottom:3px;">TIMING</label>
                     <select id="timingSelect" style="width:100%;padding:8px;border:2px solid #90caf9;border-radius:6px;font-size:13px;background:#e3f2fd;">
                       <option value="this week (or early next week)">This Week / Early Next</option>
@@ -1125,12 +1132,25 @@ exports.showTechAvailabilityForm = async (req, res) => {
           // Server-injected variables
           const BASE_URL = '${brand.baseUrl}';
           const engagementId = '${engagementId}';
+          const companyName = ${JSON.stringify(brand.companyName)};
+
+          // Base templates (built with placeholder sender so we can swap)
+          const baseDefaultMsg = ${JSON.stringify(defaultMessage)};
+          const baseEmergencyMsg = ${JSON.stringify(emergencyMessage)};
+
+          let currentSender = 'Marjorie';
+
+          function buildTemplates(sender) {
+            const sig = 'Marjorie (' + companyName + ')';
+            const newSig = sender + ' (' + companyName + ')';
+            return {
+              standard: baseDefaultMsg.replace(sig, newSig),
+              emergency: baseEmergencyMsg.replace(sig, newSig),
+            };
+          }
 
           // Templates injected from server
-          const templates = {
-            standard: ${JSON.stringify(defaultMessage)},
-            emergency: ${JSON.stringify(emergencyMessage)},
-          };
+          let templates = buildTemplates(currentSender);
 
           const checkboxes = document.querySelectorAll('input[name="techs"]');
           const selectAll = document.getElementById('selectAll');
@@ -1143,6 +1163,18 @@ exports.showTechAvailabilityForm = async (req, res) => {
           const previewContent = document.getElementById('previewContent');
           const previewTitle = document.getElementById('previewTitle');
           const templateSelect = document.getElementById('template');
+
+          // Handle sender change
+          const senderSelect = document.getElementById('senderSelect');
+          senderSelect.addEventListener('change', function() {
+            const newSender = senderSelect.value;
+            const oldSig = currentSender + ' (' + companyName + ')';
+            const newSig = newSender + ' (' + companyName + ')';
+            messageTextarea.value = messageTextarea.value.split(oldSig).join(newSig);
+            currentSender = newSender;
+            templates = buildTemplates(currentSender);
+            updatePreview();
+          });
 
           // Handle template change
           templateSelect.addEventListener('change', function() {
