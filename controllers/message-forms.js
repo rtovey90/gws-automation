@@ -1741,9 +1741,9 @@ exports.showPricingForm = async (req, res) => {
 
 Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your ${systemTypeText}.
 
-The call-out is just $${price} inc. GST, which includes travel and up to 30 minutes on site.
+The call-out is just $${price} + GST, which includes travel and up to 30 minutes on site.
 
-If more time is needed, additional labour is billed at $147 per hour inc. GST.
+If more time is needed, additional labour is billed at $197 per hour + GST.
 
 To secure the booking, please make payment here:
 ${paymentLink}
@@ -2041,9 +2041,9 @@ ${brand.companyName}`;
 
 Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your \${systemType}.
 
-The call-out is just $\${price} inc. GST, which includes travel and up to 30 minutes on site.
+The call-out is just $\${price} + GST, which includes travel and up to 30 minutes on site.
 
-If more time is needed, additional labour is billed at $147 per hour inc. GST.
+If more time is needed, additional labour is billed at $197 per hour + GST.
 
 To secure the booking, please make payment here:
 \${link}
