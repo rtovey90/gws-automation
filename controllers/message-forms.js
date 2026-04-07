@@ -1837,6 +1837,16 @@ ${brand.companyName}`;
             outline: none;
             border-color: #1a73e8;
           }
+          #product.has-selection {
+            background: #e8f5e9;
+            border-color: #2e7d32;
+            color: #1b5e20;
+            font-weight: 600;
+          }
+          #product option:checked {
+            background: #2e7d32;
+            color: white;
+          }
           .preview-section {
             margin-top: 30px;
             padding: 20px;
@@ -2137,7 +2147,16 @@ ${brand.companyName}\`;
           }
 
           // When product changes, auto-switch template then regenerate
+          function updateProductSelectStyle() {
+            if (productSelect.value) {
+              productSelect.classList.add('has-selection');
+            } else {
+              productSelect.classList.remove('has-selection');
+            }
+          }
+          updateProductSelectStyle();
           productSelect.addEventListener('change', function() {
+            updateProductSelectStyle();
             autoDetectTemplate();
             generateMessage();
           });
