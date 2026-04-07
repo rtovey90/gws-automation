@@ -1712,9 +1712,10 @@ exports.showPricingForm = async (req, res) => {
     // Sort products by price (cheapest first) so standard callout is the default
     products.sort((a, b) => (a.fields.Price || 0) - (b.fields.Price || 0));
 
-    // Get selected product if exists
+    // Get selected product if exists; default to preferred $247 call-out, not cheapest
     const selectedProductId = lead.fields['Selected Product'] ? lead.fields['Selected Product'][0] : null;
-    const selectedProduct = selectedProductId ? products.find(p => p.id === selectedProductId) : products[0];
+    const preferredProduct = products.find(p => /technician call.?out.*metro.*travel/i.test(p.fields['Product Name'] || '') && (p.fields.Price || 0) === 247) || products[0];
+    const selectedProduct = selectedProductId ? products.find(p => p.id === selectedProductId) : preferredProduct;
 
     // Build client name from Customer lookup fields
     const clientName = lead.fields['First Name (from Customer)'] || 'there';
@@ -1962,11 +1963,12 @@ ${brand.companyName}`;
 
             <label for="product">📦 Select Product:</label>
             <select id="product" name="product">
-              ${products.map(p => `
-                <option value="${p.id}" data-name="${p.fields['Product Name']}" data-link="${p.fields['Stripe Payment Link']}" data-price="${p.fields.Price || 247}" ${p.id === selectedProduct.id ? 'selected' : ''}>
-                  ${p.fields['Product Name']}
-                </option>
-              `).join('')}
+              ${products.map(p => {
+                const isPreferred = p.id === preferredProduct.id;
+                const preferredStyle = isPreferred ? ' style="background-color:#2e7d32;color:white;font-weight:600;"' : '';
+                const label = isPreferred ? '★ ' + p.fields['Product Name'] : p.fields['Product Name'];
+                return `<option value="${p.id}" data-name="${p.fields['Product Name']}" data-link="${p.fields['Stripe Payment Link']}" data-price="${p.fields.Price || 247}"${preferredStyle} ${p.id === selectedProduct.id ? 'selected' : ''}>${label}</option>`;
+              }).join('')}
             </select>
             <div>
               <button type="button" class="stripe-link" id="openCheckoutBtn">
