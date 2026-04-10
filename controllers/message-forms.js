@@ -1712,10 +1712,13 @@ exports.showPricingForm = async (req, res) => {
     // Sort products by price (cheapest first) so standard callout is the default
     products.sort((a, b) => (a.fields.Price || 0) - (b.fields.Price || 0));
 
-    // Get selected product if exists; default to preferred $247 call-out, not cheapest
-    const selectedProductId = lead.fields['Selected Product'] ? lead.fields['Selected Product'][0] : null;
-    const preferredProduct = products.find(p => /technician call.?out.*metro.*travel/i.test(p.fields['Product Name'] || '') && (p.fields.Price || 0) === 247) || products[0];
-    const selectedProduct = selectedProductId ? products.find(p => p.id === selectedProductId) : preferredProduct;
+    // Always default to the preferred $247 licensed service visit — never restore last-used product
+    const preferredProduct = products.find(p =>
+      /licensed technician service visit.*metro.*travel/i.test(p.fields['Product Name'] || '') &&
+      (p.fields.Price || 0) === 247 &&
+      !/permaconn|battery|extra/i.test(p.fields['Product Name'] || '')
+    ) || products[0];
+    const selectedProduct = preferredProduct;
 
     // Build client name from Customer lookup fields
     const clientName = lead.fields['First Name (from Customer)'] || 'there';
