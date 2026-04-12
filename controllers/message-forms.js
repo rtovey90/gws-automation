@@ -1742,7 +1742,7 @@ exports.showPricingForm = async (req, res) => {
 
     const defaultMessage = `Hi ${clientName}, thanks for sending those through.
 
-Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your ${systemTypeText}.
+Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your ${systemTypeText} and, if possible, resolve it on-site during the initial visit.
 
 The call-out is just $${price} + GST, which includes travel and up to 30 minutes on site.
 
@@ -2042,7 +2042,7 @@ ${brand.companyName}`;
           function getStandardTemplate(name, systemType, price, link) {
             return \`Hi \${name}, thanks for sending those through.
 
-Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your \${systemType}.
+Good news — I can have one of our technicians attend this week (or early next week) to troubleshoot your \${systemType} and, if possible, resolve it on-site during the initial visit.
 
 The call-out is just $\${price} + GST, which includes travel and up to 30 minutes on site.
 
