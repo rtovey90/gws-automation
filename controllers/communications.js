@@ -587,13 +587,13 @@ exports.sendEngagementReviewRequest = async (req, res) => {
     const brand = await getBrandForEngagement(engagementId, airtableService);
     const reviewLink = 'https://g.page/r/CWLImL52RIBEEBM/review';
 
-    const defaultMessage = `Hey ${firstName}, thanks again for trusting ${brand.companyName}.
+    const defaultMessage = `Hey ${firstName}, thanks again for trusting ${brand.companyName}!
 
-If you feel you received 5-star service, we'd really appreciate a quick Google review. It helps us get found and only takes about 20 seconds :)
+If you feel like we handled things professionally, we'd really appreciate a quick Google review. It helps a small local business like ours get found and it only takes a minute :)
 
 Here's the link: ${reviewLink}
 
-If you're interested in looking at potentially having ${systemSuggestion} installed, or need anything else, feel free to reach out anytime!
+Also, if you know anyone who needs their CCTV, alarm or intercom systems installed, repaired or serviced, send them our way. If they book a job we'll transfer you $50 as a thank you 🙏
 
 Kind regards,
 ${brand.senderName} (${brand.companyName})`;
