@@ -2800,7 +2800,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const propertyType = f['Property Type'] || (isClone ? (cf['Property Type'] || 'residential') : 'residential');
   const letterNote = f['Letter Note'] || '';
   const packageName = f['Package Name'] || (isClone ? (cf['Package Name'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].name : ''));
-  const packageDesc = f['Package Description'] || (isClone ? (cf['Package Description'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].description : ''));
+  const packageDesc = f['Package Description'] || (isEdit ? '' : (isClone ? (cf['Package Description'] || '') : (defaultTemplate.packages[0] ? defaultTemplate.packages[0].description : '')));
   const basePrice = f['Base Price'] || (isClone ? (cf['Base Price'] || '') : (pf.quoteAmount || (defaultTemplate.packages[0] ? defaultTemplate.packages[0].price : '')));
   const discountName = f['Discount Name'] || (isClone ? (cf['Discount Name'] || '') : '');
   const discountType = f['Discount Type'] || (isClone ? (cf['Discount Type'] || '') : '');

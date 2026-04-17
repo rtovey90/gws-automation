@@ -339,7 +339,7 @@ class StripeService {
   async createProposalCheckoutSession({ projectNumber, proposalId, amount, customerName, description, successUrl, cancelUrl }) {
     try {
       const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'zip'],
         line_items: [
           {
             price_data: {
@@ -355,8 +355,10 @@ class StripeService {
         ],
         mode: 'payment',
         customer_creation: 'always',
-        payment_intent_data: {
-          setup_future_usage: 'off_session',
+        payment_method_options: {
+          card: {
+            setup_future_usage: 'off_session',
+          },
         },
         success_url: successUrl,
         cancel_url: cancelUrl,
