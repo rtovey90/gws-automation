@@ -62,6 +62,7 @@ exports.showAssignmentForm = async (req, res) => {
       try {
         const siteVisits = await airtableService.getSiteVisitsByEngagement(engagementId);
         if (siteVisits.length > 0) {
+          // Use Site Visits table record
           const lastVisit = siteVisits[0]; // sorted most recent first
           const f = lastVisit.fields;
           const visitDate = f['Visit Date']
@@ -74,6 +75,15 @@ exports.showAssignmentForm = async (req, res) => {
           previousVisitSummary = `Last visit: ${visitDate} (${techName})`;
           if (truncatedNotes) previousVisitSummary += `\n${truncatedNotes}`;
           if (nextSteps) previousVisitSummary += `\n\nWhat's needed: ${nextSteps}`;
+        } else {
+          // Fall back to parsing Client Notes (handles visits logged before Site Visits table was in use)
+          const clientNotes = engagement.fields['Client Notes'] || '';
+          const blocks = clientNotes.split(/(?=── VISIT \d+)/);
+          const lastBlock = blocks[blocks.length - 1].trim();
+          if (lastBlock) {
+            const truncated = lastBlock.length > 400 ? lastBlock.substring(0, 400) + '...' : lastBlock;
+            previousVisitSummary = truncated;
+          }
         }
       } catch (e) {
         console.warn('Could not fetch site visits for return visit template:', e.message);
