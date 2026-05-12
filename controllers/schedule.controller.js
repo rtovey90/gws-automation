@@ -341,10 +341,15 @@ exports.scheduleJob = async (req, res) => {
 
     console.log(`📅 Scheduling job for engagement ${engagementId} on ${scheduledDate}`);
 
-    // Get engagement first to check if already scheduled
-    const engagement = await airtableService.getEngagement(engagementId);
+    // Get engagement and site visit history in parallel
+    const [engagement, siteVisits] = await Promise.all([
+      airtableService.getEngagement(engagementId),
+      airtableService.getSiteVisitsByEngagement(engagementId),
+    ]);
     const lead = engagement; // For backward compatibility
-    const wasAlreadyScheduled = engagement.fields['Scheduled 📅']; // Check if already scheduled
+
+    // Determine if this is a return visit (prior site visits already exist)
+    const isReturnVisit = siteVisits.length > 0;
     const clientFirstName = engagement.fields['First Name (from Customer)'] || 'the client';
     const assignedTechIds = engagement.fields['Assigned Tech Name'];
 
@@ -354,21 +359,22 @@ exports.scheduleJob = async (req, res) => {
     const isoDate = new Date(scheduledDate + ':00+08:00').toISOString();
     console.log(`📅 Converted date to ISO (Perth→UTC): ${isoDate}`);
 
-    // Update engagement with scheduled date and status
+    // Update engagement with scheduled date and appropriate status
+    const newStatus = isReturnVisit ? 'Return Visit Scheduled' : 'Scheduled 📅';
     await airtableService.updateEngagement(engagementId, {
       'Scheduled 📅': isoDate,
-      Status: 'Scheduled 📅',
+      Status: newStatus,
     });
 
-    console.log(wasAlreadyScheduled ? `✓ Engagement re-scheduled successfully (no SMS sent)` : `✓ Engagement scheduled successfully`);
+    console.log(`✓ Engagement ${isReturnVisit ? 'return visit' : ''} scheduled (status: ${newStatus})`);
 
     // Create completion form URL (no short link needed - direct URL)
     let completionUrl = `${process.env.BASE_URL}/c/${engagementId}`;
 
     console.log(`🔗 Completion URL: ${completionUrl}`);
 
-    // Only send SMS if this is the FIRST time scheduling (not a re-schedule)
-    if (!wasAlreadyScheduled && assignedTechIds && assignedTechIds.length > 0) {
+    // Send completion form SMS for all first-time schedules and all return visits
+    if (assignedTechIds && assignedTechIds.length > 0) {
       const techId = assignedTechIds[0];
       const tech = await airtableService.getTech(techId);
       const techFirstName = tech.fields['First Name'] || 'there';
@@ -383,9 +389,10 @@ exports.scheduleJob = async (req, res) => {
         const schedBrand = await getBrandForEngagement(engagementId, airtableService);
         const schedEngNumber = engagement.fields['Engagement Number'] || '';
         const schedRefLine = schedEngNumber ? `(${schedEngNumber}) ` : '';
+        const jobLabel = isReturnVisit ? 'return visit' : 'job';
         const message = `Hey ${techFirstName},
 
-Thanks for scheduling the job ${schedRefLine}with ${clientFirstName}.
+Thanks for scheduling the ${jobLabel} ${schedRefLine}with ${clientFirstName}.
 
 Please fill out the completion form BEFORE leaving the site:
 
@@ -402,14 +409,15 @@ ${schedBrand.senderName} (${schedBrand.companyName})`;
           { leadId: engagementId, type: 'completion_reminder' }
         );
 
-        console.log(`✓ Completion SMS sent to ${techFirstName}`);
+        console.log(`✓ Completion SMS sent to ${techFirstName} (${jobLabel})`);
         // Note: twilioService.sendSMS() already logs the message to Airtable
       }
     }
 
     // Log activity
     const schedDate = new Date(scheduledDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Perth' });
-    airtableService.logActivity(engagementId, `Job scheduled for ${schedDate}`);
+    const activityLabel = isReturnVisit ? `Return visit scheduled for ${schedDate}` : `Job scheduled for ${schedDate}`;
+    airtableService.logActivity(engagementId, activityLabel);
 
     res.status(200).json({ success: true, completionLink: completionUrl });
   } catch (error) {

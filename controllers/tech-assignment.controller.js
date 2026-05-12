@@ -441,14 +441,22 @@ exports.assignTech = async (req, res) => {
     const techFirstName = tech.fields['First Name'] || 'there';
     const finalMessage = message.replace(/\[TECH_NAME\]/g, techFirstName);
 
-    // Update engagement with assigned tech and status
-    await airtableService.updateEngagement(engagementId, {
-      'Assigned Tech Name': [techId],
-      Status: 'Tech Assigned 👷',
-      'Tech Assigned At': new Date().toISOString(),
-    });
+    // Preserve 'Return Visit Required' status so kanban context is not lost.
+    // For all other statuses, advance to 'Tech Assigned 👷' as normal.
+    const currentStatus = engagement.fields.Status || '';
+    const isReturnVisitReassignment = currentStatus === 'Return Visit Required';
 
-    console.log(`✓ Engagement updated with assigned tech`);
+    const engagementUpdates = {
+      'Assigned Tech Name': [techId],
+      'Tech Assigned At': new Date().toISOString(),
+    };
+    if (!isReturnVisitReassignment) {
+      engagementUpdates.Status = 'Tech Assigned 👷';
+    }
+
+    await airtableService.updateEngagement(engagementId, engagementUpdates);
+
+    console.log(`✓ Engagement updated with assigned tech${isReturnVisitReassignment ? ' (status preserved: Return Visit Required)' : ''}`);
 
     // Send SMS to tech
     await twilioService.sendSMS(
@@ -459,9 +467,12 @@ exports.assignTech = async (req, res) => {
 
     console.log(`✓ SMS sent to tech: ${techFirstName}`);
 
-    // Log activity
+    // Log activity with context-aware wording
     const techFullName = [tech.fields['First Name'], tech.fields['Last Name']].filter(Boolean).join(' ') || techFirstName;
-    airtableService.logActivity(engagementId, `Tech ${techFullName} assigned`);
+    const activityText = isReturnVisitReassignment
+      ? `Tech reassigned for return visit: ${techFullName}`
+      : `Tech ${techFullName} assigned`;
+    airtableService.logActivity(engagementId, activityText);
 
     res.status(200).json({ success: true });
   } catch (error) {

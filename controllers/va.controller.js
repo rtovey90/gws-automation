@@ -164,7 +164,7 @@ function cardActionHtml(card) {
       </div>`;
     case 'schedule-return':
       return `<div class="card-actions">
-        <a href="/send-tech-availability-form/${card.id}" class="btn btn-primary">Schedule Return Visit</a>
+        <a href="/assign-tech/${card.id}" class="btn btn-primary">Reassign Tech &amp; Schedule</a>
       </div>`;
     default:
       return '';
@@ -212,6 +212,7 @@ exports.showQueue = async (req, res) => {
       { key: 'review', title: 'Review New Leads', desc: 'Confirm each lead as a Service Call, Project, or skip it.', filter: c => c.action === 'confirm' },
       { key: 'call', title: 'Call & Classify', desc: 'Call confirmed leads to get details and request photos.', filter: c => ['call-lead', 'next-steps'].includes(c.action) },
       { key: 'followups', title: 'Follow Ups', desc: "Chase up leads who haven't paid or responded.", filter: c => c.action === 'payment-followup' },
+      { key: 'return-visits', title: 'Return Visits', desc: 'Reassign a tech and send the scheduling link for return visits.', filter: c => c.action === 'schedule-return' },
       { key: 'assign', title: 'Assign Techs', desc: 'Assign a technician to paid leads.', filter: c => c.action === 'assign-tech' },
       { key: 'today', title: "Today's Jobs", desc: 'Send completion forms for jobs happening today.', filter: c => c.action === 'send-completion' },
       { key: 'reviews', title: 'Request Reviews', desc: 'Ask happy clients for a Google review.', filter: c => c.action === 'review-or-followup' },
