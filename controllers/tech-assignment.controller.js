@@ -55,6 +55,31 @@ exports.showAssignmentForm = async (req, res) => {
     const clientAddress = (customer && customer.fields.Address) || lead.fields['Address (from Customer)'] || '';
     const scope = lead.fields['Job Scope'] || lead.fields['Client intake info'] || 'Service requested';
 
+    // Detect return visit and fetch previous visit summary for SMS template
+    const isReturnVisit = engagement.fields.Status === 'Return Visit Required';
+    let previousVisitSummary = '';
+    if (isReturnVisit) {
+      try {
+        const siteVisits = await airtableService.getSiteVisitsByEngagement(engagementId);
+        if (siteVisits.length > 0) {
+          const lastVisit = siteVisits[0]; // sorted most recent first
+          const f = lastVisit.fields;
+          const visitDate = f['Visit Date']
+            ? new Date(f['Visit Date']).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+            : 'Unknown date';
+          const techName = f['Tech Name'] || 'Unknown tech';
+          const jobNotes = (f['Job Notes'] || '').trim();
+          const nextSteps = (f['Next Steps'] || '').trim();
+          const truncatedNotes = jobNotes.length > 300 ? jobNotes.substring(0, 300) + '...' : jobNotes;
+          previousVisitSummary = `Last visit: ${visitDate} (${techName})`;
+          if (truncatedNotes) previousVisitSummary += `\n${truncatedNotes}`;
+          if (nextSteps) previousVisitSummary += `\n\nWhat's needed: ${nextSteps}`;
+        }
+      } catch (e) {
+        console.warn('Could not fetch site visits for return visit template:', e.message);
+      }
+    }
+
     // Handle System Type - could be string (single select) or array (multiple select)
     const systemTypeField = lead.fields['System Type'];
     const systemType = systemTypeField
@@ -121,6 +146,30 @@ $150 + GST for additional hours
 Next steps:
 
 1. Call ${clientFirstName} **ASAP** to confirm ETA
+2. Update Calendar: ${calendarLink}
+
+Feel free to call if you have any questions!
+
+Cheers,
+
+Ricky (Great White Security)`;
+
+    const returnVisitMessage = `Hey [TECH_NAME],
+
+${refLine}This is a RETURN VISIT for ${clientFirstName}.
+
+Client: ${clientFirstName}
+Phone: ${clientPhone}
+Address: ${clientAddress}
+
+System: ${systemType}
+
+${previousVisitSummary ? previousVisitSummary + '\n\n' : ''}Scope:
+${scope}
+
+Next steps:
+
+1. Call ${clientFirstName} within 24 hours to schedule a time to attend
 2. Update Calendar: ${calendarLink}
 
 Feel free to call if you have any questions!
@@ -299,13 +348,14 @@ Ricky (Great White Security)`;
 
             <label for="template">📋 Message Template:</label>
             <select id="template" name="template" style="margin-bottom: 16px;">
-              <option value="standard" selected>Standard Callout</option>
+              ${isReturnVisit ? '<option value="return" selected>Return Visit</option>' : ''}
+              <option value="standard" ${!isReturnVisit ? 'selected' : ''}>Standard Callout</option>
               <option value="emergency">Emergency Callout</option>
               <option value="custom">Custom (keep current text)</option>
             </select>
 
             <label for="message">📝 Edit Message:</label>
-            <textarea name="message" id="message" required>${defaultMessage}</textarea>
+            <textarea name="message" id="message" required>${isReturnVisit ? returnVisitMessage : defaultMessage}</textarea>
 
             <div class="preview-section">
               <div class="preview-title">👁️ Preview (what tech will receive):</div>
@@ -327,6 +377,7 @@ Ricky (Great White Security)`;
           const templates = {
             standard: ${JSON.stringify(defaultMessage)},
             emergency: ${JSON.stringify(emergencyMessage)},
+            return: ${JSON.stringify(returnVisitMessage)},
           };
 
           // Store tech data (use first name only for greeting)
