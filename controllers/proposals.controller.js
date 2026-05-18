@@ -661,7 +661,7 @@ exports.showProposal = async (req, res) => {
     .hero-price-right { text-align: left; }
     .cta-steps { flex-direction: column; align-items: center; }
     .pdf-btn { top: auto !important; bottom: 20px !important; }
-    .cover-page .cover-bg { object-position: right center; }
+    .cover-page .cover-bg { object-fit: contain; object-position: top center; }
   }
 
   @media print {
