@@ -2583,6 +2583,7 @@ function buildProposalFields(body) {
   if (body.businessName !== undefined) fields['Business Name'] = body.businessName || '';
   if (body.brand) fields['Our Business Name'] = body.brand;
   if (body.clientAddress) fields['Client Address'] = body.clientAddress;
+  if (body.clientPhone) fields['Client Phone'] = body.clientPhone;
   if (body.siteAddress !== undefined) fields['Site Address'] = body.siteAddress || '';
   if (body.salutation !== undefined) fields['Salutation'] = body.salutation || '';
   if (body.propertyType) fields['Property Type'] = body.propertyType;
@@ -2797,7 +2798,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const clientAddress = f['Client Address'] || pf.clientAddress || '';
   const siteAddress = f['Site Address'] || '';
   const salutation = f['Salutation'] || '';
-  const clientPhone = pf.clientPhone || '';
+  const clientPhone = f['Client Phone'] || pf.clientPhone || '';
   const clientEmail = pf.clientEmail || '';
   const propertyType = f['Property Type'] || (isClone ? (cf['Property Type'] || 'residential') : 'residential');
   const letterNote = f['Letter Note'] || '';
@@ -3056,7 +3057,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
               <div class="fg"></div>
             </div>
             <div class="form-row">
-              <div class="fg"><label>Phone</label><input type="text" id="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678"></div>
+              <div class="fg"><label>Phone</label><input type="text" id="clientPhone" name="clientPhone" value="${escapeHtml(clientPhone)}" placeholder="0412 345 678"></div>
               <div class="fg"><label>Email</label><input type="text" id="clientEmail" value="${escapeHtml(clientEmail)}" placeholder="john@example.com"></div>
             </div>
             <div class="fg">
