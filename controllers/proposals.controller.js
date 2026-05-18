@@ -649,7 +649,7 @@ exports.showProposal = async (req, res) => {
   /* ===== RESPONSIVE ===== */
   @media (max-width: 820px) {
     .page, .cover-page { width: 100%; min-height: auto; margin: 0; box-shadow: none; }
-    .cover-page { height: auto; min-height: 100vh; }
+    .cover-page { height: 100vh; background: #0a0e27; }
     .cover-client-name { font-size: 42px !important; }
     .cover-client-address { font-size: 16px !important; }
     .cover-overlay { padding: 30px !important; }
@@ -660,6 +660,7 @@ exports.showProposal = async (req, res) => {
     .hero-price { flex-direction: column; gap: 16px; }
     .hero-price-right { text-align: left; }
     .cta-steps { flex-direction: column; align-items: center; }
+    .pdf-btn { top: auto !important; bottom: 20px !important; }
   }
 
   @media print {
