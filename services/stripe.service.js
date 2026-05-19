@@ -300,6 +300,7 @@ class StripeService {
         let total = 0;
         let projectTotal = 0;
         let serviceCallTotal = 0;
+        const charges = [];
         for await (const charge of stripe.charges.list({
           created: {
             gte: Math.floor(start.getTime() / 1000),
@@ -315,6 +316,14 @@ class StripeService {
             } else {
               serviceCallTotal += charge.amount;
             }
+            charges.push({
+              amount: charge.amount / 100,
+              date: new Date(charge.created * 1000).toISOString().split('T')[0],
+              email: charge.billing_details?.email || charge.receipt_email || '',
+              description: charge.description || '',
+              type: isProject ? 'pr' : 'sc',
+              stripeId: charge.id,
+            });
           }
         }
 
@@ -324,6 +333,7 @@ class StripeService {
           total: total / 100,
           serviceCallTotal: serviceCallTotal / 100,
           projectTotal: projectTotal / 100,
+          charges,
         });
       }
 
