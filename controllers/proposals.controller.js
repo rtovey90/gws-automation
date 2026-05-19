@@ -2296,7 +2296,21 @@ exports.showEditForm = async (req, res) => {
       return res.status(404).send('Proposal not found');
     }
 
-    res.send(renderProposalForm(proposal, null));
+    // Pre-fill phone from linked engagement/customer
+    let prefill = null;
+    const engIds = proposal.fields['Engagement'];
+    if (engIds && engIds.length > 0) {
+      try {
+        const result = await airtableService.getEngagementWithCustomer(engIds[0]);
+        if (result && result.customer) {
+          const cust = result.customer.fields;
+          const phone = cust['Mobile Phone'] || cust['Phone'] || '';
+          if (phone) prefill = { clientPhone: phone };
+        }
+      } catch (e) { /* ignore — phone stays empty */ }
+    }
+
+    res.send(renderProposalForm(proposal, prefill));
   } catch (error) {
     console.error('Error showing edit form:', error);
     res.status(500).send('Error loading form');
@@ -2896,7 +2910,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const cameraRowsHtml = cameraOptions.map(opt => {
     const discChecked = opt.discountable !== false ? 'checked' : '';
     const monthlyChecked = opt.monthly ? 'checked' : '';
-    return `<div class="list-row camera-row" data-list="camera">
+    return `<div class="list-row camera-row" data-list="camera" draggable="true">
+      <span class="drag-handle" title="Drag to reorder">&#9776;</span>
       <input type="text" class="cam-name" value="${escapeHtml(opt.name || '')}" placeholder="Option name">
       <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
       <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
@@ -3301,7 +3316,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     }
     .row-remove:hover { color:#ff5252; }
 
-    .camera-row { display:grid; grid-template-columns:1fr 1.5fr 80px 32px 30px; gap:8px; align-items:center; margin-bottom:8px; }
+    .camera-row { display:grid; grid-template-columns:16px 1fr 1.5fr 80px 32px 30px; gap:8px; align-items:center; margin-bottom:8px; }
     .cam-name, .cam-desc, .cam-price {
       padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; font-family:inherit;
@@ -3406,7 +3421,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     @media (max-width:768px) {
       .form-row { grid-template-columns:1fr; }
-      .camera-row { grid-template-columns:1fr 1fr 32px; }
+      .camera-row { grid-template-columns:16px 1fr 1fr 32px; }
       .steps-bar { gap:2px; }
       .step-tab { font-size:11px; padding:8px 4px; }
     }
@@ -3528,11 +3543,13 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const row = document.createElement('div');
         row.className = 'list-row camera-row';
         row.dataset.list = 'camera';
-        row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+        row.draggable = true;
+        row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
         row.querySelector('.cam-name').value = opt.name || '';
         row.querySelector('.cam-desc').value = opt.description || '';
         row.querySelector('.cam-price').value = opt.price || '';
         camList.appendChild(row);
+        initDragRow(row);
       });
 
       // Rebuild OTO one-time
@@ -3776,8 +3793,10 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       const row = document.createElement('div');
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
-      row.innerHTML = '<input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.draggable = true;
+      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
+      initDragRow(row);
       row.querySelector('.cam-name').focus();
     }
 
