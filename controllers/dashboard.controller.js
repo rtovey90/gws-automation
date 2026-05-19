@@ -2063,7 +2063,7 @@ exports.showDashboard = async (req, res) => {
       var sorts = [['amount-desc','Amount ↓'],['amount-asc','Amount ↑'],['date-desc','Date ↓'],['date-asc','Date ↑']];
       var sortBtns = sorts.map(function(s) {
         var active = s[0] === OV_TXSORT;
-        return '<button onclick="OV_TXSORT=\'' + s[0] + '\';renderOverview(getActivePeriod())" style="background:' + (active?'rgba(0,212,255,.12)':'none') + ';border:1px solid ' + (active?'#00d4ff':'#2a3a4a') + ';color:' + (active?'#00d4ff':'#8899aa') + ';border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s">' + s[1] + '</button>';
+        return '<button onclick="OV_TXSORT=\\'' + s[0] + '\\';renderOverview(getActivePeriod())" style="background:' + (active?'rgba(0,212,255,.12)':'none') + ';border:1px solid ' + (active?'#00d4ff':'#2a3a4a') + ';color:' + (active?'#00d4ff':'#8899aa') + ';border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s">' + s[1] + '</button>';
       }).join('');
       var total = sorted.reduce(function(s,e){ return s + e.totalInvoiced; }, 0);
       var rows = sorted.map(function(e) {
@@ -2084,7 +2084,7 @@ exports.showDashboard = async (req, res) => {
         if (scope.length > 60) scope = scope.substring(0,60)+'…';
         var nameCell = '<a href="/engagement/' + e.id + '" style="color:#e0e6ed;text-decoration:none;font-weight:500">' + (e.name||'—') + '</a>';
         var engCell = '<a href="/engagement/' + e.id + '" style="font-weight:700;color:' + (issc?'#00d4ff':'#ce93d8') + ';text-decoration:none">' + (e.engNumber||'—') + '</a>';
-        return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\'#0f1c28\'" onmouseout="this.style.background=\'none\'">' +
+        return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\\'#0f1c28\\'" onmouseout="this.style.background=\\'none\\'">' +
           '<td style="padding:9px 10px 9px 14px;white-space:nowrap">' + badge + '</td>' +
           '<td style="padding:9px 10px;white-space:nowrap">' + engCell + '</td>' +
           '<td style="padding:9px 10px">' + nameCell + '</td>' +
