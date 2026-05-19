@@ -24,7 +24,7 @@ exports.showDashboard = async (req, res) => {
         stripeService.getBalance(),
         stripeService.getRecentCharges(10),
         stripeService.getPayouts(5),
-        stripeService.getMonthlyRevenue(6),
+        stripeService.getMonthlyRevenue(13),
       ]);
       stripeData = { balance, charges, payouts, monthlyRevenue };
     } catch (err) {
@@ -167,6 +167,7 @@ exports.showDashboard = async (req, res) => {
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     // ── Sales Activity Tracker ──
@@ -347,8 +348,10 @@ exports.showDashboard = async (req, res) => {
     // ── Bank Payment Aggregation ──
     let bankPaymentsThisMonth = 0;
     let scBankThisMonth = 0, projBankThisMonth = 0;
+    let scBankLastMonth = 0, projBankLastMonth = 0;
     const bankPaymentsList = [];
     const bankPaymentsByMonth = {};
+    const bankByMonthTyped = {}; // { monthKey: { sc: X, pr: Y } }
 
     engagements.forEach(e => {
       const f = e.fields;
@@ -372,11 +375,17 @@ exports.showDashboard = async (req, res) => {
 
         const monthKey = paymentDate.toLocaleString('en-AU', { month: 'short' }) + '-' + paymentDate.getFullYear();
         bankPaymentsByMonth[monthKey] = (bankPaymentsByMonth[monthKey] || 0) + bankAmount;
+        if (!bankByMonthTyped[monthKey]) bankByMonthTyped[monthKey] = { sc: 0, pr: 0 };
+        if (bankType === 'Service Call') bankByMonthTyped[monthKey].sc += bankAmount;
+        else if (bankType === 'Project') bankByMonthTyped[monthKey].pr += bankAmount;
 
         if (paymentDate >= startOfMonth) {
           bankPaymentsThisMonth += bankAmount;
           if (bankType === 'Service Call') scBankThisMonth += bankAmount;
           else if (bankType === 'Project') projBankThisMonth += bankAmount;
+        } else if (paymentDate >= startOfLastMonth) {
+          if (bankType === 'Service Call') scBankLastMonth += bankAmount;
+          else if (bankType === 'Project') projBankLastMonth += bankAmount;
         }
       }
     });
@@ -1171,10 +1180,13 @@ exports.showDashboard = async (req, res) => {
       }),
       stripeMonthly: stripeData ? stripeData.monthlyRevenue : [],
       bankByMonth: bankPaymentsByMonth,
+      bankByMonthTyped: bankByMonthTyped,
       // Pre-computed server-side values for "this month" (Stripe + bank)
       precomputed: {
         scRevenueMonth: scRevenueThisMonth + scBankThisMonth,
         prRevenueMonth: projRevenueThisMonth + projBankThisMonth,
+        scRevenueLastMonth: ((stripeData && stripeData.monthlyRevenue.length >= 2) ? stripeData.monthlyRevenue[stripeData.monthlyRevenue.length - 2].serviceCallTotal : 0) + scBankLastMonth,
+        prRevenueLastMonth: ((stripeData && stripeData.monthlyRevenue.length >= 2) ? stripeData.monthlyRevenue[stripeData.monthlyRevenue.length - 2].projectTotal : 0) + projBankLastMonth,
         scDealsMonth: sc.dealsClosed.month,
         prDealsMonth: pj.dealsClosed.month,
         scDealsValueMonth: sc.dealsValue.month,
@@ -1210,9 +1222,15 @@ exports.showDashboard = async (req, res) => {
         <button class="period-btn" data-period="today">Today</button>
         <button class="period-btn" data-period="yesterday">Yesterday</button>
         <button class="period-btn" data-period="lastMonth">Last Month</button>
+        <button class="period-btn" data-period="monthPick">&#8942; Month</button>
         <button class="period-btn" data-period="year">This Year</button>
         <button class="period-btn" data-period="allTime">All Time</button>
         <button class="period-btn" data-period="custom">Custom</button>
+        <div id="month-pick-nav" style="display:none;align-items:center;gap:0;margin-left:4px;background:#1a2332;border:1px solid #2a3a4a;border-radius:6px;overflow:hidden">
+          <button id="month-prev" style="background:none;border:none;color:#78e4ff;cursor:pointer;padding:4px 10px;font-size:14px;line-height:1">&#9664;</button>
+          <span id="month-pick-label" style="color:#e0e6ed;font-size:12px;font-weight:600;min-width:72px;text-align:center"></span>
+          <button id="month-next" style="background:none;border:none;color:#78e4ff;cursor:pointer;padding:4px 10px;font-size:14px;line-height:1">&#9654;</button>
+        </div>
         <div id="custom-dates" style="display:none;margin-left:8px">
           <input type="date" id="date-from" style="background:#1a2332;border:1px solid #2a3a4a;border-radius:4px;color:#e0e6ed;padding:4px 8px;font-size:12px">
           <span style="color:#5a6a7a;margin:0 4px">to</span>
@@ -1815,6 +1833,10 @@ exports.showDashboard = async (req, res) => {
     function fmtC(v) { return '$' + Math.round(v).toLocaleString(); }
     function pctOf(a, b) { return b > 0 ? ((a / b) * 100).toFixed(1) : '0.0'; }
 
+    var OV_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var OV_PICKED_MONTH = (function() { var n = new Date(); var m = n.getMonth() - 1; return m < 0 ? 11 : m; })();
+    var OV_PICKED_YEAR = (function() { var n = new Date(); return n.getMonth() === 0 ? n.getFullYear() - 1 : n.getFullYear(); })();
+
     function getDateRange(period) {
       var now = new Date();
       var start, end;
@@ -1833,6 +1855,9 @@ exports.showDashboard = async (req, res) => {
           start = new Date(y, m, 1); end = new Date(y, m, d + 1); break;
         case 'lastMonth':
           start = new Date(y, m - 1, 1); end = new Date(y, m, 1); break;
+        case 'monthPick':
+          start = new Date(OV_PICKED_YEAR, OV_PICKED_MONTH, 1);
+          end = new Date(OV_PICKED_YEAR, OV_PICKED_MONTH + 1, 1); break;
         case 'year':
           start = new Date(y, 0, 1); end = new Date(y, m, d + 1); break;
         case 'allTime':
@@ -1897,7 +1922,7 @@ exports.showDashboard = async (req, res) => {
       var prPaidList = engs.filter(function(e) { return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
 
       var pre = OV_DATA.precomputed;
-      var periodMap = { today: 'Today', week: 'Week', month: 'Month', year: 'Year' };
+      var periodMap = { today: 'Today', week: 'Week', month: 'Month', year: 'Year', lastMonth: 'LastMonth' };
       var suffix = periodMap[period] || null;
       var scRevenue, prRevenue;
 
@@ -1906,6 +1931,22 @@ exports.showDashboard = async (req, res) => {
         prRevenue = pre['prRevenue' + suffix] || pre['prDealsValue' + suffix] || 0;
         if (period === 'month' && pre.scRevenueMonth > 0) scRevenue = pre.scRevenueMonth;
         if (period === 'month' && pre.prRevenueMonth > 0) prRevenue = pre.prRevenueMonth;
+      } else if (period === 'monthPick') {
+        var pickedName = OV_MONTH_NAMES[OV_PICKED_MONTH];
+        var stripeEntry = (OV_DATA.stripeMonthly || []).filter(function(m) {
+          return m.month === pickedName && m.year === OV_PICKED_YEAR;
+        })[0];
+        var bankKey = pickedName + '-' + OV_PICKED_YEAR;
+        var bankTyped = (OV_DATA.bankByMonthTyped || {})[bankKey] || { sc: 0, pr: 0 };
+        var bankTotal = (OV_DATA.bankByMonth || {})[bankKey] || 0;
+        var untypedBank = bankTotal - bankTyped.sc - bankTyped.pr;
+        if (stripeEntry) {
+          scRevenue = stripeEntry.serviceCallTotal + bankTyped.sc;
+          prRevenue = stripeEntry.projectTotal + bankTyped.pr + untypedBank;
+        } else {
+          scRevenue = scPaidList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0) + bankTyped.sc;
+          prRevenue = prPaidList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0) + bankTyped.pr + untypedBank;
+        }
       } else {
         scRevenue = scPaidList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
         prRevenue = prPaidList.reduce(function(s, e) { return s + e.totalInvoiced; }, 0);
@@ -2191,14 +2232,33 @@ exports.showDashboard = async (req, res) => {
     }
 
     // ── Period button handlers ──
+    function updateMonthPickLabel() {
+      var el = document.getElementById('month-pick-label');
+      if (el) el.textContent = OV_MONTH_NAMES[OV_PICKED_MONTH] + ' ' + OV_PICKED_YEAR;
+    }
+    updateMonthPickLabel();
+
     document.querySelectorAll('.period-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
         btn.classList.add('active');
         var period = btn.getAttribute('data-period');
         document.getElementById('custom-dates').style.display = period === 'custom' ? 'flex' : 'none';
+        document.getElementById('month-pick-nav').style.display = period === 'monthPick' ? 'flex' : 'none';
         renderOverview(period);
       });
+    });
+    document.getElementById('month-prev').addEventListener('click', function() {
+      OV_PICKED_MONTH--;
+      if (OV_PICKED_MONTH < 0) { OV_PICKED_MONTH = 11; OV_PICKED_YEAR--; }
+      updateMonthPickLabel();
+      renderOverview('monthPick');
+    });
+    document.getElementById('month-next').addEventListener('click', function() {
+      OV_PICKED_MONTH++;
+      if (OV_PICKED_MONTH > 11) { OV_PICKED_MONTH = 0; OV_PICKED_YEAR++; }
+      updateMonthPickLabel();
+      renderOverview('monthPick');
     });
     document.getElementById('date-from').addEventListener('change', function() { renderOverview('custom'); });
     document.getElementById('date-to').addEventListener('change', function() { renderOverview('custom'); });
