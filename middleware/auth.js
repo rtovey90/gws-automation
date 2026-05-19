@@ -16,6 +16,9 @@ function requireAuth(req, res, next) {
   if (req.session && req.session.authenticated) {
     return next();
   }
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Session expired. Please refresh and log in again.' });
+  }
   req.session.returnTo = req.originalUrl;
   res.redirect('/login');
 }
@@ -23,6 +26,9 @@ function requireAuth(req, res, next) {
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.session || !req.session.authenticated) {
+      if (req.originalUrl.startsWith('/api/')) {
+        return res.status(401).json({ error: 'Session expired. Please refresh and log in again.' });
+      }
       req.session.returnTo = req.originalUrl;
       return res.redirect('/login');
     }
