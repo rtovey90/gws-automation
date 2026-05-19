@@ -2010,17 +2010,13 @@ exports.showDashboard = async (req, res) => {
         }
       });
 
-      // Collect orphan Stripe charges for this period
+      // Collect orphan Stripe charges filtered by the current date range
       var orphanCharges = [];
-      var sm = OV_DATA.stripeMonthly || [];
-      if (period === 'month' && sm.length > 0) {
-        orphanCharges = sm[sm.length - 1].orphanCharges || [];
-      } else if (period === 'lastMonth' && sm.length >= 2) {
-        orphanCharges = sm[sm.length - 2].orphanCharges || [];
-      } else if (period === 'monthPick') {
-        var pickedEntry = sm.filter(function(m) { return m.month === OV_MONTH_NAMES[OV_PICKED_MONTH] && m.year === OV_PICKED_YEAR; })[0];
-        if (pickedEntry) orphanCharges = pickedEntry.orphanCharges || [];
-      }
+      (OV_DATA.stripeMonthly || []).forEach(function(m) {
+        (m.orphanCharges || []).forEach(function(c) {
+          if (inRange(c.date, range)) orphanCharges.push(c);
+        });
+      });
 
       return {
         scLeads: scLeads, prLeads: prLeads,
