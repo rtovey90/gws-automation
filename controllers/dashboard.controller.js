@@ -1123,6 +1123,34 @@ exports.showDashboard = async (req, res) => {
     const pj = projActivity;
     const pa = proposalActivity;
 
+    // ── Pre-compute orphan Stripe charges (Stripe payments with no matching Airtable record) ──
+    // Build per-month lookup of amounts already accounted for in Airtable (Stripe-paid engagements)
+    const stripeMatchedByMonth = {};
+    engagements.forEach(e => {
+      const f = e.fields;
+      const pd = f['Payment Date'];
+      if (!pd) return;
+      const invoiced = parseFloat(f['Total Invoiced']) || 0;
+      if (invoiced <= 0) return;
+      const dt = new Date(pd);
+      const key = dt.toLocaleString('en-AU', { month: 'short' }) + '-' + dt.getFullYear();
+      if (!stripeMatchedByMonth[key]) stripeMatchedByMonth[key] = [];
+      stripeMatchedByMonth[key].push(invoiced);
+    });
+
+    const orphanChargesByMonth = {};
+    if (stripeData && stripeData.monthlyRevenue) {
+      stripeData.monthlyRevenue.forEach(m => {
+        const key = m.month + '-' + m.year;
+        const matched = (stripeMatchedByMonth[key] || []).slice();
+        orphanChargesByMonth[key] = (m.charges || []).filter(c => {
+          const idx = matched.findIndex(amt => Math.abs(amt - c.amount) < 0.02);
+          if (idx >= 0) { matched.splice(idx, 1); return false; }
+          return true;
+        });
+      });
+    }
+
     // ── Prepare overview data as JSON for client-side rendering ──
     const overviewData = {
       engagements: actualLeads.map(e => {
@@ -1170,7 +1198,14 @@ exports.showDashboard = async (req, res) => {
           basePrice: parseFloat(f['Base Price']) || 0,
         };
       }),
-      stripeMonthly: stripeData ? stripeData.monthlyRevenue : [],
+      stripeMonthly: stripeData ? stripeData.monthlyRevenue.map(m => ({
+        month: m.month,
+        year: m.year,
+        total: m.total,
+        serviceCallTotal: m.serviceCallTotal,
+        projectTotal: m.projectTotal,
+        orphanCharges: orphanChargesByMonth[m.month + '-' + m.year] || [],
+      })) : [],
       bankByMonth: bankPaymentsByMonth,
       bankByMonthTyped: bankByMonthTyped,
       // Pre-computed server-side values for "this month" (Stripe + bank)
@@ -1956,6 +1991,18 @@ exports.showDashboard = async (req, res) => {
         }
       });
 
+      // Collect orphan Stripe charges for this period
+      var orphanCharges = [];
+      var sm = OV_DATA.stripeMonthly || [];
+      if (period === 'month' && sm.length > 0) {
+        orphanCharges = sm[sm.length - 1].orphanCharges || [];
+      } else if (period === 'lastMonth' && sm.length >= 2) {
+        orphanCharges = sm[sm.length - 2].orphanCharges || [];
+      } else if (period === 'monthPick') {
+        var pickedEntry = sm.filter(function(m) { return m.month === OV_MONTH_NAMES[OV_PICKED_MONTH] && m.year === OV_PICKED_YEAR; })[0];
+        if (pickedEntry) orphanCharges = pickedEntry.orphanCharges || [];
+      }
+
       return {
         scLeads: scLeads, prLeads: prLeads,
         scQuotesSent: scQuotesSent, scQuotesValue: scQuotesValue,
@@ -1963,6 +2010,7 @@ exports.showDashboard = async (req, res) => {
         scPaidList: scPaidList, prPaidList: prPaidList,
         scRevenue: scRevenue, prRevenue: prRevenue,
         scProfit: scProfit, prProfit: prProfit,
+        orphanCharges: orphanCharges,
       };
     }
 
@@ -2051,11 +2099,12 @@ exports.showDashboard = async (req, res) => {
 
     var OV_TXSORT = 'amount-desc';
 
-    function buildTransactionList(transactions) {
-      if (!transactions || transactions.length === 0) {
+    function buildTransactionList(transactions, orphans) {
+      orphans = orphans || [];
+      if ((!transactions || transactions.length === 0) && orphans.length === 0) {
         return '<div class="card" style="margin-top:0"><p style="color:#5a6a7a;text-align:center;padding:12px;font-size:13px;margin:0">No paid transactions in this period</p></div>';
       }
-      var sorted = transactions.slice();
+      var sorted = (transactions || []).slice();
       if (OV_TXSORT === 'amount-desc') sorted.sort(function(a,b){ return b.totalInvoiced - a.totalInvoiced; });
       else if (OV_TXSORT === 'amount-asc') sorted.sort(function(a,b){ return a.totalInvoiced - b.totalInvoiced; });
       else if (OV_TXSORT === 'date-desc') sorted.sort(function(a,b){ return new Date(b.paymentDate||0) - new Date(a.paymentDate||0); });
@@ -2065,7 +2114,10 @@ exports.showDashboard = async (req, res) => {
         var active = s[0] === OV_TXSORT;
         return '<button onclick="OV_TXSORT=\\'' + s[0] + '\\';renderOverview(getActivePeriod())" style="background:' + (active?'rgba(0,212,255,.12)':'none') + ';border:1px solid ' + (active?'#00d4ff':'#2a3a4a') + ';color:' + (active?'#00d4ff':'#8899aa') + ';border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s">' + s[1] + '</button>';
       }).join('');
-      var total = sorted.reduce(function(s,e){ return s + e.totalInvoiced; }, 0);
+      var linkedTotal = sorted.reduce(function(s,e){ return s + e.totalInvoiced; }, 0);
+      var orphanTotal = orphans.reduce(function(s,c){ return s + c.amount; }, 0);
+      var grandTotal = linkedTotal + orphanTotal;
+      var totalCount = sorted.length + orphans.length;
       var rows = sorted.map(function(e) {
         var issc = e.type === 'sc';
         var badge = issc
@@ -2096,9 +2148,28 @@ exports.showDashboard = async (req, res) => {
           '<td style="padding:9px 14px 9px 10px;white-space:nowrap">' + via + '</td>' +
         '</tr>';
       }).join('');
+      // Orphan rows — Stripe charges with no matching Airtable record
+      var orphanRows = orphans.map(function(c) {
+        var payDate = c.date ? new Date(c.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+        var label = c.email || c.description || '—';
+        if (label.length > 40) label = label.substring(0,40)+'…';
+        return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\\'#150f08\\'" onmouseout="this.style.background=\\'none\\'">' +
+          '<td style="padding:9px 10px 9px 14px"><span style="background:#2a1500;color:#ffa726;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;border:1px solid #3a2500;letter-spacing:.3px">UNLINKED</span></td>' +
+          '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
+          '<td style="padding:9px 10px;color:#8899aa;font-size:12px">' + label + '</td>' +
+          '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
+          '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
+          '<td style="padding:9px 10px;color:#5a6a7a;font-size:11px">Stripe charge — no Airtable record</td>' +
+          '<td style="padding:9px 14px 9px 10px;text-align:right;font-weight:700;color:#ffa726;white-space:nowrap">' + fmtC(c.amount) + '</td>' +
+          '<td style="padding:9px 10px;color:#8899aa;font-size:12px;white-space:nowrap">' + payDate + '</td>' +
+          '<td style="padding:9px 14px 9px 10px"><span style="background:#1a2a3a;color:#42a5f5;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Stripe</span></td>' +
+        '</tr>';
+      }).join('');
       return '<div class="card" style="margin-top:0;padding:0;overflow:hidden">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e2a3a">' +
-          '<h2 style="margin:0;border:none;padding:0;font-size:15px">Transactions <span style="color:#5a6a7a;font-weight:400;font-size:13px">(' + sorted.length + ' &middot; ' + fmtC(total) + ')</span></h2>' +
+          '<h2 style="margin:0;border:none;padding:0;font-size:15px">Transactions <span style="color:#5a6a7a;font-weight:400;font-size:13px">(' + totalCount + ' &middot; ' + fmtC(grandTotal) + ')</span>' +
+            (orphans.length > 0 ? ' <span style="background:#2a1500;color:#ffa726;border:1px solid #3a2500;border-radius:4px;font-size:11px;font-weight:600;padding:2px 8px;margin-left:8px">' + orphans.length + ' unlinked</span>' : '') +
+          '</h2>' +
           '<div style="display:flex;gap:6px">' + sortBtns + '</div>' +
         '</div>' +
         '<div style="overflow-x:auto">' +
@@ -2106,7 +2177,7 @@ exports.showDashboard = async (req, res) => {
             '<thead><tr style="border-bottom:1px solid #1e2a3a;background:#0a0f1a">' +
               '<th style="padding:7px 10px 7px 14px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap"></th>' +
               '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Number</th>' +
-              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Name</th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Name / Email</th>' +
               '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Address</th>' +
               '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">System</th>' +
               '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Description</th>' +
@@ -2114,7 +2185,7 @@ exports.showDashboard = async (req, res) => {
               '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Date</th>' +
               '<th style="padding:7px 14px 7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Via</th>' +
             '</tr></thead>' +
-            '<tbody>' + rows + '</tbody>' +
+            '<tbody>' + rows + orphanRows + '</tbody>' +
           '</table>' +
         '</div>' +
       '</div>';
@@ -2155,7 +2226,7 @@ exports.showDashboard = async (req, res) => {
         mkKpi(fmtC(avgDeal), 'Avg Deal', '#e0e6ed') +
       '</div>';
 
-      html += buildTransactionList(paidList);
+      html += buildTransactionList(paidList, d.orphanCharges);
 
       return html;
     }
@@ -2237,7 +2308,7 @@ exports.showDashboard = async (req, res) => {
         '</div>' +
       '</div>';
 
-      html += buildTransactionList(d.scPaidList.concat(d.prPaidList));
+      html += buildTransactionList(d.scPaidList.concat(d.prPaidList), d.orphanCharges);
 
       return html;
     }
