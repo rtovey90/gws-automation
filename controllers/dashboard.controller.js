@@ -1177,6 +1177,8 @@ exports.showDashboard = async (req, res) => {
           profit: parseFloat(f['Profit']) || 0,
           bankPaymentAmount: (parseFloat(f['Bank Payment Amount']) || 0) + (parseFloat(f['Bank Payment 2 Amount']) || 0),
           bankPaymentDate: f['Bank Payment Date'] || null,
+          bank2Amount: parseFloat(f['Bank Payment 2 Amount']) || 0,
+          bank2Date: f['Bank Payment 2 Date'] || null,
           paymentDate: f['Payment Date'] || f['Bank Payment Date'] || null,
           payMethod: (parseFloat(f['Bank Payment Amount']) || 0) > 0 ? 'Bank' : (f['Payment Date'] ? 'Stripe' : null),
           systemType: f['System Type'] || '',
@@ -1944,9 +1946,26 @@ exports.showDashboard = async (req, res) => {
       var prPropsSent = props.filter(function(p) { return inRange(p.sentAt, range); });
       var prPropsValue = prPropsSent.reduce(function(s, p) { return s + p.basePrice; }, 0);
 
-      // Always compute paid lists for detail view
-      var scPaidList = engs.filter(function(e) { return e.type === 'sc' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
-      var prPaidList = engs.filter(function(e) { return e.type === 'pr' && e.totalInvoiced > 0 && inRange(e.paymentDate, range); });
+      // Build paid lists — split engagements with two bank payments into separate rows
+      var scPaidList = [];
+      var prPaidList = [];
+      engs.forEach(function(e) {
+        if (e.totalInvoiced <= 0) return;
+        var list = e.type === 'sc' ? scPaidList : (e.type === 'pr' ? prPaidList : null);
+        if (!list) return;
+        if (e.bank2Amount > 0 && e.bank2Date) {
+          // Two bank payments — add each one that falls in range as a separate row
+          var amt1 = e.totalInvoiced - e.bank2Amount;
+          if (amt1 > 0 && inRange(e.bankPaymentDate, range)) {
+            list.push(Object.assign({}, e, { totalInvoiced: amt1, paymentDate: e.bankPaymentDate }));
+          }
+          if (inRange(e.bank2Date, range)) {
+            list.push(Object.assign({}, e, { totalInvoiced: e.bank2Amount, paymentDate: e.bank2Date }));
+          }
+        } else if (inRange(e.paymentDate, range)) {
+          list.push(e);
+        }
+      });
 
       var pre = OV_DATA.precomputed;
       var periodMap = { today: 'Today', week: 'Week', month: 'Month', year: 'Year', lastMonth: 'LastMonth' };
