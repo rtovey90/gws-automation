@@ -353,41 +353,31 @@ exports.showDashboard = async (req, res) => {
     const bankPaymentsByMonth = {};
     const bankByMonthTyped = {}; // { monthKey: { sc: X, pr: Y } }
 
+    const addBankEntry = (e, amount, dateStr, bankType) => {
+      if (!(amount > 0) || !dateStr) return;
+      const paymentDate = new Date(dateStr);
+      const f = e.fields;
+      const customerName = f['Customer Name'] || f['First Name'] || 'Unknown';
+      bankPaymentsList.push({ id: e.id, name: customerName, amount, date: paymentDate, dateStr, status: f.Status || 'Unknown', type: bankType });
+      const monthKey = paymentDate.toLocaleString('en-AU', { month: 'short' }) + '-' + paymentDate.getFullYear();
+      bankPaymentsByMonth[monthKey] = (bankPaymentsByMonth[monthKey] || 0) + amount;
+      if (!bankByMonthTyped[monthKey]) bankByMonthTyped[monthKey] = { sc: 0, pr: 0 };
+      if (bankType === 'Service Call') bankByMonthTyped[monthKey].sc += amount;
+      else if (bankType === 'Project') bankByMonthTyped[monthKey].pr += amount;
+      if (paymentDate >= startOfMonth) {
+        bankPaymentsThisMonth += amount;
+        if (bankType === 'Service Call') scBankThisMonth += amount;
+        else if (bankType === 'Project') projBankThisMonth += amount;
+      } else if (paymentDate >= startOfLastMonth) {
+        if (bankType === 'Service Call') scBankLastMonth += amount;
+        else if (bankType === 'Project') projBankLastMonth += amount;
+      }
+    };
+
     engagements.forEach(e => {
       const f = e.fields;
-      const bankAmount = parseFloat(f['Bank Payment Amount']) || 0;
-      const bankDate = f['Bank Payment Date'];
-
-      if (bankAmount > 0 && bankDate) {
-        const paymentDate = new Date(bankDate);
-        const customerName = f['Customer Name'] || f['First Name'] || 'Unknown';
-        const bankType = f['Bank Payment Type'] || '';
-
-        bankPaymentsList.push({
-          id: e.id,
-          name: customerName,
-          amount: bankAmount,
-          date: paymentDate,
-          dateStr: bankDate,
-          status: f.Status || 'Unknown',
-          type: bankType,
-        });
-
-        const monthKey = paymentDate.toLocaleString('en-AU', { month: 'short' }) + '-' + paymentDate.getFullYear();
-        bankPaymentsByMonth[monthKey] = (bankPaymentsByMonth[monthKey] || 0) + bankAmount;
-        if (!bankByMonthTyped[monthKey]) bankByMonthTyped[monthKey] = { sc: 0, pr: 0 };
-        if (bankType === 'Service Call') bankByMonthTyped[monthKey].sc += bankAmount;
-        else if (bankType === 'Project') bankByMonthTyped[monthKey].pr += bankAmount;
-
-        if (paymentDate >= startOfMonth) {
-          bankPaymentsThisMonth += bankAmount;
-          if (bankType === 'Service Call') scBankThisMonth += bankAmount;
-          else if (bankType === 'Project') projBankThisMonth += bankAmount;
-        } else if (paymentDate >= startOfLastMonth) {
-          if (bankType === 'Service Call') scBankLastMonth += bankAmount;
-          else if (bankType === 'Project') projBankLastMonth += bankAmount;
-        }
-      }
+      addBankEntry(e, parseFloat(f['Bank Payment Amount']) || 0, f['Bank Payment Date'], f['Bank Payment Type'] || '');
+      addBankEntry(e, parseFloat(f['Bank Payment 2 Amount']) || 0, f['Bank Payment 2 Date'], f['Bank Payment 2 Type'] || '');
     });
 
     bankPaymentsList.sort((a, b) => b.date - a.date);
@@ -1154,10 +1144,10 @@ exports.showDashboard = async (req, res) => {
           quoteSentAt: f['Quote Sent At'] || null,
           scAmount: parseFloat(f['Service Call Amount']) || 0,
           projectValue: parseFloat(f['Project Value']) || 0,
-          totalInvoiced: parseFloat(f['Total Invoiced']) || parseFloat(f['Bank Payment Amount']) || 0,
+          totalInvoiced: parseFloat(f['Total Invoiced']) || (parseFloat(f['Bank Payment Amount']) || 0) + (parseFloat(f['Bank Payment 2 Amount']) || 0) || 0,
           totalCost: parseFloat(f['Total Cost']) || 0,
           profit: parseFloat(f['Profit']) || 0,
-          bankPaymentAmount: parseFloat(f['Bank Payment Amount']) || 0,
+          bankPaymentAmount: (parseFloat(f['Bank Payment Amount']) || 0) + (parseFloat(f['Bank Payment 2 Amount']) || 0),
           bankPaymentDate: f['Bank Payment Date'] || null,
           paymentDate: f['Payment Date'] || f['Bank Payment Date'] || null,
           stripeFee: parseFloat(f['Stripe Fee']) || 0,
