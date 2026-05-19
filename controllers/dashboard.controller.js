@@ -2116,74 +2116,83 @@ exports.showDashboard = async (req, res) => {
 
     function buildTransactionList(transactions, orphans) {
       orphans = orphans || [];
-      if ((!transactions || transactions.length === 0) && orphans.length === 0) {
+      var linked = transactions || [];
+      if (linked.length === 0 && orphans.length === 0) {
         return '<div class="card" style="margin-top:0"><p style="color:#5a6a7a;text-align:center;padding:12px;font-size:13px;margin:0">No paid transactions in this period</p></div>';
       }
-      var sorted = (transactions || []).slice();
-      if (OV_TXSORT === 'amount-desc') sorted.sort(function(a,b){ return b.totalInvoiced - a.totalInvoiced; });
-      else if (OV_TXSORT === 'amount-asc') sorted.sort(function(a,b){ return a.totalInvoiced - b.totalInvoiced; });
-      else if (OV_TXSORT === 'date-desc') sorted.sort(function(a,b){ return new Date(b.paymentDate||0) - new Date(a.paymentDate||0); });
-      else if (OV_TXSORT === 'date-asc') sorted.sort(function(a,b){ return new Date(a.paymentDate||0) - new Date(b.paymentDate||0); });
+
+      // Normalise orphans to same shape so they sort together with linked rows
+      var allRows = linked.map(function(e) { return { _linked: true, _data: e, _amount: e.totalInvoiced, _date: e.paymentDate || '' }; })
+        .concat(orphans.map(function(c) { return { _linked: false, _data: c, _amount: c.amount, _date: c.date || '' }; }));
+
+      if (OV_TXSORT === 'amount-desc') allRows.sort(function(a,b){ return b._amount - a._amount; });
+      else if (OV_TXSORT === 'amount-asc') allRows.sort(function(a,b){ return a._amount - b._amount; });
+      else if (OV_TXSORT === 'date-desc') allRows.sort(function(a,b){ return new Date(b._date||0) - new Date(a._date||0); });
+      else if (OV_TXSORT === 'date-asc') allRows.sort(function(a,b){ return new Date(a._date||0) - new Date(b._date||0); });
+
       var sorts = [['amount-desc','Amount ↓'],['amount-asc','Amount ↑'],['date-desc','Date ↓'],['date-asc','Date ↑']];
       var sortBtns = sorts.map(function(s) {
         var active = s[0] === OV_TXSORT;
         return '<button onclick="OV_TXSORT=\\'' + s[0] + '\\';renderOverview(getActivePeriod())" style="background:' + (active?'rgba(0,212,255,.12)':'none') + ';border:1px solid ' + (active?'#00d4ff':'#2a3a4a') + ';color:' + (active?'#00d4ff':'#8899aa') + ';border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s">' + s[1] + '</button>';
       }).join('');
-      var linkedTotal = sorted.reduce(function(s,e){ return s + e.totalInvoiced; }, 0);
-      var orphanTotal = orphans.reduce(function(s,c){ return s + c.amount; }, 0);
-      var grandTotal = linkedTotal + orphanTotal;
-      var totalCount = sorted.length + orphans.length;
-      var rows = sorted.map(function(e) {
-        var issc = e.type === 'sc';
-        var badge = issc
-          ? '<span class="type-badge type-badge-sc" style="font-size:10px;padding:2px 6px">SC</span>'
-          : '<span class="type-badge type-badge-proj" style="font-size:10px;padding:2px 6px">PR</span>';
-        var payDate = e.paymentDate ? new Date(e.paymentDate).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'}) : '—';
-        var addr = (e.address||'').replace(/,\s*Western Australia.*/i,'').replace(/,\s*WA.*/i,'');
-        if (addr.length > 30) addr = addr.substring(0,30)+'…';
-        var sys = e.systemType ? ('<span style="background:#1e2a3a;padding:2px 7px;border-radius:3px;font-size:11px;color:#8899aa">' + e.systemType + '</span>') : '<span style="color:#3a4a5a;font-size:11px">—</span>';
-        var via = e.payMethod === 'Stripe'
-          ? '<span style="background:#1a2a3a;color:#42a5f5;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Stripe</span>'
-          : e.payMethod === 'Bank'
-          ? '<span style="background:#1a3a2a;color:#66bb6a;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Bank</span>'
-          : '';
-        var scope = (e.scope||'');
-        if (scope.length > 60) scope = scope.substring(0,60)+'…';
-        var nameCell = '<a href="/engagement/' + e.id + '" style="color:#e0e6ed;text-decoration:none;font-weight:500">' + (e.name||'—') + '</a>';
-        var engCell = '<a href="/engagement/' + e.id + '" style="font-weight:700;color:' + (issc?'#00d4ff':'#ce93d8') + ';text-decoration:none">' + (e.engNumber||'—') + '</a>';
-        return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\\'#0f1c28\\'" onmouseout="this.style.background=\\'none\\'">' +
-          '<td style="padding:9px 10px 9px 14px;white-space:nowrap">' + badge + '</td>' +
-          '<td style="padding:9px 10px;white-space:nowrap">' + engCell + '</td>' +
-          '<td style="padding:9px 10px">' + nameCell + '</td>' +
-          '<td style="padding:9px 10px;color:#8899aa;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (e.address||'') + '">' + (addr||'—') + '</td>' +
-          '<td style="padding:9px 10px">' + sys + '</td>' +
-          (scope ? '<td style="padding:9px 10px;color:#5a6a7a;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + scope.replace(/"/g,"'") + '">' + scope + '</td>' : '<td style="padding:9px 10px;color:#3a4a5a;font-size:11px">—</td>') +
-          '<td style="padding:9px 14px 9px 10px;text-align:right;font-weight:700;color:#66bb6a;white-space:nowrap">' + fmtC(e.totalInvoiced) + '</td>' +
-          '<td style="padding:9px 10px;color:#8899aa;font-size:12px;white-space:nowrap">' + payDate + '</td>' +
-          '<td style="padding:9px 14px 9px 10px;white-space:nowrap">' + via + '</td>' +
-        '</tr>';
+
+      var grandTotal = allRows.reduce(function(s,r){ return s + r._amount; }, 0);
+      var unlinkedCount = orphans.length;
+
+      var rows = allRows.map(function(r) {
+        if (r._linked) {
+          var e = r._data;
+          var issc = e.type === 'sc';
+          var badge = issc
+            ? '<span class="type-badge type-badge-sc" style="font-size:10px;padding:2px 6px">SC</span>'
+            : '<span class="type-badge type-badge-proj" style="font-size:10px;padding:2px 6px">PR</span>';
+          var payDate = e.paymentDate ? new Date(e.paymentDate).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+          var addr = (e.address||'').replace(/,\s*Western Australia.*/i,'').replace(/,\s*WA.*/i,'');
+          if (addr.length > 30) addr = addr.substring(0,30)+'…';
+          var sys = e.systemType ? ('<span style="background:#1e2a3a;padding:2px 7px;border-radius:3px;font-size:11px;color:#8899aa">' + e.systemType + '</span>') : '<span style="color:#3a4a5a;font-size:11px">—</span>';
+          var via = e.payMethod === 'Stripe'
+            ? '<span style="background:#1a2a3a;color:#42a5f5;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Stripe</span>'
+            : e.payMethod === 'Bank'
+            ? '<span style="background:#1a3a2a;color:#66bb6a;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Bank</span>'
+            : '';
+          var scope = (e.scope||'');
+          if (scope.length > 60) scope = scope.substring(0,60)+'…';
+          var nameCell = '<a href="/engagement/' + e.id + '" style="color:#e0e6ed;text-decoration:none;font-weight:500">' + (e.name||'—') + '</a>';
+          var engCell = '<a href="/engagement/' + e.id + '" style="font-weight:700;color:' + (issc?'#00d4ff':'#ce93d8') + ';text-decoration:none">' + (e.engNumber||'—') + '</a>';
+          return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\\'#0f1c28\\'" onmouseout="this.style.background=\\'none\\'">' +
+            '<td style="padding:9px 10px 9px 14px;white-space:nowrap">' + badge + '</td>' +
+            '<td style="padding:9px 10px;white-space:nowrap">' + engCell + '</td>' +
+            '<td style="padding:9px 10px">' + nameCell + '</td>' +
+            '<td style="padding:9px 10px;color:#8899aa;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (e.address||'') + '">' + (addr||'—') + '</td>' +
+            '<td style="padding:9px 10px">' + sys + '</td>' +
+            (scope ? '<td style="padding:9px 10px;color:#5a6a7a;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + scope.replace(/"/g,"'") + '">' + scope + '</td>' : '<td style="padding:9px 10px;color:#3a4a5a;font-size:11px">—</td>') +
+            '<td style="padding:9px 14px 9px 10px;text-align:right;font-weight:700;color:#66bb6a;white-space:nowrap">' + fmtC(e.totalInvoiced) + '</td>' +
+            '<td style="padding:9px 10px;color:#8899aa;font-size:12px;white-space:nowrap">' + payDate + '</td>' +
+            '<td style="padding:9px 14px 9px 10px;white-space:nowrap">' + via + '</td>' +
+          '</tr>';
+        } else {
+          var c = r._data;
+          var payDate = c.date ? new Date(c.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+          var label = c.email || c.description || '—';
+          if (label.length > 40) label = label.substring(0,40)+'…';
+          return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\\'#150f08\\'" onmouseout="this.style.background=\\'none\\'">' +
+            '<td style="padding:9px 10px 9px 14px"><span style="background:#2a1500;color:#ffa726;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;border:1px solid #3a2500;letter-spacing:.3px">UNLINKED</span></td>' +
+            '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
+            '<td style="padding:9px 10px;color:#8899aa;font-size:12px">' + label + '</td>' +
+            '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
+            '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
+            '<td style="padding:9px 10px;color:#5a6a7a;font-size:11px">Stripe — no Airtable record</td>' +
+            '<td style="padding:9px 14px 9px 10px;text-align:right;font-weight:700;color:#ffa726;white-space:nowrap">' + fmtC(c.amount) + '</td>' +
+            '<td style="padding:9px 10px;color:#8899aa;font-size:12px;white-space:nowrap">' + payDate + '</td>' +
+            '<td style="padding:9px 14px 9px 10px"><span style="background:#1a2a3a;color:#42a5f5;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Stripe</span></td>' +
+          '</tr>';
+        }
       }).join('');
-      // Orphan rows — Stripe charges with no matching Airtable record
-      var orphanRows = orphans.map(function(c) {
-        var payDate = c.date ? new Date(c.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'}) : '—';
-        var label = c.email || c.description || '—';
-        if (label.length > 40) label = label.substring(0,40)+'…';
-        return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\\'#150f08\\'" onmouseout="this.style.background=\\'none\\'">' +
-          '<td style="padding:9px 10px 9px 14px"><span style="background:#2a1500;color:#ffa726;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;border:1px solid #3a2500;letter-spacing:.3px">UNLINKED</span></td>' +
-          '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
-          '<td style="padding:9px 10px;color:#8899aa;font-size:12px">' + label + '</td>' +
-          '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
-          '<td style="padding:9px 10px;color:#3a4a5a;font-size:12px">—</td>' +
-          '<td style="padding:9px 10px;color:#5a6a7a;font-size:11px">Stripe charge — no Airtable record</td>' +
-          '<td style="padding:9px 14px 9px 10px;text-align:right;font-weight:700;color:#ffa726;white-space:nowrap">' + fmtC(c.amount) + '</td>' +
-          '<td style="padding:9px 10px;color:#8899aa;font-size:12px;white-space:nowrap">' + payDate + '</td>' +
-          '<td style="padding:9px 14px 9px 10px"><span style="background:#1a2a3a;color:#42a5f5;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Stripe</span></td>' +
-        '</tr>';
-      }).join('');
+
       return '<div class="card" style="margin-top:0;padding:0;overflow:hidden">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e2a3a">' +
-          '<h2 style="margin:0;border:none;padding:0;font-size:15px">Transactions <span style="color:#5a6a7a;font-weight:400;font-size:13px">(' + totalCount + ' &middot; ' + fmtC(grandTotal) + ')</span>' +
-            (orphans.length > 0 ? ' <span style="background:#2a1500;color:#ffa726;border:1px solid #3a2500;border-radius:4px;font-size:11px;font-weight:600;padding:2px 8px;margin-left:8px">' + orphans.length + ' unlinked</span>' : '') +
+          '<h2 style="margin:0;border:none;padding:0;font-size:15px">Transactions <span style="color:#5a6a7a;font-weight:400;font-size:13px">(' + allRows.length + ' &middot; ' + fmtC(grandTotal) + ')</span>' +
+            (unlinkedCount > 0 ? ' <span style="background:#2a1500;color:#ffa726;border:1px solid #3a2500;border-radius:4px;font-size:11px;font-weight:600;padding:2px 8px;margin-left:8px">' + unlinkedCount + ' unlinked</span>' : '') +
           '</h2>' +
           '<div style="display:flex;gap:6px">' + sortBtns + '</div>' +
         '</div>' +
@@ -2200,7 +2209,7 @@ exports.showDashboard = async (req, res) => {
               '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Date</th>' +
               '<th style="padding:7px 14px 7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Via</th>' +
             '</tr></thead>' +
-            '<tbody>' + rows + orphanRows + '</tbody>' +
+            '<tbody>' + rows + '</tbody>' +
           '</table>' +
         '</div>' +
       '</div>';
