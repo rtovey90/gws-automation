@@ -1150,7 +1150,7 @@ exports.showDashboard = async (req, res) => {
           bankPaymentAmount: (parseFloat(f['Bank Payment Amount']) || 0) + (parseFloat(f['Bank Payment 2 Amount']) || 0),
           bankPaymentDate: f['Bank Payment Date'] || null,
           paymentDate: f['Payment Date'] || f['Bank Payment Date'] || null,
-          payMethod: f['Payment Date'] ? 'Stripe' : (f['Bank Payment Date'] ? 'Bank' : null),
+          payMethod: (parseFloat(f['Bank Payment Amount']) || 0) > 0 ? 'Bank' : (f['Payment Date'] ? 'Stripe' : null),
           systemType: f['System Type'] || '',
           stripeFee: parseFloat(f['Stripe Fee']) || 0,
           source: f[' Source'] || 'Unknown',
@@ -2617,7 +2617,6 @@ exports.addBankPayment = async (req, res) => {
     const updateFields = {
       'Bank Payment Amount': paymentAmount,
       'Bank Payment Date': paymentDate,
-      'Payment Date': paymentDate,
       'Total Invoiced': existingInvoiced + paymentAmount,
     };
     if (paymentType === 'Service Call' || paymentType === 'Project') {
