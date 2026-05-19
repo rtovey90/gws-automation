@@ -1150,6 +1150,8 @@ exports.showDashboard = async (req, res) => {
           bankPaymentAmount: (parseFloat(f['Bank Payment Amount']) || 0) + (parseFloat(f['Bank Payment 2 Amount']) || 0),
           bankPaymentDate: f['Bank Payment Date'] || null,
           paymentDate: f['Payment Date'] || f['Bank Payment Date'] || null,
+          payMethod: f['Payment Date'] ? 'Stripe' : (f['Bank Payment Date'] ? 'Bank' : null),
+          systemType: f['System Type'] || '',
           stripeFee: parseFloat(f['Stripe Fee']) || 0,
           source: f[' Source'] || 'Unknown',
         };
@@ -2047,6 +2049,77 @@ exports.showDashboard = async (req, res) => {
       '</div>';
     }
 
+    var OV_TXSORT = 'amount-desc';
+
+    function buildTransactionList(transactions) {
+      if (!transactions || transactions.length === 0) {
+        return '<div class="card" style="margin-top:0"><p style="color:#5a6a7a;text-align:center;padding:12px;font-size:13px;margin:0">No paid transactions in this period</p></div>';
+      }
+      var sorted = transactions.slice();
+      if (OV_TXSORT === 'amount-desc') sorted.sort(function(a,b){ return b.totalInvoiced - a.totalInvoiced; });
+      else if (OV_TXSORT === 'amount-asc') sorted.sort(function(a,b){ return a.totalInvoiced - b.totalInvoiced; });
+      else if (OV_TXSORT === 'date-desc') sorted.sort(function(a,b){ return new Date(b.paymentDate||0) - new Date(a.paymentDate||0); });
+      else if (OV_TXSORT === 'date-asc') sorted.sort(function(a,b){ return new Date(a.paymentDate||0) - new Date(b.paymentDate||0); });
+      var sorts = [['amount-desc','Amount ↓'],['amount-asc','Amount ↑'],['date-desc','Date ↓'],['date-asc','Date ↑']];
+      var sortBtns = sorts.map(function(s) {
+        var active = s[0] === OV_TXSORT;
+        return '<button onclick="OV_TXSORT=\'' + s[0] + '\';renderOverview(getActivePeriod())" style="background:' + (active?'rgba(0,212,255,.12)':'none') + ';border:1px solid ' + (active?'#00d4ff':'#2a3a4a') + ';color:' + (active?'#00d4ff':'#8899aa') + ';border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s">' + s[1] + '</button>';
+      }).join('');
+      var total = sorted.reduce(function(s,e){ return s + e.totalInvoiced; }, 0);
+      var rows = sorted.map(function(e) {
+        var issc = e.type === 'sc';
+        var badge = issc
+          ? '<span class="type-badge type-badge-sc" style="font-size:10px;padding:2px 6px">SC</span>'
+          : '<span class="type-badge type-badge-proj" style="font-size:10px;padding:2px 6px">PR</span>';
+        var payDate = e.paymentDate ? new Date(e.paymentDate).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+        var addr = (e.address||'').replace(/,\s*Western Australia.*/i,'').replace(/,\s*WA.*/i,'');
+        if (addr.length > 30) addr = addr.substring(0,30)+'…';
+        var sys = e.systemType ? ('<span style="background:#1e2a3a;padding:2px 7px;border-radius:3px;font-size:11px;color:#8899aa">' + e.systemType + '</span>') : '<span style="color:#3a4a5a;font-size:11px">—</span>';
+        var via = e.payMethod === 'Stripe'
+          ? '<span style="background:#1a2a3a;color:#42a5f5;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Stripe</span>'
+          : e.payMethod === 'Bank'
+          ? '<span style="background:#1a3a2a;color:#66bb6a;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600">Bank</span>'
+          : '';
+        var scope = (e.scope||'');
+        if (scope.length > 60) scope = scope.substring(0,60)+'…';
+        var nameCell = '<a href="/engagement/' + e.id + '" style="color:#e0e6ed;text-decoration:none;font-weight:500">' + (e.name||'—') + '</a>';
+        var engCell = '<a href="/engagement/' + e.id + '" style="font-weight:700;color:' + (issc?'#00d4ff':'#ce93d8') + ';text-decoration:none">' + (e.engNumber||'—') + '</a>';
+        return '<tr style="border-bottom:1px solid #0f1c28;transition:background .1s" onmouseover="this.style.background=\'#0f1c28\'" onmouseout="this.style.background=\'none\'">' +
+          '<td style="padding:9px 10px 9px 14px;white-space:nowrap">' + badge + '</td>' +
+          '<td style="padding:9px 10px;white-space:nowrap">' + engCell + '</td>' +
+          '<td style="padding:9px 10px">' + nameCell + '</td>' +
+          '<td style="padding:9px 10px;color:#8899aa;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (e.address||'') + '">' + (addr||'—') + '</td>' +
+          '<td style="padding:9px 10px">' + sys + '</td>' +
+          (scope ? '<td style="padding:9px 10px;color:#5a6a7a;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + scope.replace(/"/g,"'") + '">' + scope + '</td>' : '<td style="padding:9px 10px;color:#3a4a5a;font-size:11px">—</td>') +
+          '<td style="padding:9px 14px 9px 10px;text-align:right;font-weight:700;color:#66bb6a;white-space:nowrap">' + fmtC(e.totalInvoiced) + '</td>' +
+          '<td style="padding:9px 10px;color:#8899aa;font-size:12px;white-space:nowrap">' + payDate + '</td>' +
+          '<td style="padding:9px 14px 9px 10px;white-space:nowrap">' + via + '</td>' +
+        '</tr>';
+      }).join('');
+      return '<div class="card" style="margin-top:0;padding:0;overflow:hidden">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e2a3a">' +
+          '<h2 style="margin:0;border:none;padding:0;font-size:15px">Transactions <span style="color:#5a6a7a;font-weight:400;font-size:13px">(' + sorted.length + ' &middot; ' + fmtC(total) + ')</span></h2>' +
+          '<div style="display:flex;gap:6px">' + sortBtns + '</div>' +
+        '</div>' +
+        '<div style="overflow-x:auto">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+            '<thead><tr style="border-bottom:1px solid #1e2a3a;background:#0a0f1a">' +
+              '<th style="padding:7px 10px 7px 14px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap"></th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Number</th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Name</th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Address</th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">System</th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Description</th>' +
+              '<th style="padding:7px 14px 7px 10px;text-align:right;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Total</th>' +
+              '<th style="padding:7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Date</th>' +
+              '<th style="padding:7px 14px 7px 10px;text-align:left;color:#5a6a7a;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Via</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>';
+    }
+
     function renderSingleView(d, type) {
       var issc = type === 'sc';
       var leadsList = issc ? d.scLeads : d.prLeads;
@@ -2081,6 +2154,8 @@ exports.showDashboard = async (req, res) => {
         mkKpi(margin + '%', 'Margin', '#ffa726') +
         mkKpi(fmtC(avgDeal), 'Avg Deal', '#e0e6ed') +
       '</div>';
+
+      html += buildTransactionList(paidList);
 
       return html;
     }
@@ -2161,6 +2236,8 @@ exports.showDashboard = async (req, res) => {
           '</div>' +
         '</div>' +
       '</div>';
+
+      html += buildTransactionList(d.scPaidList.concat(d.prPaidList));
 
       return html;
     }
