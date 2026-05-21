@@ -513,6 +513,14 @@ exports.showProposal = async (req, res) => {
   .upgrade-monthly-badge { font-size: 11px; font-weight: 600; color: var(--cyan-dark); }
   .upgrade-bundle-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 5px; letter-spacing: 0.4px; text-transform: uppercase; }
   .bundle-banner { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 13px; color: #166534; line-height: 1.4; }
+  .saving-total-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .saving-total-row > span:first-child { font-size:14px; font-weight:700; color:#16a34a; }
+  .saving-total-row > span:last-child { font-size:30px; font-weight:900; color:#16a34a; line-height:1; }
+  .saving-detail-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; }
+  .saving-detail-row > span:first-child { font-size:12px; font-weight:600; }
+  .saving-detail-row > span:last-child { font-size:17px; font-weight:800; }
+  .saving-green > span { color:#16a34a; }
+  .saving-orange > span { color:#dc6803; }
 
   /* Confirmed & tech view states */
   .upgrade-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
@@ -825,20 +833,28 @@ ${sitePhotoPages}
     ` : ''}
 
     ${isTechView ? '' : `
-    <div class="total-bar">
-      <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
-      <div style="text-align:right;">
-        <div id="discountDisplay" style="display:none;">
-          <div class="discount-row">
-            <span class="discount-original" id="originalPrice"></span>
-            <span class="discount-badge" id="discountBadge"></span>
-          </div>
+    <div class="total-bar" style="flex-direction:column; align-items:stretch; gap:0;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
+        <div id="originalPriceWrap" style="display:none; text-align:right;">
+          <div><span class="discount-original" id="originalPrice"></span>&nbsp;<span class="discount-badge" id="discountBadge"></span></div>
           <div class="discount-expiry" id="discountExpiry"></div>
         </div>
-        <div id="bundleSavingDisplay" style="display:none; margin:4px 0 2px;">
-          <span style="color:#16a34a; font-size:12px; font-weight:700; letter-spacing:0.3px;">&#127873; BUNDLE SAVING &nbsp;</span><span id="bundleSavingAmount" style="color:#16a34a; font-size:13px; font-weight:800;"></span>
+      </div>
+      <div id="savingsSection" style="display:none; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:12px;">
+        <div class="saving-total-row">
+          <span>You&rsquo;re saving</span><span id="totalSavingAmt"></span>
         </div>
-        <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
+        <div id="bundleSavingLine" class="saving-detail-row saving-green" style="display:none;">
+          <span>&#127873; Bundle Saving</span><span id="bundleSavingAmt"></span>
+        </div>
+        <div id="earlyBirdLine" class="saving-detail-row saving-orange" style="display:none;">
+          <span id="earlyBirdLabel">&#9889; Early Bird</span><span id="earlyBirdAmt"></span>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:10px;">
+        <span id="youPayLabel" style="font-size:13px; color:var(--gray-400); font-weight:500; display:none;">You pay</span>
+        <div class="total-bar-amount" id="totalAmount" style="margin-left:auto;">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
       </div>
     </div>
     <div id="monthlyTotalBar" class="total-bar" style="display:none; margin-top:8px; background:var(--cyan-bg); border:1px solid var(--cyan); border-radius:10px;">
@@ -911,46 +927,58 @@ ${sitePhotoPages}
   }
 
   function updateTotalDisplay() {
-    // effective totals already have bundle savings deducted; add them back for display
     const fullSubtotal = selectedBasePrice + discountableUpgradeTotal + nonDiscountableUpgradeTotal + bundleSavingTotal;
-    const discountableSubtotal = selectedBasePrice + discountableUpgradeTotal; // effective (bundle already deducted)
+    const discountableSubtotal = selectedBasePrice + discountableUpgradeTotal;
     const discountAmt = applyDiscount(discountableSubtotal);
     const finalTotal = Math.max(selectedBasePrice + discountableUpgradeTotal + nonDiscountableUpgradeTotal - discountAmt, 0);
-    const hasSavings = discountAmt > 0 || bundleSavingTotal > 0;
-    const discountEl = document.getElementById('discountDisplay');
-    if (discountEl) {
+    const totalSaving = bundleSavingTotal + discountAmt;
+    const hasSavings = totalSaving > 0;
+
+    // Original price + badge (top-right, subtle)
+    const origWrap = document.getElementById('originalPriceWrap');
+    if (origWrap) {
       if (hasSavings) {
-        discountEl.style.display = 'block';
+        origWrap.style.display = 'block';
         document.getElementById('originalPrice').textContent = '$' + fullSubtotal.toLocaleString('en-AU');
         const badgeEl = document.getElementById('discountBadge');
         if (discountAmt > 0) {
-          const label = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
-          badgeEl.textContent = label;
+          badgeEl.textContent = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
           badgeEl.style.display = '';
-        } else {
-          badgeEl.style.display = 'none';
-        }
+        } else { badgeEl.style.display = 'none'; }
         const expiryEl = document.getElementById('discountExpiry');
         if (DISCOUNT_EXPIRES && discountAmt > 0) {
           const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
           expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
           expiryEl.style.display = 'block';
-        } else {
-          expiryEl.style.display = 'none';
-        }
-      } else {
-        discountEl.style.display = 'none';
-      }
+        } else { expiryEl.style.display = 'none'; }
+      } else { origWrap.style.display = 'none'; }
     }
-    const bundleEl = document.getElementById('bundleSavingDisplay');
-    if (bundleEl) {
-      if (bundleSavingTotal > 0) {
-        bundleEl.style.display = 'block';
-        document.getElementById('bundleSavingAmount').textContent = '-$' + bundleSavingTotal.toLocaleString('en-AU');
-      } else {
-        bundleEl.style.display = 'none';
-      }
+
+    // Savings section (hero)
+    const savingsSection = document.getElementById('savingsSection');
+    if (savingsSection) {
+      if (hasSavings) {
+        savingsSection.style.display = 'block';
+        document.getElementById('totalSavingAmt').textContent = '$' + totalSaving.toLocaleString('en-AU');
+        const bundleLine = document.getElementById('bundleSavingLine');
+        if (bundleSavingTotal > 0) {
+          bundleLine.style.display = 'flex';
+          document.getElementById('bundleSavingAmt').textContent = '-$' + bundleSavingTotal.toLocaleString('en-AU');
+        } else { bundleLine.style.display = 'none'; }
+        const earlyLine = document.getElementById('earlyBirdLine');
+        if (discountAmt > 0) {
+          earlyLine.style.display = 'flex';
+          const lbl = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% off' : '$' + DISCOUNT_VALUE.toLocaleString('en-AU') + ' off');
+          document.getElementById('earlyBirdLabel').textContent = '\u26a1 ' + lbl;
+          document.getElementById('earlyBirdAmt').textContent = '-$' + discountAmt.toLocaleString('en-AU');
+        } else { earlyLine.style.display = 'none'; }
+      } else { savingsSection.style.display = 'none'; }
     }
+
+    // You pay label
+    const youPayLabel = document.getElementById('youPayLabel');
+    if (youPayLabel) youPayLabel.style.display = hasSavings ? 'block' : 'none';
+
     var totalEl = document.getElementById('totalAmount');
     if (totalEl) totalEl.textContent = '$' + finalTotal.toLocaleString('en-AU');
     var monthlyBar = document.getElementById('monthlyTotalBar');
