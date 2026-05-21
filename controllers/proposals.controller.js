@@ -2909,7 +2909,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const cameraOptionsRaw = safeJsonParse(srcFields['Camera Options']);
   const optionGroupsRaw = safeJsonParse(srcFields['Option Groups']);
   const clarificationsRaw = safeJsonParse(srcFields['Clarifications']);
-  const sitePhotoUrlsRaw = isClone ? [] : safeJsonParse(f['Site Photo URLs']); // Clear photos for clones
+  const sitePhotoUrlsRaw = isClone ? safeJsonParse(cf['Site Photo URLs']) : safeJsonParse(f['Site Photo URLs']);
 
   // OTO Items — new JSON format with fallback from old fields
   const otoItemsRaw = safeJsonParse(srcFields['OTO Items']);
@@ -3032,7 +3032,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
   // Uploaded photo thumbnails
   const photoThumbsHtml = sitePhotoUrls.map(url =>
-    `<div class="photo-thumb"><img src="${escapeHtml(url)}" alt="Site photo"><button type="button" class="photo-remove" onclick="removePhoto(this, '${escapeHtml(url)}')">&times;</button></div>`
+    `<div class="photo-thumb" draggable="true" data-url="${escapeHtml(url)}"><img src="${escapeHtml(url)}" alt="Site photo"><button type="button" class="photo-remove" onclick="removePhoto(this)">&times;</button></div>`
   ).join('');
 
   const bodyHtml = `
@@ -3455,7 +3455,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     .oto-badge-recurring { font-size:9px; font-weight:700; color:#22c55e; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:10px; letter-spacing:1px; margin-left:auto; }
 
     .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:10px; margin-bottom:14px; }
-    .photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:2px solid #2a3a4a; }
+    .photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:2px solid #2a3a4a; cursor:grab; }
+    .photo-thumb.dragging { opacity:0.35; border-color:#00d4ff; }
     .photo-thumb img { width:100%; height:100%; object-fit:cover; }
     .photo-remove {
       position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:white; border:none;
@@ -3901,10 +3902,42 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       renumberPackages();
     }
 
-    function removePhoto(btn, url) {
+    function removePhoto(btn) {
+      const thumb = btn.closest('.photo-thumb');
+      const url = thumb.dataset.url;
       uploadedPhotoUrls = uploadedPhotoUrls.filter(u => u !== url);
-      btn.closest('.photo-thumb').remove();
+      thumb.remove();
     }
+
+    function initPhotoDrag() {
+      const grid = document.getElementById('photo-grid');
+      let dragSrc = null;
+      grid.addEventListener('dragstart', e => {
+        const thumb = e.target.closest('.photo-thumb');
+        if (!thumb) return;
+        dragSrc = thumb;
+        thumb.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      grid.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const thumb = e.target.closest('.photo-thumb');
+        if (!thumb || thumb === dragSrc) return;
+        const rect = thumb.getBoundingClientRect();
+        if (e.clientX < rect.left + rect.width / 2) {
+          grid.insertBefore(dragSrc, thumb);
+        } else {
+          grid.insertBefore(dragSrc, thumb.nextSibling);
+        }
+      });
+      grid.addEventListener('dragend', () => {
+        if (dragSrc) dragSrc.classList.remove('dragging');
+        dragSrc = null;
+        uploadedPhotoUrls = Array.from(grid.querySelectorAll('.photo-thumb')).map(t => t.dataset.url);
+      });
+    }
+    initPhotoDrag();
 
     function collectFormData() {
       const form = document.getElementById('proposalForm');
@@ -4176,7 +4209,9 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
           result.urls.forEach(url => {
             const div = document.createElement('div');
             div.className = 'photo-thumb';
-            div.innerHTML = '<img src="' + url + '" alt="Photo"><button type="button" class="photo-remove" onclick="removePhoto(this, \\'' + url + '\\')">&times;</button>';
+            div.draggable = true;
+            div.dataset.url = url;
+            div.innerHTML = '<img src="' + url + '" alt="Photo"><button type="button" class="photo-remove" onclick="removePhoto(this)">&times;</button>';
             grid.appendChild(div);
           });
           statusEl.textContent = result.urls.length + ' photo(s) uploaded!';
