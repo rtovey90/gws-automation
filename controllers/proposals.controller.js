@@ -248,12 +248,13 @@ exports.showProposal = async (req, res) => {
       const classes = ['upgrade-card'];
       if (isLocked && hasSelectionData && optSelected) classes.push('selected', 'confirmed');
       if (isLocked && hasSelectionData && !optSelected) classes.push('not-chosen');
+      if (!isLocked && opt.defaultSelected) classes.push('selected');
       const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly}, ${bundleSaving})"`;
       const priceSuffix = isMonthly ? '<span class="upgrade-monthly-badge">/mo</span>' : '';
       const bundleBadge = bundleSaving > 0 && !isTechView ? `<div class="upgrade-bundle-badge">Bundle Save $${bundleSaving.toLocaleString('en-AU')}</div>` : '';
       const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}${priceSuffix}</div>`;
       return `
-      <div class="${classes.join(' ')}" ${onclick} data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}">
+      <div class="${classes.join(' ')}" ${onclick} data-price="${opt.price || 0}" data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}">
         <div class="upgrade-check">&#10003;</div>
         <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p>${bundleBadge}</div>
         ${priceHtml}
@@ -1057,6 +1058,21 @@ ${sitePhotoPages}
       alert('Connection error. Please try again.');
       btn.disabled = false;
       btn.textContent = 'Accept Proposal & Secure My Booking \u2192';
+    });
+  }
+
+  // Initialize totals for pre-selected upgrades (defaultSelected)
+  if (!IS_CONFIRMED && !IS_TECH_VIEW) {
+    document.querySelectorAll('.upgrade-card.selected').forEach(card => {
+      const price = parseFloat(card.dataset.price) || 0;
+      const discountable = card.dataset.discountable !== 'false';
+      const monthly = card.dataset.monthly === 'true';
+      const bundle = parseFloat(card.dataset.bundle) || 0;
+      const effectivePrice = price - bundle;
+      if (monthly) monthlyUpgradeTotal += price;
+      else if (discountable) discountableUpgradeTotal += effectivePrice;
+      else nonDiscountableUpgradeTotal += effectivePrice;
+      bundleSavingTotal += bundle;
     });
   }
 
@@ -2970,14 +2986,16 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const cameraRowsHtml = cameraOptions.map(opt => {
     const discChecked = opt.discountable !== false ? 'checked' : '';
     const monthlyChecked = opt.monthly ? 'checked' : '';
+    const defaultChecked = opt.defaultSelected ? 'checked' : '';
     return `<div class="list-row camera-row" data-list="camera" draggable="true">
       <span class="drag-handle" title="Drag to reorder">&#9776;</span>
       <input type="text" class="cam-name" value="${escapeHtml(opt.name || '')}" placeholder="Option name">
       <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
       <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
       <input type="number" class="cam-bundle" value="${opt.bundleSaving || ''}" placeholder="Bundle $" step="1" title="Bundle saving — deducted when customer selects this item (shown as green saving to customer)">
-      <label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
+      <label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
       <label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly" ${monthlyChecked}> /mo</label>
+      <label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default" ${defaultChecked}> ★</label>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -3377,7 +3395,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     }
     .row-remove:hover { color:#ff5252; }
 
-    .camera-row { display:grid; grid-template-columns:16px 1fr 1.5fr 80px 75px 32px 30px; gap:8px; align-items:center; margin-bottom:8px; }
+    .camera-row { display:grid; grid-template-columns:16px 1fr 1.5fr 80px 75px 32px 30px 32px; gap:8px; align-items:center; margin-bottom:8px; }
     .cam-name, .cam-desc, .cam-price {
       padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; font-family:inherit;
@@ -3855,7 +3873,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
       row.draggable = true;
-      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> ★</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       initDragRow(row);
       row.querySelector('.cam-name').focus();
@@ -3943,7 +3961,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const bundleSaving = parseFloat(row.querySelector('.cam-bundle')?.value) || 0;
         const discountable = row.querySelector('.cam-disc') ? row.querySelector('.cam-disc').checked : true;
         const monthly = row.querySelector('.cam-monthly') ? row.querySelector('.cam-monthly').checked : false;
-        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly });
+        const defaultSelected = row.querySelector('.cam-default') ? row.querySelector('.cam-default').checked : false;
+        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly, ...(defaultSelected ? { defaultSelected: true } : {}) });
       });
       data.cameraOptions = JSON.stringify(cameras);
 
