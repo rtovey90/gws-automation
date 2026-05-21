@@ -516,11 +516,10 @@ exports.showProposal = async (req, res) => {
   .saving-total-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
   .saving-total-row > span:first-child { font-size:14px; font-weight:700; color:#16a34a; }
   .saving-total-row > span:last-child { font-size:30px; font-weight:900; color:#16a34a; line-height:1; }
-  .saving-detail-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; }
-  .saving-detail-row > span:first-child { font-size:12px; font-weight:600; }
-  .saving-detail-row > span:last-child { font-size:17px; font-weight:800; }
-  .saving-green > span { color:#16a34a; }
-  .saving-orange > span { color:#dc6803; }
+  .saving-detail-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; }
+  .saving-lbl { font-size:13px; font-weight:700; color:#16a34a; }
+  .saving-amt { font-size:22px; font-weight:800; color:#16a34a; }
+  .discount-expiry { color:#dc2626; font-style:italic; font-size:11px; font-weight:600; }
 
   /* Confirmed & tech view states */
   .upgrade-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
@@ -838,18 +837,15 @@ ${sitePhotoPages}
         <div class="saving-total-row">
           <span>You&rsquo;re saving</span><span id="totalSavingAmt"></span>
         </div>
-        <div id="bundleSavingLine" class="saving-detail-row saving-green" style="display:none;">
-          <span>&#127873; Bundle Saving</span><span id="bundleSavingAmt"></span>
+        <div id="bundleSavingLine" class="saving-detail-row" style="display:none;">
+          <span class="saving-lbl">&#127873; Bundle Saving</span><span class="saving-amt" id="bundleSavingAmt"></span>
         </div>
-        <div id="earlyBirdLine" class="saving-detail-row saving-orange" style="display:none; align-items:flex-start;">
-          <div style="display:flex; flex-direction:column; gap:3px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span id="earlyBirdLabel">&#9889; Early Bird</span>
-              <span class="discount-badge" id="discountBadge" style="display:none;"></span>
-            </div>
-            <span class="discount-expiry" id="discountExpiry" style="display:none; width:auto; margin:0;"></span>
+        <div id="earlyBirdLine" class="saving-detail-row" style="display:none; align-items:flex-start;">
+          <span class="saving-lbl" id="earlyBirdLabel">&#9889; Early Bird</span>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+            <span class="saving-amt" id="earlyBirdAmt"></span>
+            <span class="discount-expiry" id="discountExpiry" style="display:none;"></span>
           </div>
-          <span id="earlyBirdAmt"></span>
         </div>
       </div>
       <div id="totalRow" style="display:flex; justify-content:space-between; align-items:center; padding-top:10px;">
@@ -963,11 +959,6 @@ ${sitePhotoPages}
           const lbl = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% off' : '$' + DISCOUNT_VALUE.toLocaleString('en-AU') + ' off');
           document.getElementById('earlyBirdLabel').textContent = '\u26a1 ' + lbl;
           document.getElementById('earlyBirdAmt').textContent = '-$' + discountAmt.toLocaleString('en-AU');
-          const badgeEl = document.getElementById('discountBadge');
-          if (badgeEl) {
-            badgeEl.textContent = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
-            badgeEl.style.display = '';
-          }
           const expiryEl = document.getElementById('discountExpiry');
           if (expiryEl) {
             if (DISCOUNT_EXPIRES) {
@@ -978,8 +969,6 @@ ${sitePhotoPages}
           }
         } else {
           earlyLine.style.display = 'none';
-          const badgeEl = document.getElementById('discountBadge');
-          if (badgeEl) badgeEl.style.display = 'none';
           const expiryEl = document.getElementById('discountExpiry');
           if (expiryEl) expiryEl.style.display = 'none';
         }
