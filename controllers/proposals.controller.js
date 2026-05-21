@@ -514,7 +514,7 @@ exports.showProposal = async (req, res) => {
   .upgrade-bundle-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 5px; letter-spacing: 0.4px; text-transform: uppercase; }
   .bundle-banner { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 13px; color: #166534; line-height: 1.4; }
   .saving-total-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
-  .saving-total-row > span:first-child { font-size:14px; font-weight:700; color:#16a34a; }
+  .saving-total-row > span:first-child { font-size:30px; font-weight:900; color:#16a34a; line-height:1; }
   .saving-total-row > span:last-child { font-size:30px; font-weight:900; color:#16a34a; line-height:1; }
   .saving-detail-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; }
   .saving-lbl { font-size:22px; font-weight:800; color:#16a34a; }
