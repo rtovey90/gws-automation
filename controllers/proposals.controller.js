@@ -653,7 +653,7 @@ exports.showProposal = async (req, res) => {
     letter-spacing: 0.5px; text-transform: uppercase;
   }
   .discount-original {
-    font-size: 16px; color: var(--gray-400); text-decoration: line-through;
+    font-size: 22px; font-weight: 700; color: var(--gray-400); text-decoration: line-through;
   }
   .discount-expiry {
     font-size: 11px; color: #e05252; font-weight: 600; width: 100%; margin-top: 2px;
@@ -834,12 +834,8 @@ ${sitePhotoPages}
 
     ${isTechView ? '' : `
     <div class="total-bar" style="flex-direction:column; align-items:stretch; gap:0;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
         <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
-        <div id="originalPriceWrap" style="display:none; text-align:right;">
-          <div><span class="discount-original" id="originalPrice"></span>&nbsp;<span class="discount-badge" id="discountBadge"></span></div>
-          <div class="discount-expiry" id="discountExpiry"></div>
-        </div>
       </div>
       <div id="savingsSection" style="display:none; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:12px;">
         <div class="saving-total-row">
@@ -851,10 +847,14 @@ ${sitePhotoPages}
         <div id="earlyBirdLine" class="saving-detail-row saving-orange" style="display:none;">
           <span id="earlyBirdLabel">&#9889; Early Bird</span><span id="earlyBirdAmt"></span>
         </div>
+        <div id="originalPriceWrap" style="display:none; margin-top:10px; display:none; justify-content:flex-end; align-items:center; gap:10px;">
+          <span class="discount-original" id="originalPrice"></span>
+          <span class="discount-badge" id="discountBadge"></span>
+          <div class="discount-expiry" id="discountExpiry" style="width:auto; margin:0;"></div>
+        </div>
       </div>
-      <div style="display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:10px;">
-        <span id="youPayLabel" style="font-size:13px; color:var(--gray-400); font-weight:500; display:none;">You pay</span>
-        <div class="total-bar-amount" id="totalAmount" style="margin-left:auto;">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
+      <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:10px;">
+        <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
       </div>
     </div>
     <div id="monthlyTotalBar" class="total-bar" style="display:none; margin-top:8px; background:var(--cyan-bg); border:1px solid var(--cyan); border-radius:10px;">
@@ -934,11 +934,11 @@ ${sitePhotoPages}
     const totalSaving = bundleSavingTotal + discountAmt;
     const hasSavings = totalSaving > 0;
 
-    // Original price + badge (top-right, subtle)
+    // Original price + badge (below savings lines)
     const origWrap = document.getElementById('originalPriceWrap');
     if (origWrap) {
       if (hasSavings) {
-        origWrap.style.display = 'block';
+        origWrap.style.display = 'flex';
         document.getElementById('originalPrice').textContent = '$' + fullSubtotal.toLocaleString('en-AU');
         const badgeEl = document.getElementById('discountBadge');
         if (discountAmt > 0) {
@@ -975,9 +975,6 @@ ${sitePhotoPages}
       } else { savingsSection.style.display = 'none'; }
     }
 
-    // You pay label
-    const youPayLabel = document.getElementById('youPayLabel');
-    if (youPayLabel) youPayLabel.style.display = hasSavings ? 'block' : 'none';
 
     var totalEl = document.getElementById('totalAmount');
     if (totalEl) totalEl.textContent = '$' + finalTotal.toLocaleString('en-AU');
