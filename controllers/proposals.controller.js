@@ -240,19 +240,22 @@ exports.showProposal = async (req, res) => {
       return match ? Number(match.price) || basePrice : basePrice;
     })();
     const confirmedTotal = isConfirmed ? selectedPkgPrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0), 0) : basePrice;
+    const anyBundleSaving = !isTechView && !isLocked && cameraOptions.some(o => Number(o.bundleSaving) > 0);
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
       const isMonthly = !!opt.monthly;
+      const bundleSaving = Number(opt.bundleSaving) || 0;
       const classes = ['upgrade-card'];
       if (isLocked && hasSelectionData && optSelected) classes.push('selected', 'confirmed');
       if (isLocked && hasSelectionData && !optSelected) classes.push('not-chosen');
-      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly})"`;
+      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly}, ${bundleSaving})"`;
       const priceSuffix = isMonthly ? '<span class="upgrade-monthly-badge">/mo</span>' : '';
+      const bundleBadge = bundleSaving > 0 && !isTechView ? `<div class="upgrade-bundle-badge">Bundle Save $${bundleSaving.toLocaleString('en-AU')}</div>` : '';
       const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}${priceSuffix}</div>`;
       return `
       <div class="${classes.join(' ')}" ${onclick} data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}">
         <div class="upgrade-check">&#10003;</div>
-        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p></div>
+        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p>${bundleBadge}</div>
         ${priceHtml}
       </div>`;
     }).join('');
@@ -508,6 +511,8 @@ exports.showProposal = async (req, res) => {
   .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
   .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
   .upgrade-monthly-badge { font-size: 11px; font-weight: 600; color: var(--cyan-dark); }
+  .upgrade-bundle-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 5px; letter-spacing: 0.4px; text-transform: uppercase; }
+  .bundle-banner { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 13px; color: #166534; line-height: 1.4; }
 
   /* Confirmed & tech view states */
   .upgrade-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
@@ -815,6 +820,7 @@ ${sitePhotoPages}
     <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
       <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">${isLocked ? 'Additional Options' : 'Extend Your Coverage'} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 ${isLocked ? 'Selected by customer' : 'Add additional options to your install'}</span></h3>
     </div>
+    ${anyBundleSaving ? `<div class="bundle-banner"><span style="font-size:18px;">&#128161;</span><div><strong>Bundle &amp; Save</strong> &mdash; add extra systems to your install and unlock bundle savings on your total</div></div>` : ''}
     ${upgradeCardsHtml}
     ` : ''}
 
@@ -828,6 +834,9 @@ ${sitePhotoPages}
             <span class="discount-badge" id="discountBadge"></span>
           </div>
           <div class="discount-expiry" id="discountExpiry"></div>
+        </div>
+        <div id="bundleSavingDisplay" style="display:none; margin:4px 0 2px;">
+          <span style="color:#16a34a; font-size:12px; font-weight:700; letter-spacing:0.3px;">&#127873; BUNDLE SAVING &nbsp;</span><span id="bundleSavingAmount" style="color:#16a34a; font-size:13px; font-weight:800;"></span>
         </div>
         <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
       </div>
@@ -883,6 +892,7 @@ ${sitePhotoPages}
   let discountableUpgradeTotal = 0;
   let nonDiscountableUpgradeTotal = 0;
   let monthlyUpgradeTotal = 0;
+  let bundleSavingTotal = 0;
   const DISCOUNT_TYPE = '${escapeHtml(discountType)}';
   const DISCOUNT_VALUE = ${Number(discountValue) || 0};
   const DISCOUNT_NAME = '${escapeHtml(discountName)}';
@@ -901,19 +911,27 @@ ${sitePhotoPages}
   }
 
   function updateTotalDisplay() {
-    const subtotal = getTotal();
-    const discountableSubtotal = selectedBasePrice + discountableUpgradeTotal;
+    // effective totals already have bundle savings deducted; add them back for display
+    const fullSubtotal = selectedBasePrice + discountableUpgradeTotal + nonDiscountableUpgradeTotal + bundleSavingTotal;
+    const discountableSubtotal = selectedBasePrice + discountableUpgradeTotal; // effective (bundle already deducted)
     const discountAmt = applyDiscount(discountableSubtotal);
-    const finalTotal = Math.max(subtotal - discountAmt, 0);
+    const finalTotal = Math.max(selectedBasePrice + discountableUpgradeTotal + nonDiscountableUpgradeTotal - discountAmt, 0);
+    const hasSavings = discountAmt > 0 || bundleSavingTotal > 0;
     const discountEl = document.getElementById('discountDisplay');
     if (discountEl) {
-      if (discountAmt > 0) {
+      if (hasSavings) {
         discountEl.style.display = 'block';
-        document.getElementById('originalPrice').textContent = '$' + subtotal.toLocaleString('en-AU');
-        const label = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
-        document.getElementById('discountBadge').textContent = label;
+        document.getElementById('originalPrice').textContent = '$' + fullSubtotal.toLocaleString('en-AU');
+        const badgeEl = document.getElementById('discountBadge');
+        if (discountAmt > 0) {
+          const label = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
+          badgeEl.textContent = label;
+          badgeEl.style.display = '';
+        } else {
+          badgeEl.style.display = 'none';
+        }
         const expiryEl = document.getElementById('discountExpiry');
-        if (DISCOUNT_EXPIRES) {
+        if (DISCOUNT_EXPIRES && discountAmt > 0) {
           const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
           expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
           expiryEl.style.display = 'block';
@@ -922,6 +940,15 @@ ${sitePhotoPages}
         }
       } else {
         discountEl.style.display = 'none';
+      }
+    }
+    const bundleEl = document.getElementById('bundleSavingDisplay');
+    if (bundleEl) {
+      if (bundleSavingTotal > 0) {
+        bundleEl.style.display = 'block';
+        document.getElementById('bundleSavingAmount').textContent = '-$' + bundleSavingTotal.toLocaleString('en-AU');
+      } else {
+        bundleEl.style.display = 'none';
       }
     }
     var totalEl = document.getElementById('totalAmount');
@@ -948,17 +975,21 @@ ${sitePhotoPages}
     updateTotalDisplay();
   }
 
-  function toggleUpgrade(card, price, discountable, monthly) {
+  function toggleUpgrade(card, price, discountable, monthly, bundleSaving) {
     if (IS_CONFIRMED || IS_TECH_VIEW) return;
     card.classList.toggle('selected');
-    const delta = card.classList.contains('selected') ? price : -price;
+    const isSelected = card.classList.contains('selected');
+    const sign = isSelected ? 1 : -1;
+    const saving = Number(bundleSaving) || 0;
+    const effectivePrice = price - saving;
     if (monthly) {
-      monthlyUpgradeTotal += delta;
+      monthlyUpgradeTotal += sign * price; // monthly items: no bundle saving applied
     } else if (discountable) {
-      discountableUpgradeTotal += delta;
+      discountableUpgradeTotal += sign * effectivePrice;
     } else {
-      nonDiscountableUpgradeTotal += delta;
+      nonDiscountableUpgradeTotal += sign * effectivePrice;
     }
+    bundleSavingTotal += sign * saving;
     updateTotalDisplay();
   }
 
@@ -1284,13 +1315,15 @@ exports.createProposalCheckout = async (req, res) => {
       for (const upgrade of selectedUpgrades) {
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
         if (match && match.price) {
+          const bundleSav = Number(match.bundleSaving) || 0;
+          const effectivePrice = Number(match.price) - bundleSav;
           if (match.monthly) {
             // Monthly items are charged as subscriptions after checkout, not in the one-time total
             selectedMonthlyUpgrades.push({ name: match.name, price: Number(match.price) });
           } else if (match.discountable === false) {
-            nonDiscountableTotal += Number(match.price);
+            nonDiscountableTotal += effectivePrice;
           } else {
-            discountableTotal += Number(match.price);
+            discountableTotal += effectivePrice;
           }
         }
       }
@@ -2915,6 +2948,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       <input type="text" class="cam-name" value="${escapeHtml(opt.name || '')}" placeholder="Option name">
       <input type="text" class="cam-desc" value="${escapeHtml(opt.description || '')}" placeholder="Description">
       <input type="number" class="cam-price" value="${opt.price || ''}" placeholder="Price" step="1">
+      <input type="number" class="cam-bundle" value="${opt.bundleSaving || ''}" placeholder="Bundle $" step="1" title="Bundle saving — deducted when customer selects this item (shown as green saving to customer)">
       <label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
       <label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly" ${monthlyChecked}> /mo</label>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
@@ -3316,7 +3350,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     }
     .row-remove:hover { color:#ff5252; }
 
-    .camera-row { display:grid; grid-template-columns:16px 1fr 1.5fr 80px 32px 30px; gap:8px; align-items:center; margin-bottom:8px; }
+    .camera-row { display:grid; grid-template-columns:16px 1fr 1.5fr 80px 75px 32px 30px; gap:8px; align-items:center; margin-bottom:8px; }
     .cam-name, .cam-desc, .cam-price {
       padding:9px 12px; background:#1a2332; border:2px solid #2a3a4a; border-radius:8px;
       color:#e0e6ed; font-size:14px; font-family:inherit;
@@ -3421,7 +3455,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     @media (max-width:768px) {
       .form-row { grid-template-columns:1fr; }
-      .camera-row { grid-template-columns:16px 1fr 1fr 32px; }
+      .camera-row { grid-template-columns:16px 1fr 75px 32px; }
       .steps-bar { gap:2px; }
       .step-tab { font-size:11px; padding:8px 4px; }
     }
@@ -3544,7 +3578,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         row.className = 'list-row camera-row';
         row.dataset.list = 'camera';
         row.draggable = true;
-        row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+        row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
         row.querySelector('.cam-name').value = opt.name || '';
         row.querySelector('.cam-desc').value = opt.description || '';
         row.querySelector('.cam-price').value = opt.price || '';
@@ -3794,7 +3828,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
       row.draggable = true;
-      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       initDragRow(row);
       row.querySelector('.cam-name').focus();
@@ -3879,9 +3913,10 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const name = row.querySelector('.cam-name').value.trim();
         const desc = row.querySelector('.cam-desc').value.trim();
         const price = parseFloat(row.querySelector('.cam-price').value) || 0;
+        const bundleSaving = parseFloat(row.querySelector('.cam-bundle')?.value) || 0;
         const discountable = row.querySelector('.cam-disc') ? row.querySelector('.cam-disc').checked : true;
         const monthly = row.querySelector('.cam-monthly') ? row.querySelector('.cam-monthly').checked : false;
-        if (name) cameras.push({ name, description: desc, price, discountable, monthly });
+        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly });
       });
       data.cameraOptions = JSON.stringify(cameras);
 
