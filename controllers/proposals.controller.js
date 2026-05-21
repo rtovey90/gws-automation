@@ -844,16 +844,19 @@ ${sitePhotoPages}
         <div id="bundleSavingLine" class="saving-detail-row saving-green" style="display:none;">
           <span>&#127873; Bundle Saving</span><span id="bundleSavingAmt"></span>
         </div>
-        <div id="earlyBirdLine" class="saving-detail-row saving-orange" style="display:none;">
-          <span id="earlyBirdLabel">&#9889; Early Bird</span><span id="earlyBirdAmt"></span>
-        </div>
-        <div id="originalPriceWrap" style="display:none; margin-top:10px; display:none; justify-content:flex-end; align-items:center; gap:10px;">
-          <span class="discount-original" id="originalPrice"></span>
-          <span class="discount-badge" id="discountBadge"></span>
-          <div class="discount-expiry" id="discountExpiry" style="width:auto; margin:0;"></div>
+        <div id="earlyBirdLine" class="saving-detail-row saving-orange" style="display:none; align-items:flex-start;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="earlyBirdLabel">&#9889; Early Bird</span>
+              <span class="discount-badge" id="discountBadge" style="display:none;"></span>
+            </div>
+            <span class="discount-expiry" id="discountExpiry" style="display:none; width:auto; margin:0;"></span>
+          </div>
+          <span id="earlyBirdAmt"></span>
         </div>
       </div>
-      <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:10px;">
+      <div style="display:flex; justify-content:flex-start; align-items:baseline; gap:12px; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:10px;">
+        <span class="discount-original" id="originalPrice" style="display:none;"></span>
         <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
       </div>
     </div>
@@ -934,24 +937,13 @@ ${sitePhotoPages}
     const totalSaving = bundleSavingTotal + discountAmt;
     const hasSavings = totalSaving > 0;
 
-    // Original price + badge (below savings lines)
-    const origWrap = document.getElementById('originalPriceWrap');
-    if (origWrap) {
+    // Slashed original price (left of final total)
+    const origPriceEl = document.getElementById('originalPrice');
+    if (origPriceEl) {
       if (hasSavings) {
-        origWrap.style.display = 'flex';
-        document.getElementById('originalPrice').textContent = '$' + fullSubtotal.toLocaleString('en-AU');
-        const badgeEl = document.getElementById('discountBadge');
-        if (discountAmt > 0) {
-          badgeEl.textContent = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
-          badgeEl.style.display = '';
-        } else { badgeEl.style.display = 'none'; }
-        const expiryEl = document.getElementById('discountExpiry');
-        if (DISCOUNT_EXPIRES && discountAmt > 0) {
-          const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
-          expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
-          expiryEl.style.display = 'block';
-        } else { expiryEl.style.display = 'none'; }
-      } else { origWrap.style.display = 'none'; }
+        origPriceEl.textContent = '$' + fullSubtotal.toLocaleString('en-AU');
+        origPriceEl.style.display = '';
+      } else { origPriceEl.style.display = 'none'; }
     }
 
     // Savings section (hero)
@@ -971,7 +963,26 @@ ${sitePhotoPages}
           const lbl = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% off' : '$' + DISCOUNT_VALUE.toLocaleString('en-AU') + ' off');
           document.getElementById('earlyBirdLabel').textContent = '\u26a1 ' + lbl;
           document.getElementById('earlyBirdAmt').textContent = '-$' + discountAmt.toLocaleString('en-AU');
-        } else { earlyLine.style.display = 'none'; }
+          const badgeEl = document.getElementById('discountBadge');
+          if (badgeEl) {
+            badgeEl.textContent = DISCOUNT_NAME || (DISCOUNT_TYPE === 'percentage' ? DISCOUNT_VALUE + '% OFF' : 'SAVE $' + DISCOUNT_VALUE.toLocaleString('en-AU'));
+            badgeEl.style.display = '';
+          }
+          const expiryEl = document.getElementById('discountExpiry');
+          if (expiryEl) {
+            if (DISCOUNT_EXPIRES) {
+              const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
+              expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+              expiryEl.style.display = 'block';
+            } else { expiryEl.style.display = 'none'; }
+          }
+        } else {
+          earlyLine.style.display = 'none';
+          const badgeEl = document.getElementById('discountBadge');
+          if (badgeEl) badgeEl.style.display = 'none';
+          const expiryEl = document.getElementById('discountExpiry');
+          if (expiryEl) expiryEl.style.display = 'none';
+        }
       } else { savingsSection.style.display = 'none'; }
     }
 
