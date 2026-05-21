@@ -517,9 +517,9 @@ exports.showProposal = async (req, res) => {
   .saving-total-row > span:first-child { font-size:14px; font-weight:700; color:#16a34a; }
   .saving-total-row > span:last-child { font-size:30px; font-weight:900; color:#16a34a; line-height:1; }
   .saving-detail-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; }
-  .saving-lbl { font-size:13px; font-weight:700; color:#16a34a; }
+  .saving-lbl { font-size:22px; font-weight:800; color:#16a34a; }
   .saving-amt { font-size:22px; font-weight:800; color:#16a34a; }
-  .discount-expiry { color:#dc2626; font-style:italic; font-size:11px; font-weight:600; }
+  .discount-expiry { color:#dc2626; font-style:italic; font-size:13px; font-weight:600; }
 
   /* Confirmed & tech view states */
   .upgrade-card.confirmed { border-color: #28a745; background: #f0fff4; cursor: default; }
@@ -840,12 +840,9 @@ ${sitePhotoPages}
         <div id="bundleSavingLine" class="saving-detail-row" style="display:none;">
           <span class="saving-lbl">&#127873; Bundle Saving</span><span class="saving-amt" id="bundleSavingAmt"></span>
         </div>
-        <div id="earlyBirdLine" class="saving-detail-row" style="display:none; align-items:flex-start;">
-          <span class="saving-lbl" id="earlyBirdLabel">&#9889; Early Bird</span>
-          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
-            <span class="saving-amt" id="earlyBirdAmt"></span>
-            <span class="discount-expiry" id="discountExpiry" style="display:none;"></span>
-          </div>
+        <div id="earlyBirdLine" class="saving-detail-row" style="display:none; align-items:center;">
+          <span class="saving-lbl"><span id="earlyBirdLabel">&#9889; Early Bird</span><span class="discount-expiry" id="discountExpiry" style="display:none;"></span></span>
+          <span class="saving-amt" id="earlyBirdAmt"></span>
         </div>
       </div>
       <div id="totalRow" style="display:flex; justify-content:space-between; align-items:center; padding-top:10px;">
@@ -963,8 +960,8 @@ ${sitePhotoPages}
           if (expiryEl) {
             if (DISCOUNT_EXPIRES) {
               const d = new Date(DISCOUNT_EXPIRES + 'T00:00:00');
-              expiryEl.textContent = 'Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
-              expiryEl.style.display = 'block';
+              expiryEl.textContent = ' \u2014 Offer ends ' + d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+              expiryEl.style.display = 'inline';
             } else { expiryEl.style.display = 'none'; }
           }
         } else {
