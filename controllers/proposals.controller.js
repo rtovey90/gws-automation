@@ -834,10 +834,7 @@ ${sitePhotoPages}
 
     ${isTechView ? '' : `
     <div class="total-bar" style="flex-direction:column; align-items:stretch; gap:0;">
-      <div>
-        <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
-      </div>
-      <div id="savingsSection" style="display:none; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:12px;">
+      <div id="savingsSection" style="display:none; margin-bottom:12px;">
         <div class="saving-total-row">
           <span>You&rsquo;re saving</span><span id="totalSavingAmt"></span>
         </div>
@@ -855,9 +852,12 @@ ${sitePhotoPages}
           <span id="earlyBirdAmt"></span>
         </div>
       </div>
-      <div style="display:flex; justify-content:flex-start; align-items:baseline; gap:12px; border-top:1px solid var(--gray-100); margin-top:12px; padding-top:10px;">
-        <span class="discount-original" id="originalPrice" style="display:none;"></span>
-        <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
+      <div id="totalRow" style="display:flex; justify-content:space-between; align-items:center; padding-top:10px;">
+        <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
+        <div style="display:flex; align-items:baseline; gap:12px;">
+          <span class="discount-original" id="originalPrice" style="display:none;"></span>
+          <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
+        </div>
       </div>
     </div>
     <div id="monthlyTotalBar" class="total-bar" style="display:none; margin-top:8px; background:var(--cyan-bg); border:1px solid var(--cyan); border-radius:10px;">
@@ -986,6 +986,11 @@ ${sitePhotoPages}
       } else { savingsSection.style.display = 'none'; }
     }
 
+    // Add divider above total row only when savings section is visible
+    const totalRow = document.getElementById('totalRow');
+    if (totalRow) {
+      totalRow.style.borderTop = hasSavings ? '1px solid var(--gray-100)' : 'none';
+    }
 
     var totalEl = document.getElementById('totalAmount');
     if (totalEl) totalEl.textContent = '$' + finalTotal.toLocaleString('en-AU');
