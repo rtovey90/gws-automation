@@ -6,6 +6,7 @@ const pushover = require('../services/pushover.service');
 const { wrapInLayout } = require('../utils/layout');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
+const http = require('http');
 
 // ── User-Agent Parsing (no npm dependency) ──
 function parseDevice(ua) {
@@ -24,6 +25,25 @@ function parseBrowser(ua) {
   if (/Safari/i.test(ua)) return 'Safari';
   return 'Other';
 }
+function getIpLocation(ip) {
+  return new Promise((resolve) => {
+    const clean = (ip || '').replace(/^::ffff:/, '');
+    if (!clean || clean === '::1' || clean === '127.0.0.1') return resolve(null);
+    const req = http.get(`http://ip-api.com/json/${clean}?fields=city,regionName,status`, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          resolve(j.status === 'success' ? { city: j.city, region: j.regionName } : null);
+        } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(3000, () => { req.destroy(); resolve(null); });
+  });
+}
+
 function calcEngagementScore(viewCount, totalTime, maxScroll, ctaClicks) {
   let score = 0;
   if (viewCount >= 3) score += 3; else if (viewCount >= 2) score += 2; else if (viewCount >= 1) score += 1;
@@ -1138,6 +1158,8 @@ if (IS_TECH_VIEW) { /* no analytics */ } else
   var SID = 'S' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   var activeTime = 0, scrollDepth = 0, ctaClicks = 0, active = true, lastTick = Date.now();
   var sectionTimes = {};
+  var interactions = [];
+  var printAttempts = 0;
 
   // Track active time (pause when tab hidden)
   document.addEventListener('visibilitychange', function() {
@@ -1174,6 +1196,29 @@ if (IS_TECH_VIEW) { /* no analytics */ } else
     if (e.target.closest && e.target.closest('[onclick*="checkout"], .accept-btn, [data-cta]')) ctaClicks++;
   });
 
+  // Track package and option interactions (ordered log)
+  document.addEventListener('click', function(e) {
+    var pkgCard = e.target.closest && e.target.closest('.og-radio-card');
+    if (pkgCard) {
+      var name = pkgCard.querySelector('h4') ? pkgCard.querySelector('h4').textContent.trim() : '';
+      interactions.push({ t: Math.round(Date.now() / 1000), type: 'package', name: name });
+      return;
+    }
+    var optCard = e.target.closest && e.target.closest('.upgrade-card');
+    if (optCard) {
+      var optName = optCard.querySelector('h4') ? optCard.querySelector('h4').textContent.trim() : '';
+      // selected state flips after this click, so current class = pre-click state
+      var willSelect = !optCard.classList.contains('selected');
+      interactions.push({ t: Math.round(Date.now() / 1000), type: 'option', name: optName, selected: willSelect });
+    }
+  });
+
+  // Track print / save-as attempts
+  window.addEventListener('beforeprint', function() { printAttempts++; });
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 's')) { printAttempts++; }
+  });
+
   function flushSections() {
     var now = Date.now();
     Object.keys(visibleSections).forEach(function(id) {
@@ -1184,7 +1229,7 @@ if (IS_TECH_VIEW) { /* no analytics */ } else
 
   function getPayload() {
     flushSections();
-    return JSON.stringify({ sessionId: SID, activeTime: Math.round(activeTime), scrollDepth: scrollDepth, sectionTimes: sectionTimes, ctaClicks: ctaClicks });
+    return JSON.stringify({ sessionId: SID, activeTime: Math.round(activeTime), scrollDepth: scrollDepth, sectionTimes: sectionTimes, ctaClicks: ctaClicks, interactions: interactions, printAttempts: printAttempts });
   }
 
   // Heartbeat every 30s
@@ -1249,7 +1294,7 @@ exports.analyticsHeartbeat = async (req, res) => {
     if (req.session && req.session.authenticated) return res.json({ ok: true });
 
     const { projectNumber } = req.params;
-    const { sessionId, activeTime, scrollDepth, sectionTimes, ctaClicks } = req.body;
+    const { sessionId, activeTime, scrollDepth, sectionTimes, ctaClicks, interactions, printAttempts } = req.body;
 
     if (!sessionId) return res.json({ ok: true });
 
@@ -1268,16 +1313,21 @@ exports.analyticsHeartbeat = async (req, res) => {
       scrollDepth: scrollDepth || 0,
       sectionTimes: sectionTimes || {},
       ctaClicks: ctaClicks || 0,
+      interactions: interactions || [],
+      printAttempts: printAttempts || 0,
       lastUpdate: new Date().toISOString(),
     };
     if (idx >= 0) {
       sessions[idx] = { ...sessions[idx], ...sessionData };
     } else {
       sessionData.startedAt = new Date().toISOString();
-      // Capture device/browser from first heartbeat
+      // Capture device/browser/location from first heartbeat
       const ua = req.headers['user-agent'] || '';
       sessionData.device = parseDevice(ua);
       sessionData.browser = parseBrowser(ua);
+      const ip = (req.headers['x-forwarded-for'] || req.connection.remoteAddress || '').split(',')[0].trim();
+      const loc = await getIpLocation(ip);
+      if (loc) sessionData.location = loc;
       sessions.push(sessionData);
     }
 
@@ -3073,19 +3123,48 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         }).join('');
 
         // Session history
+        const totalPrints = sessions.reduce((s, x) => s + (x.printAttempts || 0), 0);
         const sessionRows = sessions.slice().reverse().slice(0, 10).map(s => {
           const dt = s.startedAt ? new Date(s.startedAt) : null;
           const dateStr = dt ? dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Perth' }) + ', ' + dt.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) : '–';
           const devIcon = (s.device === 'iPhone' || s.device === 'iPad' || s.device === 'Android') ? '📱' : '💻';
           const dur = s.activeTime >= 60 ? Math.floor(s.activeTime / 60) + 'm ' + Math.round(s.activeTime % 60) + 's' : Math.round(s.activeTime || 0) + 's';
-          return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1a2a3a;font-size:12px;color:#8899aa;"><span>' + dateStr + '</span><span>' + devIcon + ' ' + (s.device || '') + ' ' + (s.browser || '') + '</span><span style="margin-left:auto;">' + dur + ' · ' + Math.round(s.scrollDepth || 0) + '%</span></div>';
+          const locStr = s.location ? ' · 📍 ' + s.location.city : '';
+          const printStr = s.printAttempts > 0 ? ' · 🖨 ' + s.printAttempts + ' print' : '';
+
+          // Interaction log for this session
+          let interactionHtml = '';
+          if (s.interactions && s.interactions.length) {
+            const sessionStart = dt ? dt.getTime() / 1000 : null;
+            const rows = s.interactions.map(ix => {
+              const relSec = sessionStart ? Math.round(ix.t - sessionStart) : null;
+              const relStr = relSec !== null ? (relSec < 60 ? relSec + 's' : Math.floor(relSec / 60) + 'm ' + (relSec % 60) + 's') : '';
+              if (ix.type === 'package') {
+                return '<div style="padding:2px 0;font-size:11px;color:#8899aa;">📦 Selected <strong style="color:#e0e6ed;">' + escapeHtml(ix.name) + '</strong>' + (relStr ? ' <span style="color:#5a6a7a;">+' + relStr + '</span>' : '') + '</div>';
+              } else {
+                const action = ix.selected ? '✅ Added' : '✖ Removed';
+                const col = ix.selected ? '#4caf50' : '#e05252';
+                return '<div style="padding:2px 0;font-size:11px;color:#8899aa;"><span style="color:' + col + ';">' + action + '</span> <strong style="color:#e0e6ed;">' + escapeHtml(ix.name) + '</strong>' + (relStr ? ' <span style="color:#5a6a7a;">+' + relStr + '</span>' : '') + '</div>';
+              }
+            }).join('');
+            interactionHtml = '<div style="margin-top:6px;padding:6px 8px;background:#0a1520;border-radius:6px;">' + rows + '</div>';
+          }
+
+          return '<div style="padding:6px 0;border-bottom:1px solid #1a2a3a;">'
+            + '<div style="display:flex;gap:8px;align-items:center;font-size:12px;color:#8899aa;">'
+            + '<span>' + dateStr + '</span>'
+            + '<span>' + devIcon + ' ' + (s.device || '') + ' ' + (s.browser || '') + locStr + printStr + '</span>'
+            + '<span style="margin-left:auto;">' + dur + ' · ' + Math.round(s.scrollDepth || 0) + '%</span>'
+            + '</div>'
+            + interactionHtml
+            + '</div>';
         }).join('');
 
         const timeFmt = tvt >= 60 ? Math.floor(tvt / 60) + 'm ' + Math.round(tvt % 60) + 's' : Math.round(tvt) + 's';
         return '<div id="analyticsPanel" style="background:#0f1a24;border:1px solid #2a3a4a;border-radius:12px;padding:16px 20px;margin-bottom:20px;">'
           + '<div id="analyticsToggle" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">'
           + '<div style="display:flex;align-items:center;gap:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:' + esColor + ';color:#fff;font-size:14px;font-weight:700;">' + es + '</span><span style="font-size:14px;font-weight:600;color:#e0e6ed;">Engagement Analytics</span></div>'
-          + '<div style="display:flex;gap:16px;font-size:12px;color:#8899aa;"><span>👁 ' + vc + ' views</span><span>⏱ ' + timeFmt + '</span><span>📜 ' + msd + '%</span>' + (totalCta > 0 ? '<span>🖱 ' + totalCta + ' CTA</span>' : '') + '<span id="analyticsArrow" style="color:#5a6a7a;">▼</span></div>'
+          + '<div style="display:flex;gap:16px;font-size:12px;color:#8899aa;"><span>👁 ' + vc + ' views</span><span>⏱ ' + timeFmt + '</span><span>📜 ' + msd + '%</span>' + (totalCta > 0 ? '<span>🖱 ' + totalCta + ' CTA</span>' : '') + (totalPrints > 0 ? '<span>🖨 ' + totalPrints + ' print</span>' : '') + '<span id="analyticsArrow" style="color:#5a6a7a;">▼</span></div>'
           + '</div>'
           + '<div id="analyticsBody" style="display:none;margin-top:16px;">'
           + (sectionBars ? '<div style="margin-bottom:16px;"><div style="font-size:11px;color:#5a6a7a;text-transform:uppercase;margin-bottom:8px;font-weight:600;">Time per Section</div>' + sectionBars + '</div>' : '')
