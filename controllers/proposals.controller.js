@@ -2155,7 +2155,7 @@ exports.listProposals = async (req, res) => {
       if (!d) return '–';
       const dt = new Date(d);
       if (isNaN(dt)) return '–';
-      return dt.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
+      return dt.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', timeZone: 'Australia/Perth' });
     };
     // Helper: relative time
     const timeAgo = (d) => {
@@ -3075,7 +3075,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         // Session history
         const sessionRows = sessions.slice().reverse().slice(0, 10).map(s => {
           const dt = s.startedAt ? new Date(s.startedAt) : null;
-          const dateStr = dt ? dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ', ' + dt.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }) : '–';
+          const dateStr = dt ? dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Perth' }) + ', ' + dt.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) : '–';
           const devIcon = (s.device === 'iPhone' || s.device === 'iPad' || s.device === 'Android') ? '📱' : '💻';
           const dur = s.activeTime >= 60 ? Math.floor(s.activeTime / 60) + 'm ' + Math.round(s.activeTime % 60) + 's' : Math.round(s.activeTime || 0) + 's';
           return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1a2a3a;font-size:12px;color:#8899aa;"><span>' + dateStr + '</span><span>' + devIcon + ' ' + (s.device || '') + ' ' + (s.browser || '') + '</span><span style="margin-left:auto;">' + dur + ' · ' + Math.round(s.scrollDepth || 0) + '%</span></div>';
