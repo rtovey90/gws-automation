@@ -2959,6 +2959,33 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       ],
       clarifications: [...commonClarifications, ...cctvOnlyClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
     },
+    supply: {
+      scope: [
+        'Procure Parts & Materials from Local Suppliers',
+        'Programme & Configure System',
+        'Quality Check & Commission',
+        'Package Equipment Ready for Collection or Delivery',
+      ],
+      deliverables: [
+        { qty: '', description: '' },
+      ],
+      packages: [
+        { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
+        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
+      ],
+      upgrades: [],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '57', wasPrice: '', monthly: true },
+      ],
+      clarifications: [
+        'Only items expressly listed above are included in this quotation. Any additional parts or works are chargeable at the applicable rate.',
+        'Delivery not included — available at additional cost. Please enquire.',
+        'Installation not included in the Supply + Programming tier — available as an upgrade above.',
+        'Equipment remains the property of Great White Security until payment is received in full.',
+        'Quotation valid for 30 days.',
+      ],
+    },
   };
   const defaultTemplate = jobTypeTemplates.cctv;
 
@@ -3632,6 +3659,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     let currentStep = 1;
     let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
     window.JOB_TYPE_TEMPLATES = ${JSON.stringify(jobTypeTemplates)};
+    var IS_NEW_PROPOSAL = ${!isEdit && !isClone};
 
     function addOtoItem(type) {
       const list = document.getElementById('oto-' + type + '-list');
@@ -3684,6 +3712,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       if (val === 'Supply') {
         btnS.style.background = '#78e4ff'; btnS.style.color = '#0a0e27'; btnS.style.borderColor = '#78e4ff';
         btnI.style.background = '#1a2236'; btnI.style.color = '#8a9ab5'; btnI.style.borderColor = '#3a4a5c';
+        if (IS_NEW_PROPOSAL) setJobType('supply');
       } else {
         btnI.style.background = '#78e4ff'; btnI.style.color = '#0a0e27'; btnI.style.borderColor = '#78e4ff';
         btnS.style.background = '#1a2236'; btnS.style.color = '#8a9ab5'; btnS.style.borderColor = '#3a4a5c';
