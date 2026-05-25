@@ -2067,7 +2067,12 @@ exports.showOTOThankYou = async (req, res) => {
     <div class="steps">
       <h3>What Happens Next</h3>
       <ol>
-        ${isSupplyTY ? `
+        ${isSupplyTY && selectedPkgTY.includes('install') ? `
+        <li>We source and programme your equipment</li>
+        <li>A technician will contact you to schedule installation</li>
+        <li>Installation day — we handle everything</li>
+        <li>We set up your phone app &amp; give you a full demonstration</li>
+        ` : isSupplyTY ? `
         <li>${selectedPkgTY.includes('program') ? 'We source and programme your equipment' : 'We process and prepare your equipment order'}</li>
         <li>We'll contact you to arrange collection or delivery</li>
         <li>Delivery charges apply separately if applicable</li>
@@ -2954,19 +2959,89 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       ],
       clarifications: [...commonClarifications, ...cctvOnlyClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
     },
-    supply: {
+    'supply-cctv': {
       scope: [
-        'Procure Parts & Materials from Local Suppliers',
-        'Programme & Configure System',
-        'Quality Check & Commission',
+        'Procure CCTV Parts & Materials from Local Suppliers',
+        'Programme & Configure Cameras & NVR',
+        'Quality Check & Commission System',
         'Package Equipment Ready for Collection or Delivery',
       ],
       deliverables: [
-        { qty: '', description: '' },
+        { qty: '4', description: 'Dahua Wizsense Turret Cameras' },
+        { qty: '4', description: 'Dahua Camera Mounting Brackets' },
+        { qty: '1', description: 'Dahua 8 Channel NVR (Network Video Recorder) & Hard Drive \u2013 4 TB' },
       ],
       packages: [
         { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
         { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
+        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
+      ],
+      upgrades: [],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '57', wasPrice: '', monthly: true },
+      ],
+      clarifications: [
+        'Only items expressly listed above are included in this quotation. Any additional parts or works are chargeable at the applicable rate.',
+        'Delivery not included — available at additional cost. Please enquire.',
+        'Programming and installation not included in Supply Only — available as upgrades above.',
+        'Equipment remains the property of Great White Security until payment is received in full.',
+        'Quotation valid for 30 days.',
+      ],
+    },
+    'supply-alarm': {
+      scope: [
+        'Procure Alarm Parts & Materials from Local Suppliers',
+        'Programme & Configure Alarm System',
+        'Quality Check & Commission System',
+        'Package Equipment Ready for Collection or Delivery',
+      ],
+      deliverables: [
+        { qty: '1', description: 'Ajax Hub (with Battery Backup)' },
+        { qty: '3', description: 'Ajax Pet Friendly Motion Detectors' },
+        { qty: '1', description: 'Ajax External Siren/Strobe' },
+        { qty: '1', description: 'Ajax Internal Siren' },
+        { qty: '1', description: 'Ajax Sim Card' },
+      ],
+      packages: [
+        { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
+        { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
+        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
+      ],
+      upgrades: [],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '27', wasPrice: '', monthly: true },
+      ],
+      clarifications: [
+        'Only items expressly listed above are included in this quotation. Any additional parts or works are chargeable at the applicable rate.',
+        'Delivery not included — available at additional cost. Please enquire.',
+        'Programming and installation not included in Supply Only — available as upgrades above.',
+        'Equipment remains the property of Great White Security until payment is received in full.',
+        'Quotation valid for 30 days.',
+      ],
+    },
+    'supply-combined': {
+      scope: [
+        'Procure CCTV & Alarm Parts & Materials from Local Suppliers',
+        'Programme & Configure Cameras, NVR & Alarm System',
+        'Quality Check & Commission System',
+        'Package Equipment Ready for Collection or Delivery',
+      ],
+      deliverables: [
+        { qty: '4', description: 'Dahua Wizsense Turret Cameras' },
+        { qty: '4', description: 'Dahua Camera Mounting Brackets' },
+        { qty: '1', description: 'Dahua 8 Channel NVR (Network Video Recorder) & Hard Drive \u2013 4 TB' },
+        { qty: '1', description: 'Ajax Hub (with Battery Backup)' },
+        { qty: '3', description: 'Ajax Pet Friendly Motion Detectors' },
+        { qty: '1', description: 'Ajax External Siren/Strobe' },
+        { qty: '1', description: 'Ajax Internal Siren' },
+        { qty: '1', description: 'Ajax Sim Card' },
+      ],
+      packages: [
+        { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
+        { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
+        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
       ],
       upgrades: [],
       otoOneTime: [],
@@ -3704,21 +3779,21 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       document.getElementById('proposalTypeInput').value = val;
       const btnI = document.getElementById('btn-pt-install');
       const btnS = document.getElementById('btn-pt-supply');
-      const jtSection = document.getElementById('job-type-section');
       if (val === 'Supply') {
         btnS.style.background = '#78e4ff'; btnS.style.color = '#0a0e27'; btnS.style.borderColor = '#78e4ff';
         btnI.style.background = '#1a2236'; btnI.style.color = '#8a9ab5'; btnI.style.borderColor = '#3a4a5c';
-        if (jtSection) jtSection.style.display = 'none';
-        if (IS_NEW_PROPOSAL) setJobType('supply');
+        if (IS_NEW_PROPOSAL) setJobType('cctv'); // loads supply-cctv via isSupplyMode check
       } else {
         btnI.style.background = '#78e4ff'; btnI.style.color = '#0a0e27'; btnI.style.borderColor = '#78e4ff';
         btnS.style.background = '#1a2236'; btnS.style.color = '#8a9ab5'; btnS.style.borderColor = '#3a4a5c';
-        if (jtSection) jtSection.style.display = '';
+        if (IS_NEW_PROPOSAL) setJobType('cctv');
       }
     }
 
     function setJobType(type) {
-      const tpl = window.JOB_TYPE_TEMPLATES[type];
+      const isSupplyMode = document.getElementById('proposalTypeInput') && document.getElementById('proposalTypeInput').value === 'Supply';
+      const key = isSupplyMode ? ('supply-' + type) : type;
+      const tpl = window.JOB_TYPE_TEMPLATES[key] || window.JOB_TYPE_TEMPLATES[type];
       if (!tpl) return;
 
       // Update button highlights
