@@ -331,12 +331,12 @@ exports.showProposal = async (req, res) => {
     <p>With our proposed system/s, you can enjoy peace of mind knowing your premises are protected 24/7 whether on-site or after hours.</p>
     <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
     <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
-    <p>Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).</p>`
+    <p id="supply-letter-cta">Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).</p>`
           : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
     <p>With our proposed system/s, you can enjoy peace of mind knowing you're protected 24/7 while home or away.</p>
     <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
     <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
-    <p>Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).</p>`
+    <p id="supply-letter-cta">Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).</p>`
         : isCommercial
           ? `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your staff, visitors and assets.</p>
     <p>With our proposed system/s, you can enjoy peace of mind knowing your premises are protected 24/7 whether on-site or after hours.</p>
@@ -831,7 +831,7 @@ ${sitePhotoPages}
       <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
       ${isSupply
         ? `<div class="cta-step"><div class="cta-step-num">2</div><h4>We Prepare</h4><p>We source and programme your equipment ready to go</p></div>
-      <div class="cta-step"><div class="cta-step-num">3</div><h4>Collect or Deliver</h4><p>Pick up from us or we arrange delivery (charges apply)</p></div>`
+      <div class="cta-step"><div class="cta-step-num">3</div><h4 id="cta-step3-title">Collect or Deliver</h4><p id="cta-step3-body">Pick up from us or we arrange delivery (charges apply)</p></div>`
         : `<div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
       <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>`
       }
@@ -1057,7 +1057,30 @@ ${sitePhotoPages}
     }
     bundleSavingTotal += sign * saving;
     updateTotalDisplay();
+    updateSupplyCtaSteps();
   }
+
+  function updateSupplyCtaSteps() {
+    var titleEl = document.getElementById('cta-step3-title');
+    if (!titleEl) return; // not a supply proposal
+    var hasInstall = false;
+    document.querySelectorAll('.upgrade-card.selected').forEach(function(card) {
+      var name = card.querySelector('h4') ? card.querySelector('h4').textContent.toLowerCase() : '';
+      if (name.indexOf('install') !== -1) hasInstall = true;
+    });
+    var bodyEl = document.getElementById('cta-step3-body');
+    var letterEl = document.getElementById('supply-letter-cta');
+    if (hasInstall) {
+      titleEl.textContent = 'We Install';
+      if (bodyEl) bodyEl.textContent = 'Licensed technician installs, tests & walks you through everything';
+      if (letterEl) letterEl.textContent = 'Alternatively, please accept the proposal below and we will prepare your equipment and schedule one of our licensed technicians for a prompt installation.';
+    } else {
+      titleEl.textContent = 'Collect or Deliver';
+      if (bodyEl) bodyEl.textContent = 'Pick up from us or we arrange delivery (charges apply)';
+      if (letterEl) letterEl.textContent = 'Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).';
+    }
+  }
+  updateSupplyCtaSteps();
 
   function acceptAndPay() {
     if (IS_CONFIRMED || IS_TECH_VIEW) return;
