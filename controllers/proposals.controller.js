@@ -3795,15 +3795,20 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     function setProposalType(val) {
       document.getElementById('proposalTypeInput').value = val;
-      const active = 'background:#78e4ff;color:#0a0e27;border-color:#78e4ff;';
-      const inactive = 'background:#1a2236;color:#8a9ab5;border-color:#3a4a5c;';
       ['install','supply-only','supply-prog'].forEach(function(id) {
         const btn = document.getElementById('btn-pt-' + id);
-        if (btn) btn.style.cssText = btn.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+;/, inactive);
+        if (!btn) return;
+        btn.style.background = '#1a2236';
+        btn.style.color = '#8a9ab5';
+        btn.style.borderColor = '#3a4a5c';
       });
       const activeId = val === 'Supply Only' ? 'btn-pt-supply-only' : val === 'Supply + Programming' ? 'btn-pt-supply-prog' : 'btn-pt-install';
       const activeBtn = document.getElementById(activeId);
-      if (activeBtn) activeBtn.style.cssText = activeBtn.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+;/, active);
+      if (activeBtn) {
+        activeBtn.style.background = '#78e4ff';
+        activeBtn.style.color = '#0a0e27';
+        activeBtn.style.borderColor = '#78e4ff';
+      }
       if (IS_NEW_PROPOSAL) setJobType('cctv');
     }
 
