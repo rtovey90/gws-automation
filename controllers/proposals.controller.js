@@ -2067,13 +2067,8 @@ exports.showOTOThankYou = async (req, res) => {
     <div class="steps">
       <h3>What Happens Next</h3>
       <ol>
-        ${isSupplyTY && tyHasInstall ? `
-        <li>We process and programme your equipment</li>
-        <li>A technician will contact you to schedule installation</li>
-        <li>Installation day — we handle everything</li>
-        <li>We set up your phone app &amp; give you a full demonstration</li>
-        ` : isSupplyTY ? `
-        <li>We process and prepare your equipment order</li>
+        ${isSupplyTY ? `
+        <li>${selectedPkgTY.includes('program') ? 'We source and programme your equipment' : 'We process and prepare your equipment order'}</li>
         <li>We'll contact you to arrange collection or delivery</li>
         <li>Delivery charges apply separately if applicable</li>
         <li>Contact us when you're ready to book installation</li>
@@ -2970,8 +2965,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         { qty: '', description: '' },
       ],
       packages: [
+        { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
         { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
-        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
       ],
       upgrades: [],
       otoOneTime: [],
@@ -2981,7 +2976,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       clarifications: [
         'Only items expressly listed above are included in this quotation. Any additional parts or works are chargeable at the applicable rate.',
         'Delivery not included — available at additional cost. Please enquire.',
-        'Installation not included in the Supply + Programming tier — available as an upgrade above.',
+        'Programming and installation not included in Supply Only — available as upgrades above.',
         'Equipment remains the property of Great White Security until payment is received in full.',
         'Quotation valid for 30 days.',
       ],
