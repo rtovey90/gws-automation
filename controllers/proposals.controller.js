@@ -167,7 +167,8 @@ exports.showProposal = async (req, res) => {
     const siteAddress = f['Site Address'] || '';
     const salutation = f['Salutation'] || '';
     const propertyType = f['Property Type'] || 'residential';
-    const isSupply = (f['Proposal Type'] || '').toLowerCase() === 'supply';
+    const proposalTypeVal = f['Proposal Type'] || '';
+    const isSupply = proposalTypeVal === 'Supply Only' || proposalTypeVal === 'Supply + Programming';
     const letterNote = f['Letter Note'] || '';
     const scopeItems = safeJsonParse(f['Scope Items']);
     const deliverables = safeJsonParse(f['Deliverables']);
@@ -2000,9 +2001,10 @@ exports.showOTOThankYou = async (req, res) => {
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
     const brand = getBrandConfig(proposal.fields['Brand']);
     const firstName = proposal ? getFirstNames(proposal.fields['Client Name'] || '') : 'there';
-    const isSupplyTY = (proposal?.fields['Proposal Type'] || '').toLowerCase() === 'supply';
-    const selectedPkgTY = (proposal?.fields['Selected Package'] || '').toLowerCase();
-    const tyHasInstall = selectedPkgTY.includes('install');
+    const proposalTypeTY = proposal?.fields['Proposal Type'] || '';
+    const isSupplyOnlyTY = proposalTypeTY === 'Supply Only';
+    const isSupplyProgTY = proposalTypeTY === 'Supply + Programming';
+    const isSupplyTY = isSupplyOnlyTY || isSupplyProgTY;
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -2067,16 +2069,16 @@ exports.showOTOThankYou = async (req, res) => {
     <div class="steps">
       <h3>What Happens Next</h3>
       <ol>
-        ${isSupplyTY && selectedPkgTY.includes('install') ? `
+        ${isSupplyProgTY ? `
         <li>We source and programme your equipment</li>
-        <li>A technician will contact you to schedule installation</li>
-        <li>Installation day — we handle everything</li>
-        <li>We set up your phone app &amp; give you a full demonstration</li>
-        ` : isSupplyTY ? `
-        <li>${selectedPkgTY.includes('program') ? 'We source and programme your equipment' : 'We process and prepare your equipment order'}</li>
         <li>We'll contact you to arrange collection or delivery</li>
         <li>Delivery charges apply separately if applicable</li>
         <li>Contact us when you're ready to book installation</li>
+        ` : isSupplyOnlyTY ? `
+        <li>We process and prepare your equipment order</li>
+        <li>We'll contact you to arrange collection or delivery</li>
+        <li>Delivery charges apply separately if applicable</li>
+        <li>Contact us when you're ready to book programming or installation</li>
         ` : `
         <li>We'll order your equipment from our suppliers</li>
         <li>A licensed technician will contact you to schedule installation</li>
@@ -2972,9 +2974,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         { qty: '1', description: 'Dahua 8 Channel NVR (Network Video Recorder) & Hard Drive \u2013 4 TB' },
       ],
       packages: [
-        { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
-        { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
-        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
+        { name: 'CCTV Supply Package', description: '', price: '' },
       ],
       upgrades: [],
       otoOneTime: [],
@@ -3004,9 +3004,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         { qty: '1', description: 'Ajax Sim Card' },
       ],
       packages: [
-        { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
-        { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
-        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
+        { name: 'Alarm Supply Package', description: '', price: '' },
       ],
       upgrades: [],
       otoOneTime: [],
@@ -3016,7 +3014,6 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       clarifications: [
         'Only items expressly listed above are included in this quotation. Any additional parts or works are chargeable at the applicable rate.',
         'Delivery not included — available at additional cost. Please enquire.',
-        'Programming and installation not included in Supply Only — available as upgrades above.',
         'Equipment remains the property of Great White Security until payment is received in full.',
         'Quotation valid for 30 days.',
       ],
@@ -3039,9 +3036,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         { qty: '1', description: 'Ajax Sim Card' },
       ],
       packages: [
-        { name: 'Supply Only', description: 'Equipment sourced and ready for collection or delivery', price: '' },
-        { name: 'Supply + Programming', description: 'Equipment sourced, programmed and ready to go', price: '' },
-        { name: 'Supply + Programming + Installation', description: 'Includes professional on-site installation', price: '' },
+        { name: 'CCTV & Alarm Supply Package', description: '', price: '' },
       ],
       upgrades: [],
       otoOneTime: [],
@@ -3051,7 +3046,6 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       clarifications: [
         'Only items expressly listed above are included in this quotation. Any additional parts or works are chargeable at the applicable rate.',
         'Delivery not included — available at additional cost. Please enquire.',
-        'Programming and installation not included in Supply Only — available as upgrades above.',
         'Equipment remains the property of Great White Security until payment is received in full.',
         'Quotation valid for 30 days.',
       ],
@@ -3375,8 +3369,9 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
               <label>Proposal Type</label>
               <input type="hidden" name="proposalType" id="proposalTypeInput" value="${escapeHtml(proposalType)}">
               <div style="display:flex;gap:0;margin-top:4px;">
-                <button type="button" id="btn-pt-install" onclick="setProposalType('')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType !== 'Supply' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Installation</button>
-                <button type="button" id="btn-pt-supply" onclick="setProposalType('Supply')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === 'Supply' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Supply</button>
+                <button type="button" id="btn-pt-install" onclick="setProposalType('')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === '' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Installation</button>
+                <button type="button" id="btn-pt-supply-only" onclick="setProposalType('Supply Only')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === 'Supply Only' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Supply Only</button>
+                <button type="button" id="btn-pt-supply-prog" onclick="setProposalType('Supply + Programming')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === 'Supply + Programming' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Supply + Programming</button>
               </div>
             </div>
             ${!isEdit && !isClone ? `<div class="fg" id="job-type-section">
@@ -3777,21 +3772,21 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
     function setProposalType(val) {
       document.getElementById('proposalTypeInput').value = val;
-      const btnI = document.getElementById('btn-pt-install');
-      const btnS = document.getElementById('btn-pt-supply');
-      if (val === 'Supply') {
-        btnS.style.background = '#78e4ff'; btnS.style.color = '#0a0e27'; btnS.style.borderColor = '#78e4ff';
-        btnI.style.background = '#1a2236'; btnI.style.color = '#8a9ab5'; btnI.style.borderColor = '#3a4a5c';
-        if (IS_NEW_PROPOSAL) setJobType('cctv'); // loads supply-cctv via isSupplyMode check
-      } else {
-        btnI.style.background = '#78e4ff'; btnI.style.color = '#0a0e27'; btnI.style.borderColor = '#78e4ff';
-        btnS.style.background = '#1a2236'; btnS.style.color = '#8a9ab5'; btnS.style.borderColor = '#3a4a5c';
-        if (IS_NEW_PROPOSAL) setJobType('cctv');
-      }
+      const active = 'background:#78e4ff;color:#0a0e27;border-color:#78e4ff;';
+      const inactive = 'background:#1a2236;color:#8a9ab5;border-color:#3a4a5c;';
+      ['install','supply-only','supply-prog'].forEach(function(id) {
+        const btn = document.getElementById('btn-pt-' + id);
+        if (btn) btn.style.cssText = btn.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+;/, inactive);
+      });
+      const activeId = val === 'Supply Only' ? 'btn-pt-supply-only' : val === 'Supply + Programming' ? 'btn-pt-supply-prog' : 'btn-pt-install';
+      const activeBtn = document.getElementById(activeId);
+      if (activeBtn) activeBtn.style.cssText = activeBtn.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+;/, active);
+      if (IS_NEW_PROPOSAL) setJobType('cctv');
     }
 
     function setJobType(type) {
-      const isSupplyMode = document.getElementById('proposalTypeInput') && document.getElementById('proposalTypeInput').value === 'Supply';
+      const ptVal = document.getElementById('proposalTypeInput') ? document.getElementById('proposalTypeInput').value : '';
+      const isSupplyMode = ptVal === 'Supply Only' || ptVal === 'Supply + Programming';
       const key = isSupplyMode ? ('supply-' + type) : type;
       const tpl = window.JOB_TYPE_TEMPLATES[key] || window.JOB_TYPE_TEMPLATES[type];
       if (!tpl) return;
