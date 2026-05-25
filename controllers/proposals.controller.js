@@ -3304,7 +3304,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
                 <button type="button" id="btn-pt-supply" onclick="setProposalType('Supply')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === 'Supply' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Supply</button>
               </div>
             </div>
-            ${!isEdit && !isClone ? `<div class="fg">
+            ${!isEdit && !isClone ? `<div class="fg" id="job-type-section">
               <label>Job Type</label>
               <div style="display:flex;gap:0;margin-top:4px;">
                 <button type="button" id="btn-jt-cctv" onclick="setJobType('cctv')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#78e4ff;color:#0a0e27;border-color:#78e4ff;">CCTV</button>
@@ -3704,13 +3704,16 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       document.getElementById('proposalTypeInput').value = val;
       const btnI = document.getElementById('btn-pt-install');
       const btnS = document.getElementById('btn-pt-supply');
+      const jtSection = document.getElementById('job-type-section');
       if (val === 'Supply') {
         btnS.style.background = '#78e4ff'; btnS.style.color = '#0a0e27'; btnS.style.borderColor = '#78e4ff';
         btnI.style.background = '#1a2236'; btnI.style.color = '#8a9ab5'; btnI.style.borderColor = '#3a4a5c';
+        if (jtSection) jtSection.style.display = 'none';
         if (IS_NEW_PROPOSAL) setJobType('supply');
       } else {
         btnI.style.background = '#78e4ff'; btnI.style.color = '#0a0e27'; btnI.style.borderColor = '#78e4ff';
         btnS.style.background = '#1a2236'; btnS.style.color = '#8a9ab5'; btnS.style.borderColor = '#3a4a5c';
+        if (jtSection) jtSection.style.display = '';
       }
     }
 
