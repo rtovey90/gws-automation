@@ -167,6 +167,7 @@ exports.showProposal = async (req, res) => {
     const siteAddress = f['Site Address'] || '';
     const salutation = f['Salutation'] || '';
     const propertyType = f['Property Type'] || 'residential';
+    const isSupply = (f['Proposal Type'] || '').toLowerCase() === 'supply';
     const letterNote = f['Letter Note'] || '';
     const scopeItems = safeJsonParse(f['Scope Items']);
     const deliverables = safeJsonParse(f['Deliverables']);
@@ -323,13 +324,25 @@ exports.showProposal = async (req, res) => {
     const isCommercial = propertyType === 'commercial';
     const letterContent = letterNote
       ? `<p>${escapeHtml(letterNote)}</p>`
-      : isCommercial
-        ? `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your staff, visitors and assets.</p>
+      : isSupply
+        ? isCommercial
+          ? `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your staff, visitors and assets.</p>
+    <p>With our proposed system/s, you can enjoy peace of mind knowing your premises are protected 24/7 whether on-site or after hours.</p>
+    <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
+    <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
+    <p>Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).</p>`
+          : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
+    <p>With our proposed system/s, you can enjoy peace of mind knowing you're protected 24/7 while home or away.</p>
+    <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
+    <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
+    <p>Alternatively, please accept the proposal below and we will prepare your equipment order, ready for collection or delivery (delivery charges apply separately).</p>`
+        : isCommercial
+          ? `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your staff, visitors and assets.</p>
     <p>With our proposed system/s, you can enjoy peace of mind knowing your premises are protected 24/7 whether on-site or after hours.</p>
     <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
     <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
     <p>Alternatively, please accept the proposal below, and we will order your equipment and schedule one of our professional licensed technicians for a prompt attendance!</p>`
-        : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
+          : `<p>As per our conversation and understanding of your requirements, we're happy to present you with a modern &amp; reliable security &amp; safety solution to protect your home and family.</p>
     <p>With our proposed system/s, you can enjoy peace of mind knowing you're protected 24/7 while home or away.</p>
     <p>I have provided this proposal based on my current understanding of your requirements along with typical options.</p>
     <p>If you require any amendments to the scope, please let me know and I will work with you to make sure you get the solution that works for you and within your budget.</p>
@@ -815,8 +828,12 @@ ${sitePhotoPages}
   <div class="cta-top">
     <div class="cta-steps">
       <div class="cta-step"><div class="cta-step-num">1</div><h4>Accept &amp; Pay</h4><p>Complete payment securely via Stripe</p></div>
-      <div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
-      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>
+      ${isSupply
+        ? `<div class="cta-step"><div class="cta-step-num">2</div><h4>We Prepare</h4><p>We source and programme your equipment ready to go</p></div>
+      <div class="cta-step"><div class="cta-step-num">3</div><h4>Collect or Deliver</h4><p>Pick up from us or we arrange delivery (charges apply)</p></div>`
+        : `<div class="cta-step"><div class="cta-step-num">2</div><h4>We Order</h4><p>Equipment is sourced from trusted local suppliers</p></div>
+      <div class="cta-step"><div class="cta-step-num">3</div><h4>We Install</h4><p>Licensed technician installs, tests &amp; walks you through everything</p></div>`
+      }
     </div>
   </div>
   `}
@@ -1983,6 +2000,9 @@ exports.showOTOThankYou = async (req, res) => {
     const proposal = await airtableService.getProposalByProjectNumber(projectNumber);
     const brand = getBrandConfig(proposal.fields['Brand']);
     const firstName = proposal ? getFirstNames(proposal.fields['Client Name'] || '') : 'there';
+    const isSupplyTY = (proposal?.fields['Proposal Type'] || '').toLowerCase() === 'supply';
+    const selectedPkgTY = (proposal?.fields['Selected Package'] || '').toLowerCase();
+    const tyHasInstall = selectedPkgTY.includes('install');
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -2047,10 +2067,22 @@ exports.showOTOThankYou = async (req, res) => {
     <div class="steps">
       <h3>What Happens Next</h3>
       <ol>
+        ${isSupplyTY && tyHasInstall ? `
+        <li>We process and programme your equipment</li>
+        <li>A technician will contact you to schedule installation</li>
+        <li>Installation day — we handle everything</li>
+        <li>We set up your phone app &amp; give you a full demonstration</li>
+        ` : isSupplyTY ? `
+        <li>We process and prepare your equipment order</li>
+        <li>We'll contact you to arrange collection or delivery</li>
+        <li>Delivery charges apply separately if applicable</li>
+        <li>Contact us when you're ready to book installation</li>
+        ` : `
         <li>We'll order your equipment from our suppliers</li>
         <li>A licensed technician will contact you to schedule installation</li>
         <li>Installation day — we handle everything</li>
         <li>Setup your phone app &amp; full demonstration</li>
+        `}
       </ol>
     </div>
 
@@ -2735,6 +2767,7 @@ function buildProposalFields(body) {
   if (body.discountValue !== undefined) fields['Discount Value'] = Number(body.discountValue) || 0;
   if (body.discountExpires !== undefined) fields['Discount Expires'] = body.discountExpires || null;
   if (body.coverImageUrl) fields['Cover Image URL'] = body.coverImageUrl;
+  if (body.proposalType !== undefined) fields['Proposal Type'] = body.proposalType || '';
   if (body.status) fields['Status'] = body.status;
 
   // JSON fields
@@ -2949,6 +2982,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const discountValue = f['Discount Value'] || (isClone ? (cf['Discount Value'] || '') : '');
   const discountExpires = f['Discount Expires'] || (isClone ? (cf['Discount Expires'] || '') : '');
   const coverImageUrl = f['Cover Image URL'] || (isClone ? (cf['Cover Image URL'] || '') : '');
+  const proposalType = f['Proposal Type'] || (isClone ? (cf['Proposal Type'] || '') : '');
 
   // For clone mode, use source proposal's JSON fields as the data source
   const srcFields = isClone ? cf : f;
@@ -3238,6 +3272,14 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
               <div style="display:flex;gap:0;margin-top:4px;">
                 <button type="button" id="btn-residential" onclick="setPropertyType('residential')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${propertyType === 'residential' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Residential</button>
                 <button type="button" id="btn-commercial" onclick="setPropertyType('commercial')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${propertyType === 'commercial' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Commercial</button>
+              </div>
+            </div>
+            <div class="fg">
+              <label>Proposal Type</label>
+              <input type="hidden" name="proposalType" id="proposalTypeInput" value="${escapeHtml(proposalType)}">
+              <div style="display:flex;gap:0;margin-top:4px;">
+                <button type="button" id="btn-pt-install" onclick="setProposalType('')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType !== 'Supply' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Installation</button>
+                <button type="button" id="btn-pt-supply" onclick="setProposalType('Supply')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === 'Supply' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Supply</button>
               </div>
             </div>
             ${!isEdit && !isClone ? `<div class="fg">
@@ -3632,6 +3674,19 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       } else {
         btnR.style.background = '#78e4ff'; btnR.style.color = '#0a0e27'; btnR.style.borderColor = '#78e4ff';
         btnC.style.background = '#1a2236'; btnC.style.color = '#8a9ab5'; btnC.style.borderColor = '#3a4a5c';
+      }
+    }
+
+    function setProposalType(val) {
+      document.getElementById('proposalTypeInput').value = val;
+      const btnI = document.getElementById('btn-pt-install');
+      const btnS = document.getElementById('btn-pt-supply');
+      if (val === 'Supply') {
+        btnS.style.background = '#78e4ff'; btnS.style.color = '#0a0e27'; btnS.style.borderColor = '#78e4ff';
+        btnI.style.background = '#1a2236'; btnI.style.color = '#8a9ab5'; btnI.style.borderColor = '#3a4a5c';
+      } else {
+        btnI.style.background = '#78e4ff'; btnI.style.color = '#0a0e27'; btnI.style.borderColor = '#78e4ff';
+        btnS.style.background = '#1a2236'; btnS.style.color = '#8a9ab5'; btnS.style.borderColor = '#3a4a5c';
       }
     }
 
