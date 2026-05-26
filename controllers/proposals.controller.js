@@ -169,6 +169,7 @@ exports.showProposal = async (req, res) => {
     const propertyType = f['Property Type'] || 'residential';
     const proposalTypeVal = f['Proposal Type'] || '';
     const isSupply = proposalTypeVal === 'Supply Only' || proposalTypeVal === 'Supply + Programming';
+    const installOptionPrice = Number(f['Install Option Price']) || 0;
     const letterNote = f['Letter Note'] || '';
     const scopeItems = safeJsonParse(f['Scope Items']);
     const deliverables = safeJsonParse(f['Deliverables']);
@@ -282,6 +283,23 @@ exports.showProposal = async (req, res) => {
         ${priceHtml}
       </div>`;
     }).join('');
+
+    // Install upgrade card for supply proposals
+    const installCardHtml = (() => {
+      if (!isSupply || !installOptionPrice || isTechView) return '';
+      const installSelected = isConfirmed && selectedOptionNames.includes('Professional Installation');
+      const classes = ['upgrade-card'];
+      if (isLocked && hasSelectionData && installSelected) classes.push('selected', 'confirmed');
+      if (isLocked && hasSelectionData && !installSelected) classes.push('not-chosen');
+      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${installOptionPrice}, true, false, 0)"`;
+      const priceHtml = `<div class="upgrade-price">+${formatCurrency(installOptionPrice)}</div>`;
+      return `
+      <div class="${classes.join(' ')}" ${onclick} data-price="${installOptionPrice}" data-discountable="true" data-monthly="false" data-bundle="0" data-install="true">
+        <div class="upgrade-check">&#10003;</div>
+        <div class="upgrade-info"><h4>Professional Installation</h4><p>Our licensed technician attends site, installs and tests everything, then walks you through your new system</p></div>
+        ${priceHtml}
+      </div>`;
+    })();
 
     // Build package selection cards if multiple packages exist
     const allPackages = [
@@ -862,12 +880,13 @@ ${sitePhotoPages}
     </div>
     `}
 
-    ${cameraOptions.length > 0 ? `
+    ${(cameraOptions.length > 0 || installCardHtml) ? `
     <div style="margin:22px 0 6px; padding-bottom:10px; border-bottom:2px solid var(--cyan-mid);">
-      <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">${isLocked ? 'Additional Options' : 'Extend Your Coverage'} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 ${isLocked ? 'Selected by customer' : 'Add additional options to your install'}</span></h3>
+      <h3 style="font-size:13px; font-weight:700; color:var(--navy); letter-spacing:0.5px;">${isLocked ? 'Additional Options' : 'Extend Your Coverage'} <span style="font-size:11px; font-weight:400; color:var(--gray-400); letter-spacing:0;">\u2014 ${isLocked ? 'Selected by customer' : 'Add additional options to your package'}</span></h3>
     </div>
     ${anyBundleSaving ? `<div class="bundle-banner"><span style="font-size:18px;">&#128161;</span><div><strong>Bundle &amp; Save</strong> &mdash; add extra systems to your install and unlock bundle savings on your total</div></div>` : ''}
     ${upgradeCardsHtml}
+    ${installCardHtml}
     ` : ''}
 
     ${isTechView ? '' : `
@@ -1065,8 +1084,7 @@ ${sitePhotoPages}
     if (!titleEl) return; // not a supply proposal
     var hasInstall = false;
     document.querySelectorAll('.upgrade-card.selected').forEach(function(card) {
-      var name = card.querySelector('h4') ? card.querySelector('h4').textContent.toLowerCase() : '';
-      if (name.indexOf('install') !== -1) hasInstall = true;
+      if (card.dataset.install === 'true') hasInstall = true;
     });
     var bodyEl = document.getElementById('cta-step3-body');
     var letterEl = document.getElementById('supply-letter-cta');
@@ -2793,6 +2811,7 @@ function buildProposalFields(body) {
   if (body.discountExpires !== undefined) fields['Discount Expires'] = body.discountExpires || null;
   if (body.coverImageUrl) fields['Cover Image URL'] = body.coverImageUrl;
   if (body.proposalType !== undefined) fields['Proposal Type'] = body.proposalType || '';
+  if (body.installOptionPrice !== undefined) fields['Install Option Price'] = Number(body.installOptionPrice) || 0;
   if (body.status) fields['Status'] = body.status;
 
   // JSON fields
@@ -3097,6 +3116,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const discountExpires = f['Discount Expires'] || (isClone ? (cf['Discount Expires'] || '') : '');
   const coverImageUrl = f['Cover Image URL'] || (isClone ? (cf['Cover Image URL'] || '') : '');
   const proposalType = f['Proposal Type'] || (isClone ? (cf['Proposal Type'] || '') : '');
+  const installOptionPrice = Number(f['Install Option Price']) || (isClone ? (Number(cf['Install Option Price']) || 0) : 0);
 
   // For clone mode, use source proposal's JSON fields as the data source
   const srcFields = isClone ? cf : f;
@@ -3450,6 +3470,16 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             <p class="card-hint">Add options the customer can add to their package.</p>
             <div id="camera-list">${cameraRowsHtml}</div>
             <button type="button" class="btn-add" onclick="addCameraRow()">+ Add Upgrade Option</button>
+          </div>
+          <div class="card" id="install-option-card" style="margin-top:16px;${proposalType ? '' : 'display:none;'}">
+            <h2 class="card-title">Installation Option <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(supply proposals only)</span></h2>
+            <p class="card-hint">When set, shows a "Professional Installation" upgrade the client can add on. Ticking it automatically updates the proposal steps.</p>
+            <div class="form-row">
+              <div class="fg" style="max-width:220px;">
+                <label>Installation Price ($) <span style="color:#5a6a7a;font-weight:400;">(leave blank to hide)</span></label>
+                <input type="number" name="installOptionPrice" id="installOptionPriceInput" value="${installOptionPrice || ''}" step="1" min="0" placeholder="e.g. 1200">
+              </div>
+            </div>
           </div>
           <div class="card" style="margin-top:16px;">
             <h2 class="card-title">Discount <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(optional \u2014 shown on customer proposal)</span></h2>
@@ -3809,6 +3839,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         activeBtn.style.color = '#0a0e27';
         activeBtn.style.borderColor = '#78e4ff';
       }
+      const installCard = document.getElementById('install-option-card');
+      if (installCard) installCard.style.display = val ? 'block' : 'none';
       if (IS_NEW_PROPOSAL) setJobType('cctv');
     }
 
