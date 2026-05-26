@@ -3417,14 +3417,14 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
                 <button type="button" id="btn-pt-supply-prog" onclick="setProposalType('Supply + Programming')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;${proposalType === 'Supply + Programming' ? "background:#78e4ff;color:#0a0e27;border-color:#78e4ff;" : "background:#1a2236;color:#8a9ab5;"}">Supply + Programming</button>
               </div>
             </div>
-            ${!isEdit && !isClone ? `<div class="fg" id="job-type-section">
+            <div class="fg" id="job-type-section">
               <label>Job Type</label>
               <div style="display:flex;gap:0;margin-top:4px;">
                 <button type="button" id="btn-jt-cctv" onclick="setJobType('cctv')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#78e4ff;color:#0a0e27;border-color:#78e4ff;">CCTV</button>
                 <button type="button" id="btn-jt-alarm" onclick="setJobType('alarm')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm</button>
                 <button type="button" id="btn-jt-combined" onclick="setJobType('combined')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm & CCTV</button>
               </div>
-            </div>` : ''}
+            </div>
             <div class="fg">
               <label>Custom Letter Note <span style="color:#5a6a7a;font-weight:400;">(leave blank for default)</span></label>
               <textarea name="letterNote" rows="3" placeholder="Optional: custom intro paragraph for this client">${escapeHtml(letterNote)}</textarea>
