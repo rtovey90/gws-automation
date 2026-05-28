@@ -898,9 +898,12 @@ exports.handleTwilioSMS = async (req, res) => {
       }
 
       // Save to engagement if we have photos and an engagement
+      // Re-fetch immediately before writing to avoid race condition when multiple
+      // MMS messages arrive simultaneously (e.g. iPhone splits 6 photos into 2 messages)
       if (engagement && cloudinaryAttachments.length > 0) {
         try {
-          const existingPhotos = engagement.fields.Photos || [];
+          const freshEngagement = await airtableService.getEngagement(engagement.id);
+          const existingPhotos = freshEngagement.fields.Photos || [];
           await airtableService.updateEngagement(engagement.id, {
             Photos: [...existingPhotos, ...cloudinaryAttachments],
           });
