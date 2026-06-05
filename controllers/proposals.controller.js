@@ -2727,6 +2727,10 @@ exports.sendProposal = async (req, res) => {
     const nameParts = clientName.split(' ');
     const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
     metaService.addToProposalAudience({ phone, firstName, lastName })
+      .then(() => airtableService.updateProposal(proposalId, {
+        'Added to Meta Audience': true,
+        'Meta Synced At': new Date().toISOString(),
+      }))
       .catch(err => console.error('[Meta] Failed to add to audience:', err.message));
 
     res.json({ success: true, shortUrl: proposalUrl });
