@@ -1,6 +1,7 @@
 const airtableService = require('../services/airtable.service');
 const stripeService = require('../services/stripe.service');
 const twilioService = require('../services/twilio.service');
+const metaService = require('../services/meta.service');
 const shortLinkService = require('../services/shortlink.service');
 const pushover = require('../services/pushover.service');
 const { wrapInLayout } = require('../utils/layout');
@@ -2721,6 +2722,12 @@ exports.sendProposal = async (req, res) => {
       // Log activity
       airtableService.logActivity(engagementIds[0], `Proposal #${projectNumber} sent${basePrice > 0 ? ' ($' + basePrice.toFixed(2) + ')' : ''}`);
     }
+
+    // Add to Meta retargeting audience (fire and forget)
+    const nameParts = clientName.split(' ');
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    metaService.addToProposalAudience({ phone, firstName, lastName })
+      .catch(err => console.error('[Meta] Failed to add to audience:', err.message));
 
     res.json({ success: true, shortUrl: proposalUrl });
   } catch (error) {
