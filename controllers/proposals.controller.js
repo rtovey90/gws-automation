@@ -2106,29 +2106,7 @@ exports.showOTOThankYou = async (req, res) => {
     <img src="${brand.logoPath}" alt="${escapeHtml(brand.companyName)}">
     <div class="check">&#10003;</div>
     <h1>You're All Set, ${escapeHtml(firstName)}!</h1>
-    <p>Your payment has been received and we're excited to get started on your security system.</p>
-
-    <div class="steps">
-      <h3>What Happens Next</h3>
-      <ol>
-        ${isSupplyProgTY ? `
-        <li>We source and programme your equipment</li>
-        <li>We'll contact you to arrange collection or delivery</li>
-        <li>Delivery charges apply separately if applicable</li>
-        <li>Contact us when you're ready to book installation</li>
-        ` : isSupplyOnlyTY ? `
-        <li>We process and prepare your equipment order</li>
-        <li>We'll contact you to arrange collection or delivery</li>
-        <li>Delivery charges apply separately if applicable</li>
-        <li>Contact us when you're ready to book programming or installation</li>
-        ` : `
-        <li>We'll order your equipment from our suppliers</li>
-        <li>A licensed technician will contact you to schedule installation</li>
-        <li>Installation day — we handle everything</li>
-        <li>Setup your phone app &amp; full demonstration</li>
-        `}
-      </ol>
-    </div>
+    <p>Your payment has been received — we'll be in touch soon to get things moving.</p>
 
     <p>If you have any questions in the meantime, don't hesitate to reach out.</p>
     <div class="contact">
