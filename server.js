@@ -245,6 +245,7 @@ app.get('/admin/proposals/edit/:proposalId', requireRole('admin'), proposalsCont
 app.post('/api/admin/proposals', requireRole('admin'), proposalsController.createProposal);
 app.put('/api/admin/proposals/:proposalId', requireRole('admin'), proposalsController.updateProposal);
 app.post('/api/admin/proposals/upload-photos', requireRole('admin'), proposalsController.uploadMiddleware, proposalsController.uploadProposalPhotos);
+app.post('/api/admin/proposals/upload-datasheets', requireRole('admin'), proposalsController.uploadDatasheetsMiddleware, proposalsController.uploadProposalDatasheets);
 app.post('/api/admin/proposals/:proposalId/send', requireRole('admin'), proposalsController.sendProposal);
 app.post('/api/admin/proposals/:proposalId/preview-checkout', requireRole('admin'), proposalsController.previewCheckout);
 app.post('/api/admin/proposals/:proposalId/toggle-pause', requireRole('admin'), proposalsController.togglePause);

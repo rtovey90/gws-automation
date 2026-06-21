@@ -97,6 +97,20 @@ const upload = multer({
 
 exports.uploadMiddleware = upload.array('photos', 20);
 
+// Multer for datasheet PDF uploads (memory storage)
+const uploadPdf = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'application/pdf') {
+      return cb(new Error('Only PDF files are allowed'), false);
+    }
+    cb(null, true);
+  },
+});
+
+exports.uploadDatasheetsMiddleware = uploadPdf.array('datasheets', 10);
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 function safeJsonParse(str, fallback = []) {
@@ -179,6 +193,7 @@ exports.showProposal = async (req, res) => {
     const brand = getBrandConfig(f['Our Business Name']);
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
+    const datasheetPhotos = safeJsonParse(f['Datasheet Photo URLs']);
     const coverImage = f['Cover Image URL'] || brand.coverImage;
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
@@ -337,6 +352,14 @@ exports.showProposal = async (req, res) => {
 <div class="page">
   <div class="pg-header"><img src="${logoPath}" alt="GWS"><div class="pg-header-right">Site Photos</div></div>
   <div class="photo-section"><img src="${escapeHtml(url)}" alt="Site Photo"></div>
+  <div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>${brand.website}</span><span>Project #${escapeHtml(projectNumber)}</span></div>
+</div>`).join('');
+
+    // Datasheet pages
+    const datasheetPages = datasheetPhotos.map(url => `
+<div class="page">
+  <div class="pg-header"><img src="${logoPath}" alt="GWS"><div class="pg-header-right">Product Datasheets</div></div>
+  <div class="photo-section"><img src="${escapeHtml(url)}" alt="Datasheet"></div>
   <div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>${brand.website}</span><span>Project #${escapeHtml(projectNumber)}</span></div>
 </div>`).join('');
 
@@ -815,6 +838,9 @@ exports.showProposal = async (req, res) => {
 
 <!-- ==================== SITE PHOTOS ==================== -->
 ${sitePhotoPages}
+
+<!-- ==================== DATASHEETS ==================== -->
+${datasheetPages}
 
 <!-- ==================== DELIVERABLES ==================== -->
 <div class="page bg-subtle" data-section="deliverables">
@@ -2639,6 +2665,41 @@ exports.uploadProposalPhotos = async (req, res) => {
   }
 };
 
+// ─── ADMIN: Upload Datasheets (PDF → per-page images via Cloudinary) ────────
+
+exports.uploadProposalDatasheets = async (req, res) => {
+  try {
+    const files = req.files;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const pageUrls = [];
+    for (const file of files) {
+      if (file.size > 50 * 1024 * 1024) continue; // Skip >50MB
+
+      const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      const result = await cloudinary.uploader.upload(base64Data, {
+        folder: 'gws-datasheets',
+        resource_type: 'image',
+        public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
+      });
+
+      const pages = result.pages || 1;
+      // Build per-page image URLs with compression: q_auto:eco, JPEG, max 1200px wide
+      for (let i = 1; i <= pages; i++) {
+        const pageUrl = result.secure_url.replace('/upload/', `/upload/pg_${i},q_auto:eco,f_jpg,w_1200/`);
+        pageUrls.push(pageUrl);
+      }
+    }
+
+    res.json({ success: true, urls: pageUrls });
+  } catch (error) {
+    console.error('Error uploading datasheets:', error);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+};
+
 // ─── ADMIN: Send Proposal ────────────────────────────────────
 
 exports.sendProposal = async (req, res) => {
@@ -2810,6 +2871,7 @@ function buildProposalFields(body) {
   if (body.optionGroups) fields['Option Groups'] = typeof body.optionGroups === 'string' ? body.optionGroups : JSON.stringify(body.optionGroups);
   if (body.clarifications) fields['Clarifications'] = typeof body.clarifications === 'string' ? body.clarifications : JSON.stringify(body.clarifications);
   if (body.sitePhotoUrls) fields['Site Photo URLs'] = typeof body.sitePhotoUrls === 'string' ? body.sitePhotoUrls : JSON.stringify(body.sitePhotoUrls);
+  if (body.datasheetPhotoUrls !== undefined) fields['Datasheet Photo URLs'] = typeof body.datasheetPhotoUrls === 'string' ? body.datasheetPhotoUrls : JSON.stringify(body.datasheetPhotoUrls);
 
   // OTO Items (new JSON format)
   if (body.otoItems) fields['OTO Items'] = typeof body.otoItems === 'string' ? body.otoItems : JSON.stringify(body.otoItems);
@@ -3117,6 +3179,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const optionGroupsRaw = safeJsonParse(srcFields['Option Groups']);
   const clarificationsRaw = safeJsonParse(srcFields['Clarifications']);
   const sitePhotoUrlsRaw = isClone ? safeJsonParse(cf['Site Photo URLs']) : safeJsonParse(f['Site Photo URLs']);
+  const datasheetPhotoUrlsRaw = isClone ? [] : safeJsonParse(f['Datasheet Photo URLs']);
 
   // OTO Items — new JSON format with fallback from old fields
   const otoItemsRaw = safeJsonParse(srcFields['OTO Items']);
@@ -3149,6 +3212,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const optionGroups = optionGroupsRaw.length > 0 ? optionGroupsRaw : ((isEdit || isClone) ? [] : defaultTemplate.packages.slice(1));
   const clarifications = clarificationsRaw.length > 0 ? clarificationsRaw : defaultTemplate.clarifications;
   const sitePhotoUrls = sitePhotoUrlsRaw.length > 0 ? sitePhotoUrlsRaw : [];
+  const datasheetPhotoUrls = datasheetPhotoUrlsRaw.length > 0 ? datasheetPhotoUrlsRaw : [];
 
   // Build scope item rows
   const scopeRowsHtml = scopeItems.map((item, i) => {
@@ -3240,6 +3304,11 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   // Uploaded photo thumbnails
   const photoThumbsHtml = sitePhotoUrls.map(url =>
     `<div class="photo-thumb" draggable="true" data-url="${escapeHtml(url)}"><img src="${escapeHtml(url)}" alt="Site photo"><button type="button" class="photo-remove" onclick="removePhoto(this)">&times;</button></div>`
+  ).join('');
+
+  // Datasheet page thumbnails
+  const datasheetThumbsHtml = datasheetPhotoUrls.map(url =>
+    `<div class="photo-thumb" draggable="true" data-url="${escapeHtml(url)}"><img src="${escapeHtml(url)}" alt="Datasheet page"><button type="button" class="photo-remove" onclick="removeDatasheet(this)">&times;</button></div>`
   ).join('');
 
   const bodyHtml = `
@@ -3528,6 +3597,19 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
             </div>
           </div>
 
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Product Datasheets</h2>
+            <p class="card-hint">Upload PDF datasheets — each page becomes a full-page image in the proposal. Click &times; to remove any pages you don't need.</p>
+            <div class="photo-grid" id="datasheet-grid">${datasheetThumbsHtml}</div>
+            <div class="fg">
+              <input type="file" id="datasheetUpload" accept="application/pdf" multiple style="display:none;">
+              <button type="button" class="btn-add" onclick="document.getElementById('datasheetUpload').click()" style="width:100%;padding:20px;">
+                + Upload Datasheets (PDF)
+              </button>
+              <div id="datasheet-upload-status" style="margin-top:8px;font-size:13px;color:#8899aa;text-align:center;"></div>
+            </div>
+          </div>
+
           <div class="card" style="margin-top:16px;background:linear-gradient(135deg,#0a1628,#0f1e30);border-color:#00d4ff;">
             <h2 class="card-title" style="color:#00d4ff;">Ready to Go</h2>
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -3551,6 +3633,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         <input type="hidden" name="clarifications" id="h-clarifications">
         <input type="hidden" name="cameraOptions" id="h-cameras">
         <input type="hidden" name="sitePhotoUrls" id="h-photos">
+        <input type="hidden" name="datasheetPhotoUrls" id="h-datasheets">
       </form>
 
       <!-- Send Preview Modal -->
@@ -3765,6 +3848,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const customScripts = `<script>
     let currentStep = 1;
     let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
+    let uploadedDatasheetUrls = ${JSON.stringify(datasheetPhotoUrls)};
     window.JOB_TYPE_TEMPLATES = ${JSON.stringify(jobTypeTemplates)};
     var IS_NEW_PROPOSAL = ${!isEdit && !isClone};
 
@@ -4219,6 +4303,43 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     }
     initPhotoDrag();
 
+    function removeDatasheet(btn) {
+      const thumb = btn.closest('.photo-thumb');
+      const url = thumb.dataset.url;
+      uploadedDatasheetUrls = uploadedDatasheetUrls.filter(u => u !== url);
+      thumb.remove();
+    }
+
+    function initDatasheetDrag() {
+      const grid = document.getElementById('datasheet-grid');
+      let dragSrc = null;
+      grid.addEventListener('dragstart', e => {
+        const thumb = e.target.closest('.photo-thumb');
+        if (!thumb) return;
+        dragSrc = thumb;
+        thumb.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      grid.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const thumb = e.target.closest('.photo-thumb');
+        if (!thumb || thumb === dragSrc) return;
+        const rect = thumb.getBoundingClientRect();
+        if (e.clientX < rect.left + rect.width / 2) {
+          grid.insertBefore(dragSrc, thumb);
+        } else {
+          grid.insertBefore(dragSrc, thumb.nextSibling);
+        }
+      });
+      grid.addEventListener('dragend', () => {
+        if (dragSrc) dragSrc.classList.remove('dragging');
+        dragSrc = null;
+        uploadedDatasheetUrls = Array.from(grid.querySelectorAll('.photo-thumb')).map(t => t.dataset.url);
+      });
+    }
+    initDatasheetDrag();
+
     function collectFormData() {
       const form = document.getElementById('proposalForm');
       const fd = new FormData(form);
@@ -4298,6 +4419,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
       // Photos
       data.sitePhotoUrls = JSON.stringify(uploadedPhotoUrls);
+      data.datasheetPhotoUrls = JSON.stringify(uploadedDatasheetUrls);
 
       return data;
     }
@@ -4468,6 +4590,44 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         btn.textContent = 'Retry Send';
       }
     }
+
+    // Datasheet upload
+    document.getElementById('datasheetUpload').addEventListener('change', async function() {
+      const files = this.files;
+      if (!files.length) return;
+      const statusEl = document.getElementById('datasheet-upload-status');
+      statusEl.textContent = 'Uploading ' + files.length + ' datasheet(s)... converting pages, please wait';
+      statusEl.style.color = '#ffd93d';
+
+      const formData = new FormData();
+      for (const file of files) formData.append('datasheets', file);
+
+      try {
+        const resp = await fetch('/api/admin/proposals/upload-datasheets', { method: 'POST', body: formData });
+        const result = await resp.json();
+        if (result.success && result.urls) {
+          uploadedDatasheetUrls.push(...result.urls);
+          const grid = document.getElementById('datasheet-grid');
+          result.urls.forEach(url => {
+            const div = document.createElement('div');
+            div.className = 'photo-thumb';
+            div.draggable = true;
+            div.dataset.url = url;
+            div.innerHTML = '<img src="' + url + '" alt="Datasheet page"><button type="button" class="photo-remove" onclick="removeDatasheet(this)">&times;</button>';
+            grid.appendChild(div);
+          });
+          statusEl.textContent = result.urls.length + ' page(s) added!';
+          statusEl.style.color = '#4caf50';
+        } else {
+          statusEl.textContent = 'Upload failed';
+          statusEl.style.color = '#ff5252';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = '#ff5252';
+      }
+      this.value = '';
+    });
 
     // Photo upload
     document.getElementById('photoUpload').addEventListener('change', async function() {
