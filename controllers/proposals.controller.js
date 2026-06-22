@@ -3466,7 +3466,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       <label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
       <label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly" ${monthlyChecked}> /mo</label>
       <label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default" ${defaultChecked}> ★</label>
-      <label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="this.closest('.camera-row').querySelector('.cam-max-qty').style.display=this.checked?'inline-block':'none'" ${opt.qtyEnabled ? 'checked' : ''}> qty</label>
+      <label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="toggleQtyMaxInput(this)" ${opt.qtyEnabled ? 'checked' : ''}> qty</label>
       <input type="number" class="cam-max-qty" value="${opt.maxQty || 10}" placeholder="max" step="1" min="1" style="width:48px;display:${opt.qtyEnabled ? 'inline-block' : 'none'};" title="Max quantity">
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
@@ -4433,13 +4433,17 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     document.querySelectorAll('#oto-onetime-list .pkg-card[draggable]').forEach(initPkgDrag);
     document.querySelectorAll('#oto-recurring-list .pkg-card[draggable]').forEach(initPkgDrag);
 
+    function toggleQtyMaxInput(cb) {
+      cb.closest('.camera-row').querySelector('.cam-max-qty').style.display = cb.checked ? 'inline-block' : 'none';
+    }
+
     function addCameraRow() {
       const list = document.getElementById('camera-list');
       const row = document.createElement('div');
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
       row.draggable = true;
-      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> ★</label><label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="this.closest(\'.camera-row\').querySelector(\'.cam-max-qty\').style.display=this.checked?\'inline-block\':\'none\'"> qty</label><input type="number" class="cam-max-qty" value="10" placeholder="max" step="1" min="1" style="width:48px;display:none;" title="Max quantity"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> &#9733;</label><label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="toggleQtyMaxInput(this)"> qty</label><input type="number" class="cam-max-qty" value="10" placeholder="max" step="1" min="1" style="width:48px;display:none;" title="Max quantity"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       initDragRow(row);
       row.querySelector('.cam-name').focus();
