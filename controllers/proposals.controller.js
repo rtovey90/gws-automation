@@ -702,6 +702,7 @@ ${techPhotoPages}
   .hero-price::before {
     content: ''; position: absolute; top: 0; right: 0; width: 300px; height: 100%;
     background: linear-gradient(135deg, transparent 50%, rgba(120,228,255,0.05));
+    pointer-events: none;
   }
   .hero-price-left h3 { color: var(--white); font-size: 15px; font-weight: 700; margin-bottom: 10px; }
   .hero-price-items { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.9; padding-left: 5px; }
