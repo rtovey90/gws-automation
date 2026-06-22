@@ -221,14 +221,6 @@ exports.showProposal = async (req, res) => {
     const isConfirmed = (f['Status'] === 'Accepted' || f['Status'] === 'Paid');
     const isTechView = req.path.endsWith('/install');
 
-    // Tech view only works on confirmed proposals
-    if (isTechView && !isConfirmed) {
-      return res.status(404).send(`<!DOCTYPE html><html><head><title>Not Available</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>body{font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e27;color:white;text-align:center;}</style>
-        </head><body><div><h1>Install View Not Available</h1><p>This proposal hasn't been accepted yet.</p></div></body></html>`);
-    }
-
     // Track views — skip entirely for logged-in admin/VA and tech/install views
     const isAdmin = req.session && req.session.authenticated;
     if (!isAdmin && !isTechView) {
@@ -397,6 +389,128 @@ exports.showProposal = async (req, res) => {
     // Page chrome helpers
     const pgHeader = `<div class="pg-header"><img src="${logoPath}" alt="${escapeHtml(brand.companyName)}"><div class="pg-header-right">Project #${escapeHtml(projectNumber)}</div></div>`;
     const pgFooter = `<div class="pg-footer"><span>${escapeHtml(proposalDate)}</span><span>${brand.website}</span><span>Project #${escapeHtml(projectNumber)}</span></div>`;
+
+    // ── TECH / INSTALL VIEW ──────────────────────────────────────────────────
+    if (isTechView) {
+      const techPhotoPages = [...sitePhotos, ...datasheetPhotos].map(url => `
+<div class="page">
+  ${pgHeader}
+  <div class="photo-section"><img src="${escapeHtml(url)}" alt=""></div>
+  ${pgFooter}
+</div>`).join('');
+
+      const techHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Install Sheet \u2014 Project #${escapeHtml(projectNumber)}</title>
+<link href="${brand.googleFontsUrl}" rel="stylesheet">
+<style>
+  :root { ${brand.cssVars} }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f0f2f5; font-family: 'DM Sans', sans-serif; color: #1a2233; }
+  .page {
+    width: 794px; min-height: 1123px; margin: 0 auto 24px; background: white;
+    display: flex; flex-direction: column; padding: 0; position: relative;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  .pg-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px; border-bottom: 2px solid var(--cyan); flex-shrink: 0;
+  }
+  .pg-header img { height: 36px; }
+  .pg-header-right { font-size: 13px; color: #5a6a7a; font-weight: 600; }
+  .pg-footer {
+    display: flex; justify-content: space-between; padding: 12px 40px;
+    border-top: 1px solid #e0e6ed; font-size: 11px; color: #8899aa; flex-shrink: 0;
+  }
+  .pg-body { flex: 1; padding: 32px 40px; }
+  .job-banner {
+    background: var(--navy); color: white; padding: 20px 40px;
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .job-banner h1 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--cyan); margin-bottom: 4px; }
+  .job-banner p { font-size: 13px; color: #aab8cc; margin: 0; }
+  .job-banner-right { text-align: right; }
+  .job-banner-right .proj-num { font-size: 22px; font-weight: 700; color: var(--cyan); }
+  .sec-title { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--navy); margin-bottom: 6px; }
+  .sec-title-accent { width: 40px; height: 3px; background: var(--cyan); margin-bottom: 20px; }
+  .styled-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .styled-table th { background: var(--navy); color: white; padding: 10px 14px; text-align: left; font-weight: 600; }
+  .styled-table td { padding: 9px 14px; border-bottom: 1px solid #e8ecf0; vertical-align: top; }
+  .styled-table tr:last-child td { border-bottom: none; }
+  .styled-table tr:nth-child(even) td { background: #f8fafc; }
+  .styled-table td:first-child { width: 36px; color: #8899aa; font-weight: 600; white-space: nowrap; }
+  .clar-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .clar-table td { padding: 9px 14px; border-bottom: 1px solid #e8ecf0; vertical-align: top; }
+  .clar-table td:first-child { width: 36px; color: #8899aa; font-weight: 600; }
+  .clar-table tr:last-child td { border-bottom: none; }
+  .photo-section { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .photo-section img { width: 100%; display: block; }
+  @media print { body { background: white; } .page { box-shadow: none; margin: 0; page-break-after: always; } }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="pg-header">
+    <img src="${logoPath}" alt="${escapeHtml(brand.companyName)}">
+    <div class="pg-header-right">Install Sheet</div>
+  </div>
+  <div class="job-banner">
+    <div>
+      <h1>${escapeHtml(clientName)}</h1>
+      <p>${escapeHtml(siteAddress || clientAddress)}</p>
+      ${businessName ? `<p style="margin-top:2px;color:#7a8899;">${escapeHtml(businessName)}</p>` : ''}
+    </div>
+    <div class="job-banner-right">
+      <div class="proj-num">Project #${escapeHtml(projectNumber)}</div>
+      <div style="font-size:12px;color:#aab8cc;margin-top:4px;">${escapeHtml(proposalDate)}</div>
+    </div>
+  </div>
+  <div class="pg-body">
+    <div class="sec-title">Project Scope</div>
+    <div class="sec-title-accent"></div>
+    <table class="styled-table">
+      <thead><tr><th>#</th><th>Description</th></tr></thead>
+      <tbody>${scopeRows}</tbody>
+    </table>
+  </div>
+  ${pgFooter}
+</div>
+
+<div class="page">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Project Deliverables</div>
+    <div class="sec-title-accent"></div>
+    <table class="styled-table">
+      <thead><tr><th>Qty</th><th>Description</th></tr></thead>
+      <tbody>${deliverableRows}</tbody>
+    </table>
+  </div>
+  ${pgFooter}
+</div>
+
+<div class="page">
+  ${pgHeader}
+  <div class="pg-body">
+    <div class="sec-title">Clarifications &amp; Exclusions</div>
+    <div class="sec-title-accent"></div>
+    <table class="clar-table">${clarificationRows}</table>
+  </div>
+  ${pgFooter}
+</div>
+
+${techPhotoPages}
+
+</body>
+</html>`;
+
+      return res.send(techHtml);
+    }
+    // ── END TECH VIEW ────────────────────────────────────────────────────────
 
     const html = `<!DOCTYPE html>
 <html lang="en">
