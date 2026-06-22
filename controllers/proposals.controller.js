@@ -197,6 +197,8 @@ exports.showProposal = async (req, res) => {
     const clarifications = safeJsonParse(f['Clarifications']);
     const sitePhotos = safeJsonParse(f['Site Photo URLs']);
     const datasheetPhotos = safeJsonParse(f['Datasheet Photo URLs']);
+    const baseQtyEnabled = !!(f['Base Qty Enabled']);
+    const baseMaxQty = Number(f['Base Max Qty']) || 10;
     const coverImage = f['Cover Image URL'] || brand.coverImage;
     const packageName = f['Package Name'] || 'Security System Package';
     const packageDesc = f['Package Description'] || '';
@@ -273,7 +275,11 @@ exports.showProposal = async (req, res) => {
       const match = [...optionGroups, { name: packageName, price: basePrice }].find(p => p.name === selectedPackageName);
       return match ? Number(match.price) || basePrice : basePrice;
     })();
-    const confirmedTotal = isConfirmed ? selectedPkgPrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0) * (Number(o.qty) || 1), 0) : basePrice;
+    const savedBaseQtyEntry = selectedOptions.find(o => o.name === '__base__');
+    const savedBaseQty = savedBaseQtyEntry ? (Number(savedBaseQtyEntry.qty) || 1) : 1;
+    const confirmedTotal = isConfirmed
+      ? selectedPkgPrice * savedBaseQty + selectedOptions.filter(o => o.name !== '__base__').reduce((sum, o) => sum + (Number(o.price) || 0) * (Number(o.qty) || 1), 0)
+      : basePrice;
     const anyBundleSaving = !isTechView && !isLocked && cameraOptions.some(o => Number(o.bundleSaving) > 0);
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
@@ -730,20 +736,38 @@ ${techPhotoPages}
   .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
   .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
   .upgrade-monthly-badge { font-size: 11px; font-weight: 600; color: var(--cyan-dark); }
-  .upgrade-qty-row { display:flex; align-items:center; gap:6px; margin-top:8px; }
+  /* Upgrade card qty stepper — pill design */
+  .upgrade-qty-row { display:inline-flex; align-items:center; margin-top:10px; background:var(--navy); border-radius:12px; overflow:hidden; }
   .upgrade-qty-btn {
-    width:26px; height:26px; border-radius:5px; border:2px solid var(--cyan-mid);
-    background:transparent; color:var(--navy); font-size:16px; font-weight:700;
-    cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:44px; height:44px; border:none; background:transparent;
+    color:var(--cyan); font-size:22px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; line-height:1;
   }
-  .upgrade-qty-btn:hover { background:var(--cyan-pale); }
+  .upgrade-qty-btn:hover { background:rgba(120,228,255,0.15); }
   .upgrade-qty-input {
-    width:38px; text-align:center; border:2px solid var(--cyan-mid);
-    border-radius:5px; font-size:13px; font-weight:700; color:var(--navy); padding:2px 0;
+    width:44px; text-align:center; border:none; background:transparent;
+    color:white; font-size:18px; font-weight:800; padding:0;
+    -moz-appearance:textfield;
   }
+  .upgrade-qty-input::-webkit-outer-spin-button,
+  .upgrade-qty-input::-webkit-inner-spin-button { -webkit-appearance:none; }
   .upgrade-card.confirmed .upgrade-qty-btn,
   .upgrade-card.not-chosen .upgrade-qty-btn { display:none; }
   .upgrade-qty-confirmed { font-size:12px; font-weight:700; color:#5a6a7a; margin-top:6px; }
+  /* Base package qty stepper — big prominent design */
+  .base-qty-section {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:14px; padding-top:14px; border-top:1px solid rgba(120,228,255,0.25);
+  }
+  .base-qty-label { font-size:12px; font-weight:700; color:var(--gray-400); text-transform:uppercase; letter-spacing:0.5px; }
+  .base-qty-stepper { display:flex; align-items:center; background:var(--navy); border-radius:14px; overflow:hidden; }
+  .base-qty-btn {
+    width:58px; height:58px; border:none; background:transparent;
+    color:var(--cyan); font-size:30px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .base-qty-btn:hover { background:rgba(120,228,255,0.2); }
+  .base-qty-num { min-width:60px; text-align:center; font-size:34px; font-weight:900; color:white; }
   .upgrade-bundle-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 5px; letter-spacing: 0.4px; text-transform: uppercase; }
   .bundle-banner { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 13px; color: #166534; line-height: 1.4; }
   .saving-total-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
@@ -1052,11 +1076,22 @@ ${datasheetPages}
       <div class="hero-price-left">
         <h3>${escapeHtml(packageName)}</h3>
         <div class="hero-price-items">${escapeHtml(packageDesc)}</div>
-        <div class="included-badge">&#10003; Included</div>
+        ${isConfirmed && savedBaseQty > 1
+          ? `<div class="included-badge">&#10003; Included &times;${savedBaseQty}</div>`
+          : `<div class="included-badge">&#10003; Included</div>`}
+        ${!isTechView && baseQtyEnabled && !isConfirmed ? `
+        <div class="base-qty-section">
+          <span class="base-qty-label">How many?</span>
+          <div class="base-qty-stepper">
+            <button type="button" class="base-qty-btn" onclick="changeBaseQty(-1)">&#8722;</button>
+            <div class="base-qty-num" id="baseQtyDisplay">1</div>
+            <button type="button" class="base-qty-btn" onclick="changeBaseQty(1)">&#43;</button>
+          </div>
+        </div>` : ''}
       </div>
       ${isTechView ? '' : `
       <div class="hero-price-right">
-        <div class="hero-price-amount">${formatCurrency(basePrice)}</div>
+        <div class="hero-price-amount" id="basePriceDisplay">${formatCurrency(isConfirmed ? basePrice * savedBaseQty : basePrice)}</div>
         <div class="hero-price-gst">AUD Inc. GST</div>
       </div>
       `}
@@ -1140,6 +1175,10 @@ ${datasheetPages}
   const IS_CONFIRMED = ${isConfirmed};
   const IS_TECH_VIEW = ${isTechView};
   let selectedBasePrice = ${basePrice};
+  const BASE_QTY_ENABLED = ${baseQtyEnabled};
+  const BASE_UNIT_PRICE = ${basePrice};
+  const BASE_MAX_QTY = ${baseMaxQty};
+  let currentBaseQty = 1;
   const PROJECT_NUMBER = '${escapeHtml(projectNumber)}';
   const PDF_PREFIX = '${escapeHtml(brand.pdfPrefix)}';
   let discountableUpgradeTotal = 0;
@@ -1292,6 +1331,25 @@ ${datasheetPages}
     updateTotalDisplay();
   }
 
+  function changeBaseQty(delta) {
+    if (IS_CONFIRMED || IS_TECH_VIEW || !BASE_QTY_ENABLED) return;
+    currentBaseQty = Math.max(1, Math.min(currentBaseQty + delta, BASE_MAX_QTY));
+    document.getElementById('baseQtyDisplay').textContent = currentBaseQty;
+    var basePriceEl = document.getElementById('basePriceDisplay');
+    if (basePriceEl) basePriceEl.textContent = '$' + (BASE_UNIT_PRICE * currentBaseQty).toLocaleString('en-AU');
+    selectedBasePrice = BASE_UNIT_PRICE * currentBaseQty;
+    updateTotalDisplay();
+    // Auto-sync all qty-enabled upgrade cards to match pole count
+    document.querySelectorAll('.upgrade-card[data-qty-enabled="true"]').forEach(function(card) {
+      var unitPrice = parseFloat(card.dataset.unitPrice) || 0;
+      var discountable = card.dataset.discountable !== 'false';
+      var monthly = card.dataset.monthly === 'true';
+      var bundleSaving = parseFloat(card.dataset.bundle) || 0;
+      var maxQty = parseInt(card.dataset.maxQty) || 10;
+      qtyChange(card, 0, unitPrice, discountable, monthly, bundleSaving, maxQty, currentBaseQty);
+    });
+  }
+
   function updateSupplyCtaSteps() {
     var titleEl = document.getElementById('cta-step3-title');
     if (!titleEl) return; // not a supply proposal
@@ -1336,7 +1394,7 @@ ${datasheetPages}
     fetch('/api/proposals/' + PROJECT_NUMBER + '/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectedUpgrades, selectedPackage: selectedPkg, total: getTotal() })
+      body: JSON.stringify({ selectedUpgrades, selectedPackage: selectedPkg, total: getTotal(), baseQty: currentBaseQty })
     })
     .then(r => r.json())
     .then(data => {
@@ -1676,6 +1734,12 @@ exports.createProposalCheckout = async (req, res) => {
       }
     }
 
+    // Apply base qty multiplier (validated server-side)
+    const baseQtyEnabledSvr = !!(f['Base Qty Enabled']);
+    const baseMaxQtySvr = Number(f['Base Max Qty']) || 10;
+    const baseQty = baseQtyEnabledSvr ? Math.max(1, Math.min(parseInt(req.body.baseQty) || 1, baseMaxQtySvr)) : 1;
+    selectedPrice = selectedPrice * baseQty;
+
     // Server-side total calculation (never trust client amount)
     // Split upgrades into discountable, non-discountable, and monthly (recurring)
     let discountableTotal = selectedPrice;
@@ -1734,6 +1798,9 @@ exports.createProposalCheckout = async (req, res) => {
 
     // Build list of selected options with server-verified prices (including monthly flag)
     const selectedOptionsList = [];
+    if (baseQtyEnabledSvr && baseQty > 1) {
+      selectedOptionsList.push({ name: '__base__', qty: baseQty });
+    }
     if (Array.isArray(selectedUpgrades)) {
       for (const upgrade of selectedUpgrades) {
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
@@ -3070,6 +3137,8 @@ function buildProposalFields(body) {
   if (body.optionGroups) fields['Option Groups'] = typeof body.optionGroups === 'string' ? body.optionGroups : JSON.stringify(body.optionGroups);
   if (body.clarifications) fields['Clarifications'] = typeof body.clarifications === 'string' ? body.clarifications : JSON.stringify(body.clarifications);
   if (body.sitePhotoUrls) fields['Site Photo URLs'] = typeof body.sitePhotoUrls === 'string' ? body.sitePhotoUrls : JSON.stringify(body.sitePhotoUrls);
+  if (body.baseQtyEnabled !== undefined) fields['Base Qty Enabled'] = !!body.baseQtyEnabled;
+  if (body.baseMaxQty !== undefined) fields['Base Max Qty'] = Number(body.baseMaxQty) || 10;
   if (body.datasheetPhotoUrls !== undefined) fields['Datasheet Photo URLs'] = typeof body.datasheetPhotoUrls === 'string' ? body.datasheetPhotoUrls : JSON.stringify(body.datasheetPhotoUrls);
 
   // OTO Items (new JSON format)
@@ -3367,6 +3436,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
   const coverImageUrl = f['Cover Image URL'] || (isClone ? (cf['Cover Image URL'] || '') : '');
   const proposalType = f['Proposal Type'] || (isClone ? (cf['Proposal Type'] || '') : '');
   const installOptionPrice = Number(f['Install Option Price']) || (isClone ? (Number(cf['Install Option Price']) || 0) : 0);
+  const baseQtyEnabled = !!(f['Base Qty Enabled']);
+  const baseMaxQty = Number(f['Base Max Qty']) || 10;
 
   // For clone mode, use source proposal's JSON fields as the data source
   const srcFields = isClone ? cf : f;
@@ -3724,6 +3795,21 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
           <h2 class="card-title" style="margin-bottom:12px;">Package & Pricing</h2>
           <div id="additional-packages">${additionalPkgHtml}</div>
           <button type="button" class="btn-add" style="margin-top:12px;" onclick="addPackageOption()">+ Add Package Option</button>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="card-title">Base Quantity <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(optional)</span></h2>
+            <p class="card-hint">Enable when the customer needs to choose how many of the main item they want (e.g. solar poles). Upgrade options will auto-sync to the chosen quantity.</p>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;color:#e0e6ed;">
+                <input type="checkbox" id="baseQtyEnabledInput" ${baseQtyEnabled ? 'checked' : ''} onchange="document.getElementById('baseMaxQtyWrap').style.display=this.checked?'flex':'none'" style="width:16px;height:16px;accent-color:#78e4ff;">
+                Allow customer to choose quantity
+              </label>
+              <div id="baseMaxQtyWrap" style="display:${baseQtyEnabled ? 'flex' : 'none'};align-items:center;gap:8px;">
+                <label style="font-size:13px;color:#8899aa;">Max qty:</label>
+                <input type="number" id="baseMaxQtyInput" value="${baseMaxQty}" min="1" step="1" style="width:70px;padding:6px 10px;background:#1a2332;border:2px solid #2a3a4a;border-radius:6px;color:#e0e6ed;font-size:14px;font-family:inherit;">
+              </div>
+            </div>
+          </div>
+
           <div class="card" style="margin-top:16px;">
             <h2 class="card-title">Optional Upgrades <span style="color:#5a6a7a;font-weight:400;font-size:13px;">(customer can toggle these on/off)</span></h2>
             <p class="card-hint">Add options the customer can add to their package.</p>
@@ -4623,6 +4709,11 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         if (name) otoItems.push({ name, description: desc, price, wasPrice: 0, monthly: true });
       });
       data.otoItems = JSON.stringify(otoItems);
+
+      // Base quantity
+      const baseQtyEnabledEl = document.getElementById('baseQtyEnabledInput');
+      data.baseQtyEnabled = baseQtyEnabledEl ? baseQtyEnabledEl.checked : false;
+      data.baseMaxQty = parseInt(document.getElementById('baseMaxQtyInput')?.value) || 10;
 
       // Photos
       data.sitePhotoUrls = JSON.stringify(uploadedPhotoUrls);
