@@ -298,7 +298,7 @@ exports.showProposal = async (req, res) => {
         // Qty-enabled: stepper card
         const savedQty = optSelected ? (Number((selectedOptions.find(o => o.name === opt.name) || {}).qty) || 1) : 0;
         const syncsToBase = baseQtyEnabled && (opt.qtySync !== false);
-        const initQty = isLocked ? savedQty : (opt.defaultSelected || syncsToBase ? 1 : 0);
+        const initQty = isLocked ? savedQty : (opt.defaultSelected ? 1 : 0);
         if (!isLocked && initQty > 0) classes.push('selected');
         const initPrice = initQty * (opt.price || 0);
         const initPriceDisplay = formatCurrency(initPrice);
@@ -309,9 +309,11 @@ exports.showProposal = async (req, res) => {
             <button type="button" class="upgrade-qty-btn" onclick="event.stopPropagation();qtyChange(this.closest('.upgrade-card'),1,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})">&#43;</button>
           </div>` : `<div class="upgrade-qty-confirmed">Qty: ${savedQty}</div>`;
         const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${initPriceDisplay}${priceSuffix}</div>`;
+        const syncOnclick = syncsToBase && !isLocked ? `onclick="toggleSyncCard(this,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})"` : '';
+        const checkHtml = syncsToBase && !isLocked ? `<div class="upgrade-check">&#10003;</div>` : '';
         return `
-      <div class="${classes.join(' ')}" data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty-sync="${opt.qtySync !== false}" data-qty="${initQty}" data-max-qty="${maxQty}">
-        <div class="upgrade-info"><h4>${escapeHtml(opt.name||'')}</h4><p>${escapeHtml(opt.description||'')}</p>${bundleBadge}${stepperHtml}</div>
+      <div class="${classes.join(' ')}" ${syncOnclick} data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty-sync="${opt.qtySync !== false}" data-qty="${initQty}" data-max-qty="${maxQty}">
+        ${checkHtml}<div class="upgrade-info"><h4>${escapeHtml(opt.name||'')}</h4><p>${escapeHtml(opt.description||'')}</p>${bundleBadge}${stepperHtml}</div>
         ${priceHtml}
       </div>`;
       }
@@ -1341,8 +1343,9 @@ ${datasheetPages}
     if (basePriceEl) basePriceEl.textContent = '$' + (BASE_UNIT_PRICE * currentBaseQty).toLocaleString('en-AU');
     selectedBasePrice = BASE_UNIT_PRICE * currentBaseQty;
     updateTotalDisplay();
-    // Auto-sync qty-enabled upgrade cards that have sync enabled
+    // Auto-sync qty-enabled upgrade cards that are selected and have sync enabled
     document.querySelectorAll('.upgrade-card[data-qty-enabled="true"][data-qty-sync="true"]').forEach(function(card) {
+      if (parseInt(card.dataset.qty || 0) === 0) return; // not selected, skip
       var unitPrice = parseFloat(card.dataset.unitPrice) || 0;
       var discountable = card.dataset.discountable !== 'false';
       var monthly = card.dataset.monthly === 'true';
@@ -1350,6 +1353,13 @@ ${datasheetPages}
       var maxQty = parseInt(card.dataset.maxQty) || 10;
       qtyChange(card, 0, unitPrice, discountable, monthly, bundleSaving, maxQty, currentBaseQty);
     });
+  }
+
+  function toggleSyncCard(card, unitPrice, discountable, monthly, bundleSaving, maxQty) {
+    if (IS_CONFIRMED || IS_TECH_VIEW) return;
+    const currentQty = parseInt(card.dataset.qty || 0);
+    const newQty = currentQty > 0 ? 0 : currentBaseQty;
+    qtyChange(card, 0, unitPrice, discountable, monthly, bundleSaving, maxQty, newQty);
   }
 
   function updateSupplyCtaSteps() {
