@@ -297,7 +297,7 @@ exports.showProposal = async (req, res) => {
       if (isQtyEnabled) {
         // Qty-enabled: stepper card
         const savedQty = optSelected ? (Number((selectedOptions.find(o => o.name === opt.name) || {}).qty) || 1) : 0;
-        const initQty = isLocked ? savedQty : (opt.defaultSelected ? 1 : 0);
+        const initQty = isLocked ? savedQty : (opt.defaultSelected || baseQtyEnabled ? 1 : 0);
         if (!isLocked && initQty > 0) classes.push('selected');
         const initPrice = initQty * (opt.price || 0);
         const initPriceDisplay = formatCurrency(initPrice);
