@@ -309,10 +309,12 @@ exports.showProposal = async (req, res) => {
             <button type="button" class="upgrade-qty-btn" onclick="event.stopPropagation();qtyChange(this.closest('.upgrade-card'),1,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})">&#43;</button>
           </div>` : `<div class="upgrade-qty-confirmed">Qty: ${savedQty}</div>`;
         const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${initPriceDisplay}${priceSuffix}</div>`;
-        const syncOnclick = syncsToBase && !isLocked ? `onclick="toggleSyncCard(this,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})"` : '';
-        const checkHtml = syncsToBase && !isLocked ? `<div class="upgrade-check">&#10003;</div>` : '';
+        const cardOnclick = !isLocked ? (syncsToBase
+          ? `onclick="toggleSyncCard(this,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})"`
+          : `onclick="toggleQtyCard(this,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})"`) : '';
+        const checkHtml = !isLocked ? `<div class="upgrade-check">&#10003;</div>` : '';
         return `
-      <div class="${classes.join(' ')}" ${syncOnclick} data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty-sync="${opt.qtySync !== false}" data-qty="${initQty}" data-max-qty="${maxQty}">
+      <div class="${classes.join(' ')}" ${cardOnclick} data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty-sync="${opt.qtySync !== false}" data-qty="${initQty}" data-max-qty="${maxQty}">
         ${checkHtml}<div class="upgrade-info"><h4>${escapeHtml(opt.name||'')}</h4><p>${escapeHtml(opt.description||'')}</p>${bundleBadge}${stepperHtml}</div>
         ${priceHtml}
       </div>`;
@@ -1359,6 +1361,13 @@ ${datasheetPages}
     if (IS_CONFIRMED || IS_TECH_VIEW) return;
     const currentQty = parseInt(card.dataset.qty || 0);
     const newQty = currentQty > 0 ? 0 : currentBaseQty;
+    qtyChange(card, 0, unitPrice, discountable, monthly, bundleSaving, maxQty, newQty);
+  }
+
+  function toggleQtyCard(card, unitPrice, discountable, monthly, bundleSaving, maxQty) {
+    if (IS_CONFIRMED || IS_TECH_VIEW) return;
+    const currentQty = parseInt(card.dataset.qty || 0);
+    const newQty = currentQty > 0 ? 0 : 1;
     qtyChange(card, 0, unitPrice, discountable, monthly, bundleSaving, maxQty, newQty);
   }
 
