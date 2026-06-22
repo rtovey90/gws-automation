@@ -297,7 +297,8 @@ exports.showProposal = async (req, res) => {
       if (isQtyEnabled) {
         // Qty-enabled: stepper card
         const savedQty = optSelected ? (Number((selectedOptions.find(o => o.name === opt.name) || {}).qty) || 1) : 0;
-        const initQty = isLocked ? savedQty : (opt.defaultSelected || baseQtyEnabled ? 1 : 0);
+        const syncsToBase = baseQtyEnabled && (opt.qtySync !== false);
+        const initQty = isLocked ? savedQty : (opt.defaultSelected || syncsToBase ? 1 : 0);
         if (!isLocked && initQty > 0) classes.push('selected');
         const initPrice = initQty * (opt.price || 0);
         const initPriceDisplay = formatCurrency(initPrice);
@@ -309,7 +310,7 @@ exports.showProposal = async (req, res) => {
           </div>` : `<div class="upgrade-qty-confirmed">Qty: ${savedQty}</div>`;
         const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${initPriceDisplay}${priceSuffix}</div>`;
         return `
-      <div class="${classes.join(' ')}" data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty="${initQty}" data-max-qty="${maxQty}">
+      <div class="${classes.join(' ')}" data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty-sync="${opt.qtySync !== false}" data-qty="${initQty}" data-max-qty="${maxQty}">
         <div class="upgrade-info"><h4>${escapeHtml(opt.name||'')}</h4><p>${escapeHtml(opt.description||'')}</p>${bundleBadge}${stepperHtml}</div>
         ${priceHtml}
       </div>`;
@@ -1340,8 +1341,8 @@ ${datasheetPages}
     if (basePriceEl) basePriceEl.textContent = '$' + (BASE_UNIT_PRICE * currentBaseQty).toLocaleString('en-AU');
     selectedBasePrice = BASE_UNIT_PRICE * currentBaseQty;
     updateTotalDisplay();
-    // Auto-sync all qty-enabled upgrade cards to match pole count
-    document.querySelectorAll('.upgrade-card[data-qty-enabled="true"]').forEach(function(card) {
+    // Auto-sync qty-enabled upgrade cards that have sync enabled
+    document.querySelectorAll('.upgrade-card[data-qty-enabled="true"][data-qty-sync="true"]').forEach(function(card) {
       var unitPrice = parseFloat(card.dataset.unitPrice) || 0;
       var discountable = card.dataset.discountable !== 'false';
       var monthly = card.dataset.monthly === 'true';
@@ -3540,6 +3541,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       <label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default" ${defaultChecked}> ★</label>
       <label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="toggleQtyMaxInput(this)" ${opt.qtyEnabled ? 'checked' : ''}> qty</label>
       <input type="number" class="cam-max-qty" value="${opt.maxQty || 10}" placeholder="max" step="1" min="1" style="width:48px;display:${opt.qtyEnabled ? 'inline-block' : 'none'};" title="Max quantity">
+      <label class="cam-disc-label cam-qty-sync-label" title="Sync qty to base quantity stepper" style="color:#a78bfa;display:${opt.qtyEnabled ? 'inline-flex' : 'none'}"><input type="checkbox" class="cam-qty-sync" ${opt.qtySync !== false ? 'checked' : ''}> sync</label>
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -4521,7 +4523,10 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     document.querySelectorAll('#oto-recurring-list .pkg-card[draggable]').forEach(initPkgDrag);
 
     function toggleQtyMaxInput(cb) {
-      cb.closest('.camera-row').querySelector('.cam-max-qty').style.display = cb.checked ? 'inline-block' : 'none';
+      const row = cb.closest('.camera-row');
+      row.querySelector('.cam-max-qty').style.display = cb.checked ? 'inline-block' : 'none';
+      const syncLabel = row.querySelector('.cam-qty-sync-label');
+      if (syncLabel) syncLabel.style.display = cb.checked ? 'inline-flex' : 'none';
     }
 
     function addCameraRow() {
@@ -4530,7 +4535,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
       row.draggable = true;
-      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> &#9733;</label><label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="toggleQtyMaxInput(this)"> qty</label><input type="number" class="cam-max-qty" value="10" placeholder="max" step="1" min="1" style="width:48px;display:none;" title="Max quantity"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> &#9733;</label><label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="toggleQtyMaxInput(this)"> qty</label><input type="number" class="cam-max-qty" value="10" placeholder="max" step="1" min="1" style="width:48px;display:none;" title="Max quantity"><label class="cam-disc-label cam-qty-sync-label" title="Sync qty to base quantity stepper" style="color:#a78bfa;display:none;"><input type="checkbox" class="cam-qty-sync" checked> sync</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       initDragRow(row);
       row.querySelector('.cam-name').focus();
@@ -4690,7 +4695,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const defaultSelected = row.querySelector('.cam-default') ? row.querySelector('.cam-default').checked : false;
         const qtyEnabled = row.querySelector('.cam-qty-enabled')?.checked || false;
         const maxQty = qtyEnabled ? (parseInt(row.querySelector('.cam-max-qty')?.value) || 10) : undefined;
-        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly, ...(defaultSelected ? { defaultSelected: true } : {}), ...(qtyEnabled ? { qtyEnabled: true, maxQty: maxQty || 10 } : {}) });
+        const qtySync = qtyEnabled ? (row.querySelector('.cam-qty-sync')?.checked !== false) : undefined;
+        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly, ...(defaultSelected ? { defaultSelected: true } : {}), ...(qtyEnabled ? { qtyEnabled: true, maxQty: maxQty || 10, qtySync: qtySync !== false } : {}) });
       });
       data.cameraOptions = JSON.stringify(cameras);
 
