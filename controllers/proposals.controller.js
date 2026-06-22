@@ -273,19 +273,44 @@ exports.showProposal = async (req, res) => {
       const match = [...optionGroups, { name: packageName, price: basePrice }].find(p => p.name === selectedPackageName);
       return match ? Number(match.price) || basePrice : basePrice;
     })();
-    const confirmedTotal = isConfirmed ? selectedPkgPrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0), 0) : basePrice;
+    const confirmedTotal = isConfirmed ? selectedPkgPrice + selectedOptions.reduce((sum, o) => sum + (Number(o.price) || 0) * (Number(o.qty) || 1), 0) : basePrice;
     const anyBundleSaving = !isTechView && !isLocked && cameraOptions.some(o => Number(o.bundleSaving) > 0);
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
       const isMonthly = !!opt.monthly;
       const bundleSaving = Number(opt.bundleSaving) || 0;
+      const isQtyEnabled = !!opt.qtyEnabled;
+      const maxQty = isQtyEnabled ? (opt.maxQty || 10) : null;
       const classes = ['upgrade-card'];
       if (isLocked && hasSelectionData && optSelected) classes.push('selected', 'confirmed');
       if (isLocked && hasSelectionData && !optSelected) classes.push('not-chosen');
-      if (!isLocked && opt.defaultSelected) classes.push('selected');
-      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly}, ${bundleSaving})"`;
+      if (!isLocked && opt.defaultSelected && !isQtyEnabled) classes.push('selected');
       const priceSuffix = isMonthly ? '<span class="upgrade-monthly-badge">/mo</span>' : '';
       const bundleBadge = bundleSaving > 0 && !isTechView ? `<div class="upgrade-bundle-badge">Bundle Save $${bundleSaving.toLocaleString('en-AU')}</div>` : '';
+
+      if (isQtyEnabled) {
+        // Qty-enabled: stepper card
+        const savedQty = optSelected ? (Number((selectedOptions.find(o => o.name === opt.name) || {}).qty) || 1) : 0;
+        const initQty = isLocked ? savedQty : (opt.defaultSelected ? 1 : 0);
+        if (!isLocked && initQty > 0) classes.push('selected');
+        const initPrice = initQty * (opt.price || 0);
+        const initPriceDisplay = formatCurrency(initPrice);
+        const stepperHtml = !isLocked ? `
+          <div class="upgrade-qty-row">
+            <button type="button" class="upgrade-qty-btn" onclick="event.stopPropagation();qtyChange(this.closest('.upgrade-card'),-1,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})">&#8722;</button>
+            <input type="number" class="upgrade-qty-input" value="${initQty}" min="0" max="${maxQty}" onclick="event.stopPropagation()" oninput="event.stopPropagation();qtyChange(this.closest('.upgrade-card'),0,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty},this.value)">
+            <button type="button" class="upgrade-qty-btn" onclick="event.stopPropagation();qtyChange(this.closest('.upgrade-card'),1,${opt.price||0},${opt.discountable!==false},${isMonthly},${bundleSaving},${maxQty})">&#43;</button>
+          </div>` : `<div class="upgrade-qty-confirmed">Qty: ${savedQty}</div>`;
+        const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${initPriceDisplay}${priceSuffix}</div>`;
+        return `
+      <div class="${classes.join(' ')}" data-price="${initPrice}" data-unit-price="${opt.price||0}" data-discountable="${opt.discountable!==false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}" data-qty-enabled="true" data-qty="${initQty}" data-max-qty="${maxQty}">
+        <div class="upgrade-info"><h4>${escapeHtml(opt.name||'')}</h4><p>${escapeHtml(opt.description||'')}</p>${bundleBadge}${stepperHtml}</div>
+        ${priceHtml}
+      </div>`;
+      }
+
+      // Standard toggle card (unchanged)
+      const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly}, ${bundleSaving})"`;
       const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}${priceSuffix}</div>`;
       return `
       <div class="${classes.join(' ')}" ${onclick} data-price="${opt.price || 0}" data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}">
@@ -705,6 +730,20 @@ ${techPhotoPages}
   .upgrade-info p { font-size: 11.5px; color: var(--gray-400); line-height: 1.4; margin: 0; }
   .upgrade-price { font-size: 16px; font-weight: 800; color: var(--navy); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
   .upgrade-monthly-badge { font-size: 11px; font-weight: 600; color: var(--cyan-dark); }
+  .upgrade-qty-row { display:flex; align-items:center; gap:6px; margin-top:8px; }
+  .upgrade-qty-btn {
+    width:26px; height:26px; border-radius:5px; border:2px solid var(--cyan-mid);
+    background:transparent; color:var(--navy); font-size:16px; font-weight:700;
+    cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .upgrade-qty-btn:hover { background:var(--cyan-pale); }
+  .upgrade-qty-input {
+    width:38px; text-align:center; border:2px solid var(--cyan-mid);
+    border-radius:5px; font-size:13px; font-weight:700; color:var(--navy); padding:2px 0;
+  }
+  .upgrade-card.confirmed .upgrade-qty-btn,
+  .upgrade-card.not-chosen .upgrade-qty-btn { display:none; }
+  .upgrade-qty-confirmed { font-size:12px; font-weight:700; color:#5a6a7a; margin-top:6px; }
   .upgrade-bundle-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 5px; letter-spacing: 0.4px; text-transform: uppercase; }
   .bundle-banner { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 13px; color: #166534; line-height: 1.4; }
   .saving-total-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
@@ -1223,6 +1262,36 @@ ${datasheetPages}
     updateSupplyCtaSteps();
   }
 
+  function qtyChange(card, delta, unitPrice, discountable, monthly, bundleSaving, maxQty, rawVal) {
+    if (IS_CONFIRMED || IS_TECH_VIEW) return;
+    const input = card.querySelector('.upgrade-qty-input');
+    const prevQty = parseInt(card.dataset.qty || 0);
+    let newQty;
+    if (rawVal !== undefined) {
+      newQty = Math.max(0, Math.min(parseInt(rawVal) || 0, maxQty || 10));
+      input.value = newQty;
+    } else {
+      newQty = Math.max(0, Math.min(prevQty + delta, maxQty || 10));
+      input.value = newQty;
+    }
+    card.dataset.qty = newQty;
+    card.dataset.price = newQty * unitPrice;
+    card.classList.toggle('selected', newQty > 0);
+    const priceEl = card.querySelector('.upgrade-price');
+    if (priceEl) {
+      const suffix = monthly ? '<span class="upgrade-monthly-badge">/mo</span>' : '';
+      priceEl.innerHTML = '+$' + (newQty * unitPrice).toLocaleString('en-AU') + suffix;
+    }
+    const diff = newQty - prevQty;
+    const saving = Number(bundleSaving) || 0;
+    const effectiveUnit = unitPrice - saving;
+    if (monthly) monthlyUpgradeTotal += diff * unitPrice;
+    else if (discountable) discountableUpgradeTotal += diff * effectiveUnit;
+    else nonDiscountableUpgradeTotal += diff * effectiveUnit;
+    bundleSavingTotal += diff * saving;
+    updateTotalDisplay();
+  }
+
   function updateSupplyCtaSteps() {
     var titleEl = document.getElementById('cta-step3-title');
     if (!titleEl) return; // not a supply proposal
@@ -1253,9 +1322,10 @@ ${datasheetPages}
     const selectedUpgrades = [];
     document.querySelectorAll('.upgrade-card.selected').forEach(card => {
       const name = card.querySelector('h4').textContent;
-      const price = parseInt(card.querySelector('.upgrade-price').textContent.replace(/[^0-9]/g, ''));
+      const price = parseFloat(card.dataset.price) || 0;
       const monthly = card.dataset.monthly === 'true';
-      selectedUpgrades.push({ name, price, monthly });
+      const qty = card.dataset.qtyEnabled === 'true' ? (parseInt(card.dataset.qty) || 1) : 1;
+      selectedUpgrades.push({ name, price, monthly, qty });
     });
     const selectedPkgEl = document.querySelector('.og-radio-card.selected');
     const selectedPkg = selectedPkgEl ? {
@@ -1287,6 +1357,10 @@ ${datasheetPages}
   // Initialize totals for pre-selected upgrades (defaultSelected)
   if (!IS_CONFIRMED && !IS_TECH_VIEW) {
     document.querySelectorAll('.upgrade-card.selected').forEach(card => {
+      // Ensure data-qty is set for qty cards
+      if (card.dataset.qtyEnabled === 'true' && !card.dataset.qty) {
+        card.dataset.qty = card.querySelector('.upgrade-qty-input')?.value || 1;
+      }
       const price = parseFloat(card.dataset.price) || 0;
       const discountable = card.dataset.discountable !== 'false';
       const monthly = card.dataset.monthly === 'true';
@@ -1612,10 +1686,13 @@ exports.createProposalCheckout = async (req, res) => {
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
         if (match && match.price) {
           const bundleSav = Number(match.bundleSaving) || 0;
-          const effectivePrice = Number(match.price) - bundleSav;
+          const qty = match.qtyEnabled
+            ? Math.max(1, Math.min(parseInt(upgrade.qty) || 1, match.maxQty || 10))
+            : 1;
+          const effectivePrice = (Number(match.price) - bundleSav) * qty;
           if (match.monthly) {
             // Monthly items are charged as subscriptions after checkout, not in the one-time total
-            selectedMonthlyUpgrades.push({ name: match.name, price: Number(match.price) });
+            selectedMonthlyUpgrades.push({ name: match.name, price: Number(match.price), qty });
           } else if (match.discountable === false) {
             nonDiscountableTotal += effectivePrice;
           } else {
@@ -1661,7 +1738,10 @@ exports.createProposalCheckout = async (req, res) => {
       for (const upgrade of selectedUpgrades) {
         const match = cameraOptions.find(opt => opt.name === upgrade.name);
         if (match) {
-          const item = { name: match.name, price: Number(match.price) };
+          const qty = match.qtyEnabled
+            ? Math.max(1, Math.min(parseInt(upgrade.qty) || 1, match.maxQty || 10))
+            : 1;
+          const item = { name: match.name, price: Number(match.price), qty };
           if (match.monthly) item.monthly = true;
           selectedOptionsList.push(item);
         }
@@ -1769,19 +1849,21 @@ exports.showOTO = async (req, res) => {
         await airtableService.updateProposal(proposal.id, { 'Monthly Subs Created': true });
         for (const item of monthlyOptions) {
           try {
+            const qty = item.qty || 1;
             await stripeService.createOffSessionSubscription({
               customerId: savedCustomerId,
               paymentMethodId: savedPaymentMethodId,
-              amount: item.price,
-              productName: item.name,
+              amount: item.price * qty,
+              productName: qty > 1 ? `${item.name} ×${qty}` : item.name,
               metadata: {
                 type: 'proposal',
                 product_name: item.name,
                 project_number: projectNumber,
                 proposal_id: proposal.id,
+                qty: String(qty),
               },
             });
-            console.log(`✓ Created monthly subscription for "${item.name}" — $${item.price}/mo`);
+            console.log(`✓ Created monthly subscription for "${item.name}" ×${qty} — $${item.price * qty}/mo`);
           } catch (subErr) {
             console.error(`Error creating subscription for "${item.name}":`, subErr.message);
           }
@@ -3384,6 +3466,8 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       <label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" ${discChecked}> %</label>
       <label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly" ${monthlyChecked}> /mo</label>
       <label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default" ${defaultChecked}> ★</label>
+      <label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="this.closest('.camera-row').querySelector('.cam-max-qty').style.display=this.checked?'inline-block':'none'" ${opt.qtyEnabled ? 'checked' : ''}> qty</label>
+      <input type="number" class="cam-max-qty" value="${opt.maxQty || 10}" placeholder="max" step="1" min="1" style="width:48px;display:${opt.qtyEnabled ? 'inline-block' : 'none'};" title="Max quantity">
       <button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>
     </div>`;
   }).join('');
@@ -4355,7 +4439,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       row.className = 'list-row camera-row';
       row.dataset.list = 'camera';
       row.draggable = true;
-      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> ★</label><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
+      row.innerHTML = '<span class="drag-handle" title="Drag to reorder">&#9776;</span><input type="text" class="cam-name" placeholder="Option name"><input type="text" class="cam-desc" placeholder="Description"><input type="number" class="cam-price" placeholder="Price" step="1"><input type="number" class="cam-bundle" placeholder="Bundle $" step="1" title="Bundle saving shown to customer"><label class="cam-disc-label" title="Apply early bird discount to this upgrade"><input type="checkbox" class="cam-disc" checked> %</label><label class="cam-disc-label" title="Recurring monthly charge" style="color:#ffa726"><input type="checkbox" class="cam-monthly"> /mo</label><label class="cam-disc-label" title="Pre-selected for customer by default" style="color:#4ade80"><input type="checkbox" class="cam-default"> ★</label><label class="cam-disc-label" title="Allow customer to select quantity" style="color:#c084fc"><input type="checkbox" class="cam-qty-enabled" onchange="this.closest(\'.camera-row\').querySelector(\'.cam-max-qty\').style.display=this.checked?\'inline-block\':\'none\'"> qty</label><input type="number" class="cam-max-qty" value="10" placeholder="max" step="1" min="1" style="width:48px;display:none;" title="Max quantity"><button type="button" class="row-remove" onclick="removeRow(this)">&times;</button>';
       list.appendChild(row);
       initDragRow(row);
       row.querySelector('.cam-name').focus();
@@ -4513,7 +4597,9 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         const discountable = row.querySelector('.cam-disc') ? row.querySelector('.cam-disc').checked : true;
         const monthly = row.querySelector('.cam-monthly') ? row.querySelector('.cam-monthly').checked : false;
         const defaultSelected = row.querySelector('.cam-default') ? row.querySelector('.cam-default').checked : false;
-        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly, ...(defaultSelected ? { defaultSelected: true } : {}) });
+        const qtyEnabled = row.querySelector('.cam-qty-enabled')?.checked || false;
+        const maxQty = qtyEnabled ? (parseInt(row.querySelector('.cam-max-qty')?.value) || 10) : undefined;
+        if (name) cameras.push({ name, description: desc, price, ...(bundleSaving > 0 ? { bundleSaving } : {}), discountable, monthly, ...(defaultSelected ? { defaultSelected: true } : {}), ...(qtyEnabled ? { qtyEnabled: true, maxQty: maxQty || 10 } : {}) });
       });
       data.cameraOptions = JSON.stringify(cameras);
 
