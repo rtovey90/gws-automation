@@ -3432,6 +3432,74 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
         'Quotation valid for 30 days.',
       ],
     },
+    intercom: {
+      scope: [
+        'Procure Parts & Materials from Local Suppliers',
+        'Install Conduit & Junction Boxes as Required',
+        'Run Cable from Entrance Station to Monitor Location(s)',
+        'Install & Mount Entrance Station at Entry Point',
+        'Install & Mount Indoor Monitor(s)',
+        'Connect Power Supply & Terminate All Cabling',
+        'Program System & Configure Door Release (if applicable)',
+        'Test All Functions — Video, Audio, Door Release',
+        'Demonstrate System Operation to Client',
+        'Clean Up Site After Installation',
+      ],
+      deliverables: [
+        { qty: '1', description: 'Video Intercom Entrance Station' },
+        { qty: '1', description: 'Indoor Video Monitor' },
+        { qty: '1', description: 'Power Supply Unit' },
+        ...commonTailDeliverables,
+      ],
+      packages: [
+        { name: '', description: '', price: '' },
+      ],
+      upgrades: [
+        { name: 'Electric Door Strike / Magnetic Lock', description: 'Remotely release your door from the monitor or app', price: 297 },
+        { name: 'Additional Indoor Monitor', description: 'Extra monitor for another room', price: 397 },
+      ],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '27', wasPrice: '', monthly: true },
+      ],
+      clarifications: [...commonClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
+    },
+    'access-control': {
+      scope: [
+        'Procure Parts & Materials from Local Suppliers',
+        'Install Conduit & Junction Boxes as Required',
+        'Run Cable from Controller to Each Door Reader & Lock',
+        'Install Access Control Panel / Controller',
+        'Install Door Reader(s) at Nominated Entry Point(s)',
+        'Install Electric Lock (Magnetic Lock or Electric Strike) at Each Door',
+        'Install Door Status Sensor & Exit Button at Each Door',
+        'Connect & Configure Power Supply with Battery Backup',
+        'Program User Credentials (Codes / Fobs / Cards)',
+        'Test All Doors — Access, Release, Override & Alarm Functions',
+        'Demonstrate System to Client & Hand Over Credentials',
+        'Clean Up Site After Installation',
+      ],
+      deliverables: [
+        { qty: '1', description: 'Access Control Panel / Controller' },
+        { qty: '1', description: 'Door Reader(s)' },
+        { qty: '1', description: 'Electric Lock (Magnetic Lock or Electric Strike)' },
+        { qty: '1', description: 'Exit Button & Door Status Sensor' },
+        { qty: '1', description: 'Power Supply with Battery Backup' },
+        ...commonTailDeliverables,
+      ],
+      packages: [
+        { name: '', description: '', price: '' },
+      ],
+      upgrades: [
+        { name: 'Additional Door (Reader + Lock)', description: 'Expand access control to an additional entry point', price: 697 },
+        { name: 'Key Fobs / Access Cards (Pack of 10)', description: '', price: 97 },
+      ],
+      otoOneTime: [],
+      otoRecurring: [
+        { name: 'After Install Support Package', description: 'Remote troubleshooting, annual on-site system maintenance, priority support response within 24 hours, proactive firmware & software updates & 15% off equipment for active subscribers. Min. 12 months.', price: '27', wasPrice: '', monthly: true },
+      ],
+      clarifications: [...commonClarifications, 'Final mounting locations depend on cable and mounting access \u2014 to be confirmed by on-site technician.'],
+    },
   };
   const defaultTemplate = jobTypeTemplates.cctv;
 
@@ -3774,7 +3842,9 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
               <div style="display:flex;gap:0;margin-top:4px;">
                 <button type="button" id="btn-jt-cctv" onclick="setJobType('cctv')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:6px 0 0 6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#78e4ff;color:#0a0e27;border-color:#78e4ff;">CCTV</button>
                 <button type="button" id="btn-jt-alarm" onclick="setJobType('alarm')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm</button>
-                <button type="button" id="btn-jt-combined" onclick="setJobType('combined')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm & CCTV</button>
+                <button type="button" id="btn-jt-combined" onclick="setJobType('combined')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Alarm & CCTV</button>
+                <button type="button" id="btn-jt-intercom" onclick="setJobType('intercom')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Intercom</button>
+                <button type="button" id="btn-jt-access-control" onclick="setJobType('access-control')" style="flex:1;padding:8px 0;border:1px solid #3a4a5c;border-radius:0 6px 6px 0;border-left:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;background:#1a2236;color:#8a9ab5;">Access Control</button>
               </div>
             </div>
             <div class="fg">
@@ -4253,7 +4323,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       if (!tpl) return;
 
       // Update button highlights
-      ['cctv','alarm','combined'].forEach(t => {
+      ['cctv','alarm','combined','intercom','access-control'].forEach(t => {
         const btn = document.getElementById('btn-jt-' + t);
         if (!btn) return;
         if (t === type) {
