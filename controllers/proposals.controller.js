@@ -3787,6 +3787,25 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
         <!-- STEP 2: SCOPE & DELIVERABLES -->
         <div class="step" id="step-2" style="display:none;">
+          <div class="card" id="ai-brief-card" style="margin-bottom:16px;border-color:#c084fc;">
+            <h2 class="card-title" style="color:#c084fc;">Generate Scope with AI</h2>
+            <p class="card-hint">Paste your bill of materials and add location notes. AI will generate scope items in installation sequence order.</p>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+              <div>
+                <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:600;color:#8899aa;">Bill of Materials</label>
+                <textarea id="ai-bom" rows="6" placeholder="e.g.&#10;4x Dahua IPC-HDW2849H-S-IL 8MP cameras&#10;4x junction boxes&#10;1x Dahua 8ch NVR&#10;1x 2TB HDD&#10;1x UPS&#10;1x Bosch 6000 panel + wireless receiver&#10;4x PIRs, 2x reed contacts, 3x remotes" style="width:100%;box-sizing:border-box;padding:10px 12px;background:#1a2332;border:2px solid #2a3a4a;border-radius:8px;color:#e0e6ed;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+              </div>
+              <div>
+                <label style="display:block;margin-bottom:4px;font-size:13px;font-weight:600;color:#8899aa;">Location Notes <span style="font-weight:400;color:#5a6a7a;">(optional)</span></label>
+                <textarea id="ai-locations" rows="3" placeholder="e.g. NVR in garage. Cameras: front entry, driveway, rear yard, side gate. Alarm sensors as per plans." style="width:100%;box-sizing:border-box;padding:10px 12px;background:#1a2332;border:2px solid #2a3a4a;border-radius:8px;color:#e0e6ed;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <button type="button" id="ai-generate-btn" onclick="generateAiScope()" style="background:#c084fc;color:#0a0e27;font-weight:700;padding:10px 20px;border:none;border-radius:8px;font-size:14px;cursor:pointer;">Generate Scope</button>
+              <span id="ai-scope-status" style="font-size:13px;color:#5a6a7a;"></span>
+            </div>
+            <p style="font-size:11px;color:#5a6a7a;margin-top:8px;margin-bottom:0;">Scope items will be added to the list below — review and edit before saving.</p>
+          </div>
           <div class="card">
             <h2 class="card-title">Project Scope</h2>
             <p class="card-hint">What will you do? Add/remove/edit items.</p>
@@ -4394,6 +4413,54 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       initDragRow(row);
       renumberScope();
       row.querySelector('.list-input').focus();
+    }
+
+    async function generateAiScope() {
+      const bom = document.getElementById('ai-bom').value.trim();
+      const locations = document.getElementById('ai-locations').value.trim();
+      const statusEl = document.getElementById('ai-scope-status');
+      const btn = document.getElementById('ai-generate-btn');
+      if (!bom) { statusEl.textContent = 'Enter a bill of materials first.'; statusEl.style.color = '#ff5252'; return; }
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      statusEl.textContent = 'Calling AI...';
+      statusEl.style.color = '#ffd93d';
+      try {
+        const resp = await fetch('/api/admin/proposals/ai-scope', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bom, locationNotes: locations })
+        });
+        const result = await resp.json();
+        if (result.scopeItems && result.scopeItems.length) {
+          const list = document.getElementById('scope-list');
+          // Remove any existing empty rows
+          list.querySelectorAll('.list-row').forEach(row => {
+            if (!row.querySelector('.list-input').value.trim()) row.remove();
+          });
+          result.scopeItems.forEach(text => {
+            const row = document.createElement('div');
+            row.className = 'list-row';
+            row.dataset.list = 'scope';
+            row.draggable = true;
+            row.innerHTML = makeScopeRowHtml();
+            row.querySelector('.list-input').value = text;
+            list.appendChild(row);
+            initDragRow(row);
+          });
+          renumberScope();
+          statusEl.textContent = result.scopeItems.length + ' items added — review and edit below.';
+          statusEl.style.color = '#4caf50';
+        } else {
+          statusEl.textContent = result.error || 'No scope items returned.';
+          statusEl.style.color = '#ff5252';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = '#ff5252';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Generate Scope';
     }
 
     function addDeliverableRow() {
@@ -5161,5 +5228,83 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     { customStyles, customScripts }
   );
 }
+
+exports.generateAiScope = async (req, res) => {
+  try {
+    const { bom, locationNotes } = req.body;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!apiKey) return res.status(500).json({ error: 'Missing ANTHROPIC_API_KEY' });
+    if (!bom || !bom.trim()) return res.status(400).json({ error: 'Bill of materials is required' });
+
+    const systemPrompt = `You are writing installation scope items for Great White Security, a licensed security installer in Perth, Western Australia.
+
+Write scope items in installation sequence order:
+1. Containment — conduit and junction boxes (only if containment items appear in the BOM)
+2. Cabling — specific cable runs between head-end equipment and field devices
+3. Head end — NVR, alarm panel, power supplies, enclosures, UPS, HDD
+4. Field devices — cameras, PIRs, door contacts, sirens, intercoms, access control readers
+5. Aim, focus, and sensor walk-test
+6. Programming and commissioning — NVR config, alarm panel programming, testing
+7. App setup and client handover
+
+Rules:
+- Use "Supply and install" for new equipment
+- Reference specific quantities and model names from the BOM
+- For locations: use the location notes where provided; if not given write "at agreed locations"
+- If location note says "as per plans", write "at locations as per plans"
+- Each scope item must be one clear sentence — no sub-bullets
+- Professional tone suitable for both the client and the install technicians
+- Do not include pricing, payment terms, or warranty information`;
+
+    const userMessage = `Generate installation scope items for this job.
+
+Bill of Materials:
+${bom.trim()}
+
+Location notes:
+${locationNotes ? locationNotes.trim() : 'No specific locations provided — use "at agreed locations" where needed'}
+
+Return ONLY a JSON array of strings, one string per scope item. No explanation, no markdown, just the raw JSON array.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      return res.status(500).json({ error: err.error?.message || 'Anthropic API error' });
+    }
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+
+    let scopeItems = [];
+    try {
+      const clean = text.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      scopeItems = JSON.parse(clean);
+      if (!Array.isArray(scopeItems)) scopeItems = [];
+    } catch {
+      // Fallback: split by newlines and strip list markers
+      scopeItems = text.split('\n').map(l => l.replace(/^[\d\.\-\*]+\s*/, '').trim()).filter(Boolean);
+    }
+
+    res.json({ scopeItems });
+  } catch (err) {
+    console.error('generateAiScope error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
 
 module.exports = exports;

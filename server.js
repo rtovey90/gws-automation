@@ -250,6 +250,7 @@ app.post('/api/admin/proposals/:proposalId/send', requireRole('admin'), proposal
 app.post('/api/admin/proposals/:proposalId/preview-checkout', requireRole('admin'), proposalsController.previewCheckout);
 app.post('/api/admin/proposals/:proposalId/toggle-pause', requireRole('admin'), proposalsController.togglePause);
 app.get('/api/admin/proposals/check-number', requireRole('admin'), proposalsController.checkProjectNumber);
+app.post('/api/admin/proposals/ai-scope', requireRole('admin'), proposalsController.generateAiScope);
 app.get('/api/admin/proposals/next-number', requireRole('admin'), proposalsController.getNextProjectNumber);
 app.get('/api/admin/customers', requireRole('admin'), proposalsController.listCustomers);
 app.get('/api/admin/customers/:customerId/engagements', requireRole('admin'), proposalsController.getCustomerEngagements);
