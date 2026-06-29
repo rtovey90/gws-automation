@@ -392,13 +392,20 @@ exports.showProposal = async (req, res) => {
       </div>`;
       }
 
-      // Standard toggle card (unchanged)
+      // Standard toggle card
       const onclick = isLocked ? '' : `onclick="toggleUpgrade(this, ${opt.price || 0}, ${opt.discountable !== false}, ${isMonthly}, ${bundleSaving})"`;
-      const priceHtml = isTechView ? '' : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}${priceSuffix}</div>`;
+      const effectivePriceDisplay = (opt.price || 0) - bundleSaving;
+      const priceHtml = isTechView ? '' : bundleSaving > 0
+        ? `<div style="text-align:right; flex-shrink:0;">
+            <div style="font-size:11px; color:var(--gray-400); white-space:nowrap; margin-bottom:1px;">Regular <span style="text-decoration:line-through;">${formatCurrency(opt.price || 0)}</span></div>
+            <div class="upgrade-price">+${formatCurrency(effectivePriceDisplay)}${priceSuffix}</div>
+            <div style="font-size:10px; font-weight:700; color:#16a34a; white-space:nowrap; margin-top:1px;">Bundle price</div>
+          </div>`
+        : `<div class="upgrade-price">+${formatCurrency(opt.price || 0)}${priceSuffix}</div>`;
       return `
       <div class="${classes.join(' ')}" ${onclick} data-price="${opt.price || 0}" data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}">
         <div class="upgrade-check">&#10003;</div>
-        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p>${bundleBadge}</div>
+        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p>${bundleSaving > 0 ? '' : bundleBadge}</div>
         ${priceHtml}
       </div>`;
     }).join('');
