@@ -397,7 +397,7 @@ exports.showProposal = async (req, res) => {
       const effectivePriceDisplay = (opt.price || 0) - bundleSaving;
       const priceHtml = isTechView ? '' : bundleSaving > 0
         ? `<div style="text-align:right; flex-shrink:0;">
-            <div style="font-size:11px; color:var(--gray-400); white-space:nowrap; margin-bottom:1px;">Regular <span style="text-decoration:line-through;">${formatCurrency(opt.price || 0)}</span></div>
+            <div style="font-size:11px; color:var(--gray-600,#4b5563); white-space:nowrap; margin-bottom:1px;">Regular <span style="text-decoration:line-through;">${formatCurrency(opt.price || 0)}</span></div>
             <div class="upgrade-price">+${formatCurrency(effectivePriceDisplay)}${priceSuffix}</div>
             <div style="font-size:10px; font-weight:700; color:#16a34a; white-space:nowrap; margin-top:1px;">Bundle price</div>
           </div>`
@@ -405,7 +405,7 @@ exports.showProposal = async (req, res) => {
       return `
       <div class="${classes.join(' ')}" ${onclick} data-price="${opt.price || 0}" data-discountable="${opt.discountable !== false}" data-monthly="${isMonthly}" data-bundle="${bundleSaving}">
         <div class="upgrade-check">&#10003;</div>
-        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p>${bundleSaving > 0 ? '' : bundleBadge}</div>
+        <div class="upgrade-info"><h4>${escapeHtml(opt.name || '')}</h4><p>${escapeHtml(opt.description || '')}</p>${bundleBadge}</div>
         ${priceHtml}
       </div>`;
     }).join('');
