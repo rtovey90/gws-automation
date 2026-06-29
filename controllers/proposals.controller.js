@@ -308,6 +308,50 @@ exports.showProposal = async (req, res) => {
       }
       return Math.max(discountable - discountAmt, 0) + nonDiscountable;
     })();
+
+    // Server-side savings breakdown for static rendering on confirmed proposals
+    const confirmedBundleSaving = isConfirmed
+      ? selectedOptions.filter(o => o.name !== '__base__').reduce((sum, o) => {
+          const match = cameraOptions.find(c => c.name === o.name);
+          if (!match || match.monthly) return sum;
+          return sum + (Number(match.bundleSaving) || 0) * (Number(o.qty) || 1);
+        }, 0)
+      : 0;
+    const confirmedDiscountAmt = (() => {
+      if (!isConfirmed || !discountType || discountValue <= 0) return 0;
+      const acceptedAt = f['Accepted At'] ? new Date(f['Accepted At']) : null;
+      const expiredAtAcceptance = discountExpires && acceptedAt
+        ? new Date(discountExpires + 'T23:59:59') < acceptedAt
+        : discountExpired;
+      if (expiredAtAcceptance) return 0;
+      let discountableAmt = selectedPkgPrice * savedBaseQty;
+      for (const o of selectedOptions.filter(s => s.name !== '__base__')) {
+        const match = cameraOptions.find(c => c.name === o.name);
+        if (!match || match.monthly || match.discountable === false) continue;
+        discountableAmt += (Number(match.price) - (Number(match.bundleSaving) || 0)) * (Number(o.qty) || 1);
+      }
+      if (discountType === 'percentage') return Math.round(discountableAmt * discountValue / 100);
+      if (discountType === 'fixed') return Math.min(discountValue, discountableAmt);
+      return 0;
+    })();
+    const confirmedTotalSaving = confirmedBundleSaving + confirmedDiscountAmt;
+    const confirmedFullSubtotal = isConfirmed
+      ? selectedPkgPrice * savedBaseQty + selectedOptions.filter(o => o.name !== '__base__').reduce((sum, o) => {
+          const match = cameraOptions.find(c => c.name === o.name);
+          if (match && match.monthly) return sum;
+          const qty = Number(o.qty) || 1;
+          const price = match ? Number(match.price) : Number(o.price);
+          return sum + price * qty;
+        }, 0)
+      : 0;
+    const confirmedMonthlyTotal = isConfirmed
+      ? selectedOptions.filter(o => o.name !== '__base__').reduce((sum, o) => {
+          const match = cameraOptions.find(c => c.name === o.name);
+          if (!match || !match.monthly) return sum;
+          return sum + Number(match.price) * (Number(o.qty) || 1);
+        }, 0)
+      : 0;
+
     const anyBundleSaving = !isTechView && !isLocked && cameraOptions.some(o => Number(o.bundleSaving) > 0);
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
@@ -1143,6 +1187,23 @@ ${datasheetPages}
 
     ${isTechView ? '' : `
     <div class="total-bar" style="flex-direction:column; align-items:stretch; gap:0;">
+      ${isConfirmed && confirmedTotalSaving > 0 ? `
+      <div style="margin-bottom:12px;">
+        <div class="saving-total-row">
+          <span>You&rsquo;re saving</span><span>${formatCurrency(confirmedTotalSaving)}</span>
+        </div>
+        ${confirmedBundleSaving > 0 ? `
+        <div class="saving-detail-row">
+          <span class="saving-lbl">&#127873; Bundle Saving</span>
+          <span class="saving-amt">-${formatCurrency(confirmedBundleSaving)}</span>
+        </div>` : ''}
+        ${confirmedDiscountAmt > 0 ? `
+        <div class="saving-detail-row">
+          <span class="saving-lbl">&#9889; ${escapeHtml(discountName || (discountType === 'percentage' ? discountValue + '% off' : formatCurrency(discountValue) + ' off'))}</span>
+          <span class="saving-amt">-${formatCurrency(confirmedDiscountAmt)}</span>
+        </div>` : ''}
+      </div>
+      ` : `
       <div id="savingsSection" style="display:none; margin-bottom:12px;">
         <div class="saving-total-row">
           <span>You&rsquo;re saving</span><span id="totalSavingAmt"></span>
@@ -1155,20 +1216,30 @@ ${datasheetPages}
           <span class="saving-amt" id="earlyBirdAmt"></span>
         </div>
       </div>
-      <div id="totalRow" style="display:flex; justify-content:space-between; align-items:center; padding-top:10px;">
+      `}
+      <div id="totalRow" style="display:flex; justify-content:space-between; align-items:center; padding-top:10px; ${isConfirmed && confirmedTotalSaving > 0 ? 'border-top:1px solid var(--gray-100);' : ''}">
         <div class="total-bar-left"><strong>Your Total</strong><br><span style="font-size:11px; color:var(--gray-400);">One-time investment \u00b7 Inc. GST</span></div>
         <div style="display:flex; align-items:baseline; gap:12px;">
-          <span class="discount-original" id="originalPrice" style="display:none;"></span>
-          <div class="total-bar-amount" id="totalAmount">${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
+          ${isConfirmed && confirmedTotalSaving > 0
+            ? `<span class="discount-original">${formatCurrency(confirmedFullSubtotal)}</span>`
+            : `<span class="discount-original" id="originalPrice" style="display:none;"></span>`}
+          <div class="total-bar-amount" ${!isConfirmed ? 'id="totalAmount"' : ''}>${formatCurrency(isConfirmed ? confirmedTotal : basePrice)}</div>
         </div>
       </div>
     </div>
+    ${isConfirmed && confirmedMonthlyTotal > 0 ? `
+    <div class="total-bar" style="margin-top:8px; background:var(--cyan-bg); border:1px solid var(--cyan); border-radius:10px;">
+      <div class="total-bar-left"><strong style="color:var(--cyan-dark);">Monthly</strong><br><span style="font-size:11px; color:var(--gray-400);">Recurring monthly \u00b7 Inc. GST</span></div>
+      <div style="text-align:right;">
+        <div class="total-bar-amount" style="color:var(--cyan-dark);">$${confirmedMonthlyTotal.toLocaleString('en-AU')}/mo</div>
+      </div>
+    </div>` : `
     <div id="monthlyTotalBar" class="total-bar" style="display:none; margin-top:8px; background:var(--cyan-bg); border:1px solid var(--cyan); border-radius:10px;">
       <div class="total-bar-left"><strong style="color:var(--cyan-dark);">Monthly</strong><br><span style="font-size:11px; color:var(--gray-400);">Recurring monthly \u00b7 Inc. GST</span></div>
       <div style="text-align:right;">
         <div class="total-bar-amount" id="monthlyTotalAmount" style="color:var(--cyan-dark);"></div>
       </div>
-    </div>
+    </div>`}
     `}
   </div>
   <div class="cta-section">
