@@ -277,9 +277,37 @@ exports.showProposal = async (req, res) => {
     })();
     const savedBaseQtyEntry = selectedOptions.find(o => o.name === '__base__');
     const savedBaseQty = savedBaseQtyEntry ? (Number(savedBaseQtyEntry.qty) || 1) : 1;
-    const confirmedTotal = isConfirmed
-      ? selectedPkgPrice * savedBaseQty + selectedOptions.filter(o => o.name !== '__base__').reduce((sum, o) => sum + (Number(o.price) || 0) * (Number(o.qty) || 1), 0)
-      : basePrice;
+    const confirmedTotal = (() => {
+      if (!isConfirmed) return basePrice;
+      let discountable = selectedPkgPrice * savedBaseQty;
+      let nonDiscountable = 0;
+      for (const o of selectedOptions.filter(s => s.name !== '__base__')) {
+        const match = cameraOptions.find(c => c.name === o.name);
+        if (match && match.monthly) continue; // exclude monthly subscription items
+        const qty = Number(o.qty) || 1;
+        if (!match) {
+          // Option no longer in cameraOptions (e.g. edited after acceptance) — use saved price as-is
+          nonDiscountable += (Number(o.price) || 0) * qty;
+          continue;
+        }
+        const bundleSav = Number(match.bundleSaving) || 0;
+        const effective = (Number(match.price) - bundleSav) * qty;
+        if (match.discountable === false) nonDiscountable += effective;
+        else discountable += effective;
+      }
+      // Check discount expiry at the time of acceptance, not today — so old accepted proposals
+      // correctly reflect the discount the client actually received
+      const acceptedAt = f['Accepted At'] ? new Date(f['Accepted At']) : null;
+      const discountExpiredAtAcceptance = discountExpires && acceptedAt
+        ? new Date(discountExpires + 'T23:59:59') < acceptedAt
+        : discountExpired;
+      let discountAmt = 0;
+      if (discountType && discountValue > 0 && !discountExpiredAtAcceptance) {
+        if (discountType === 'percentage') discountAmt = Math.round(discountable * discountValue / 100);
+        else if (discountType === 'fixed') discountAmt = Math.min(discountValue, discountable);
+      }
+      return Math.max(discountable - discountAmt, 0) + nonDiscountable;
+    })();
     const anyBundleSaving = !isTechView && !isLocked && cameraOptions.some(o => Number(o.bundleSaving) > 0);
     const upgradeCardsHtml = cameraOptions.map(opt => {
       const optSelected = isConfirmed && selectedOptionNames.includes(opt.name);
