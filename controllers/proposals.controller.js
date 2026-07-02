@@ -4088,6 +4088,20 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
 
         <!-- STEP 5: PHOTOS & FINISH -->
         <div class="step" id="step-5" style="display:none;">
+          <div class="card" style="margin-bottom:16px;">
+            <h2 class="card-title">Cover Image</h2>
+            <p class="card-hint">Upload a custom cover image for this proposal. Leave blank to use the default cover.</p>
+            <div id="cover-image-preview" style="${coverImageUrl ? '' : 'display:none;'}margin-bottom:12px;">
+              <img id="cover-image-thumb" src="${escapeHtml(coverImageUrl)}" alt="Cover image" style="max-width:100%;border-radius:6px;border:1px solid #2a3a4a;">
+              <button type="button" onclick="removeCoverImage()" style="margin-top:8px;display:block;color:#ff5252;background:none;border:none;cursor:pointer;font-size:12px;">&#10005; Remove custom cover</button>
+            </div>
+            <div class="fg">
+              <input type="file" id="coverImageUpload" accept="image/*" style="display:none;">
+              <button type="button" class="btn-add" onclick="document.getElementById('coverImageUpload').click()" style="width:100%;padding:20px;">+ Upload Custom Cover Image</button>
+              <div id="cover-upload-status" style="margin-top:8px;font-size:13px;color:#8899aa;text-align:center;"></div>
+            </div>
+          </div>
+
           <div class="card">
             <h2 class="card-title">Site Photos</h2>
             <p class="card-hint">Upload photos to show on the proposal cover page.</p>
@@ -4353,6 +4367,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
     let currentStep = 1;
     let uploadedPhotoUrls = ${JSON.stringify(sitePhotoUrls)};
     let uploadedDatasheetUrls = ${JSON.stringify(datasheetPhotoUrls)};
+    let uploadedCoverImageUrl = '${escapeHtml(coverImageUrl)}';
     window.JOB_TYPE_TEMPLATES = ${JSON.stringify(jobTypeTemplates)};
     var IS_NEW_PROPOSAL = ${!isEdit && !isClone};
 
@@ -4985,6 +5000,7 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       data.baseMaxQty = parseInt(document.getElementById('baseMaxQtyInput')?.value) || 10;
 
       // Photos
+      data.coverImageUrl = uploadedCoverImageUrl;
       data.sitePhotoUrls = JSON.stringify(uploadedPhotoUrls);
       data.datasheetPhotoUrls = JSON.stringify(uploadedDatasheetUrls);
 
@@ -5233,6 +5249,43 @@ function renderProposalForm(proposal, prefill, cloneOpts) {
       }
       this.value = '';
     });
+
+    // Cover image upload
+    document.getElementById('coverImageUpload').addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById('cover-upload-status');
+      statusEl.textContent = 'Uploading...';
+      statusEl.style.color = '#ffd93d';
+      const formData = new FormData();
+      formData.append('photos', file);
+      try {
+        const resp = await fetch('/api/admin/proposals/upload-photos', { method: 'POST', body: formData });
+        const result = await resp.json();
+        if (result.success && result.urls && result.urls[0]) {
+          uploadedCoverImageUrl = result.urls[0];
+          document.getElementById('cover-image-thumb').src = uploadedCoverImageUrl;
+          document.getElementById('cover-image-preview').style.display = '';
+          statusEl.textContent = 'Cover image uploaded!';
+          statusEl.style.color = '#4caf50';
+        } else {
+          statusEl.textContent = 'Upload failed';
+          statusEl.style.color = '#ff5252';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = '#ff5252';
+      }
+      this.value = '';
+    });
+
+    function removeCoverImage() {
+      uploadedCoverImageUrl = '';
+      document.getElementById('cover-image-preview').style.display = 'none';
+      document.getElementById('cover-image-thumb').src = '';
+      document.getElementById('cover-upload-status').textContent = 'Custom cover removed.';
+      document.getElementById('cover-upload-status').style.color = '#8899aa';
+    }
 
     // ── Customer Selector (clone mode) ──
     ${isClone ? `
